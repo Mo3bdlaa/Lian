@@ -1,2 +1,11 @@
 export { localHour, localDayKey, isValidTimeZone, type Hour } from './time.ts';
 export { deriveMood, isMood, MOODS, MOOD_THRESHOLDS, type Mood, type MoodSignals } from './mood.ts';
+export {
+  PLAN_LIMITS, limitsFor, messageBudget, APPROACHING_THRESHOLD,
+  type Plan, type PlanLimits, type Micros, type MessageBudget,
+} from './plan.ts';
+export {
+  STAGE_THRESHOLDS, LONG_FAMILIARITY_DAYS, SUBSTANTIVE_MESSAGES_PER_QUALIFYING_DAY,
+  STAGE_KEYS, stageFor, nextStage, stageKey, publicView,
+  type Stage, type StageKey, type PublicRelationship,
+} from './relationship.ts';
