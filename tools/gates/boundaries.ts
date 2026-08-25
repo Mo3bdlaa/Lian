@@ -93,6 +93,22 @@ for (const file of files) {
   }
 }
 
+// A scope built from a placeholder is not a scope.  `{ userId: '' } as
+// AssistantScope` compiles, and quietly makes an assistant id sufficient to
+// read a row — the inherited access path LESSONS §11 warns about.
+const FAKE_SCOPE = /(userId|user_id)\s*:\s*(''|""|`\s*`|'placeholder')/;
+for (const file of files) {
+  const path = rel(file);
+  const code = stripComments(read(file));
+  const hit = FAKE_SCOPE.exec(code);
+  if (hit) {
+    violations.push({
+      file: path, line: lineOf(code, hit.index),
+      message: 'a scope built with an empty userId — pass the real one (LESSONS §11: an access path across users is a deliberate decision, not an inherited one)',
+    });
+  }
+}
+
 // LESSONS §1: persona text lives in one place.  A stray copy of her voice in
 // a job handler is exactly how the second assembly path grew last time.
 const PERSONA_MARKERS = [/You are a secretary, more or less/, /never describe yourself as an AI/, /شغلك أقرب لسكرتير/];

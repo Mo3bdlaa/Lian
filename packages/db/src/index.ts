@@ -15,3 +15,4 @@ export * as conversations from './repositories/conversations.ts';
 export * as captures from './repositories/captures.ts';
 export * as life from './repositories/life.ts';
 export * as auth from './repositories/auth.ts';
+export * as profile from './repositories/profile.ts';

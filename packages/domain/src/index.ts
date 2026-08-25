@@ -13,3 +13,4 @@ export type {
   Capability, CapabilityId, CapabilityContext, CapabilityTag, CaptureOutcome,
   CaptureSummary, OutreachCandidate, ExportSlice,
 } from './capability.ts';
+export { backoffFor, isQuiet, SILENCE_AFTER, type BackoffDecision, type QuietHours } from './outreach.ts';
