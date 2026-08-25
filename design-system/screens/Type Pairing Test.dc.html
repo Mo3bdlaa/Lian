@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Rubik:wght@400;500;600&family=Almarai:wght@400;700&family=Cairo:wght@400;500;600&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lian-tokens.css">
+</helmet>
+<div style="font-family: var(--font-latin); color: var(--text); padding: var(--s-48); background: var(--canvas); min-height: var(--h-screen); box-sizing: border-box">
+  <div style="max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--s-40)">
+    <div style="display: flex; flex-direction: column; gap: var(--s-8)">
+      <div style="font-size: var(--fs-12); font-weight: var(--fw-500); letter-spacing: var(--tracking-caps-wide); text-transform: uppercase; color: var(--muted)">Lian · type pairing test</div>
+      <div style="font-size: var(--fs-28); line-height: var(--lh-36); font-weight: var(--fw-600)">Latin is Nunito in every row. Only the Arabic face changes.</div>
+      <div style="font-size: var(--fs-16); line-height: var(--lh-24); color: var(--muted); max-width: 62ch">Same size, same weight target, same colour, same cream. Judged on four things: x-height match, stroke weight match, terminal softness, and whether the Arabic looks warm or technical beside Nunito.</div>
+    </div>
+
+    <sc-for list="{{ rows }}" as="row" hint-placeholder-count="5">
+      <div style="display: flex; flex-direction: column; gap: var(--s-14); padding: var(--s-26) var(--s-28); background: var(--raised); border: var(--bw-1) solid var(--border); border-radius: var(--r-20)">
+        <div style="display: flex; align-items: baseline; gap: var(--s-14); flex-wrap: wrap">
+          <div style="font-size: var(--fs-17); font-weight: var(--fw-700)">{{ row.name }}</div>
+          <div style="font-size: var(--fs-13); line-height: var(--lh-20); color: var(--muted)">{{ row.note }}</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-24); align-items: start">
+          <div style="display: flex; flex-direction: column; gap: var(--s-10)">
+            <div style="font-size: var(--fs-11); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--muted)">Display 36/44 · Nunito</div>
+            <div style="font-size: var(--fs-36); line-height: var(--lh-44); font-weight: var(--fw-600)">I remember the little things.</div>
+            <div style="font-size: var(--fs-16); line-height: var(--lh-24); font-weight: var(--fw-400)">You can edit or erase anything I remember.</div>
+            <div style="font-size: var(--fs-14); line-height: var(--lh-20); color: var(--muted)">From your message on May 18.</div>
+          </div>
+          <div dir="rtl" style="display: flex; flex-direction: column; gap: var(--s-10); font-family: {{ row.stack }}">
+            <div dir="ltr" style="font-family: Nunito; font-size: var(--fs-11); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--muted); text-align: right">Display 36/44 · {{ row.name }}</div>
+            <div style="font-size: var(--fs-36); line-height: var(--lh-48); font-weight: var(--fw-600)">أتذكّر الأشياء الصغيرة التي تهمك.</div>
+            <div style="font-size: var(--fs-16); line-height: var(--lh-28); font-weight: var(--fw-400)">يمكنك تعديل أو حذف أي شيء أتذكره.</div>
+            <div style="font-size: var(--fs-14); line-height: var(--lh-24); color: var(--muted)">من رسالتك في ١٨ مايو.</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: var(--s-10); align-items: center; padding-top: var(--s-4); border-top: var(--bw-1) solid var(--border); flex-wrap: wrap">
+          <div style="font-size: var(--fs-12); font-weight: var(--fw-500); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted)">Mixed line</div>
+          <div style="font-size: var(--fs-20); line-height: var(--lh-32)">Lian · <span style="font-family: {{ row.stack }}">لين</span> · 9:41 · <span style="font-family: {{ row.stack }}">٣٢٠ ج.م</span></div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { rows: [
+      { name: 'IBM Plex Sans Arabic', stack: '"IBM Plex Sans Arabic", sans-serif', note: 'Candidate in the plan. Grotesque skeleton, flat terminals, low contrast.' },
+      { name: 'Rubik', stack: 'Rubik, sans-serif', note: 'Slightly rounded corners on the Latin; Arabic is geometric but softer than Plex.' },
+      { name: 'Almarai', stack: 'Almarai, sans-serif', note: 'Humanist Arabic, open counters, soft joins. Only 400/700.' },
+      { name: 'Cairo', stack: 'Cairo, sans-serif', note: 'Very legible, slightly condensed, more neutral/newsy.' },
+      { name: 'Tajawal', stack: 'Tajawal, sans-serif', note: 'Rounded terminals, warm, close to Nunito in feel.' }
+    ]};
+  }
+}
+</script>
+</body>
+</html>

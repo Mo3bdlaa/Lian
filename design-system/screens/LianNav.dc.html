@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="margin: var(--s-4) var(--s-12) var(--s-12); background: var(--surf2); border: var(--bw-1) solid var(--line); border-radius: var(--r-22); display: flex; padding: var(--s-6); gap: var(--s-2); flex: 0 0 auto">
+  <div data-nav="{{ c }}" style="flex: 1; min-height: var(--h-52); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s-4); border-radius: var(--r-16); font-size: var(--fs-11); text-align: center">
+    <svg viewBox="0 0 24 24" style="width: var(--i-22); height: var(--i-22)"><use href="#i-chat"></use></svg>
+    <span data-l="en">Chat</span><span data-l="ar">الدردشة</span>
+  </div>
+  <div data-nav="{{ t }}" style="flex: 1; min-height: var(--h-52); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s-4); border-radius: var(--r-16); font-size: var(--fs-11); text-align: center">
+    <svg viewBox="0 0 24 24" style="width: var(--i-22); height: var(--i-22)"><use href="#i-tasks"></use></svg>
+    <span data-l="en">Tasks</span><span data-l="ar">المهام</span>
+  </div>
+  <div data-nav="{{ m }}" style="flex: 1; min-height: var(--h-52); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s-4); border-radius: var(--r-16); font-size: var(--fs-11); text-align: center">
+    <svg viewBox="0 0 24 24" style="width: var(--i-22); height: var(--i-22)"><use href="#i-money"></use></svg>
+    <span data-l="en">Money</span><span data-l="ar">المال</span>
+  </div>
+  <div data-nav="{{ s }}" style="flex: 1; min-height: var(--h-52); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s-4); border-radius: var(--r-16); font-size: var(--fs-11); text-align: center">
+    <svg viewBox="0 0 24 24" style="width: var(--i-22); height: var(--i-22)"><use href="#i-story"></use></svg>
+    <span data-l="en">Our story</span><span data-l="ar">قصتنا</span>
+  </div>
+  <div data-nav="{{ g }}" style="flex: 1; min-height: var(--h-52); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s-4); border-radius: var(--r-16); font-size: var(--fs-11); text-align: center">
+    <svg viewBox="0 0 24 24" style="width: var(--i-22); height: var(--i-22)"><use href="#i-settings"></use></svg>
+    <span data-l="en">Settings</span><span data-l="ar">الإعدادات</span>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:76},&quot;active&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;chat&quot;,&quot;tasks&quot;,&quot;money&quot;,&quot;story&quot;,&quot;settings&quot;,&quot;none&quot;],&quot;default&quot;:&quot;chat&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const a = this.props.active ?? 'chat';
+    const f = k => (k === a ? '1' : '0');
+    return { c: f('chat'), t: f('tasks'), m: f('money'), s: f('story'), g: f('settings') };
+  }
+}
+</script>
+</body>
+</html>

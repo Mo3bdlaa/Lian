@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display: flex; align-items: center; gap: var(--s-6); padding: var(--s-4) var(--s-10) var(--s-10); flex: 0 0 auto; color: var(--ink)">
+  <div style="width: var(--i-44); height: var(--i-44); display: flex; align-items: center; justify-content: center; flex: 0 0 var(--i-44)"><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-22); height: var(--i-22)"><use href="{{ leadIcon }}"></use></svg></div>
+  <div style="flex: 1; min-width: 0; font-size: var(--fs-22); line-height: var(--lh-30); font-weight: var(--fw-700); padding-inline-start: var(--s-4)"><span data-l="en">{{ title }}</span><span data-l="ar">{{ titleAr }}</span></div>
+  <div style="width: var(--i-44); height: var(--i-44); display: flex; align-items: center; justify-content: center; flex: 0 0 var(--i-44)"><svg viewBox="0 0 24 24" style="width: var(--i-22); height: var(--i-22); color: var(--muted)"><use href="{{ trailIcon }}"></use></svg></div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:54},&quot;title&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Screen&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;titleAr&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;شاشة&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;lead&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;back&quot;,&quot;menu&quot;,&quot;close&quot;],&quot;default&quot;:&quot;back&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;trail&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;more&quot;,&quot;search&quot;,&quot;sliders&quot;,&quot;edit&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const ic = { back: '#i-back', menu: '#i-menu', close: '#i-close' };
+    const tr = { more: '#i-more', search: '#i-search', sliders: '#i-sliders', edit: '#i-edit', none: '#i-blank' };
+    return {
+      title: this.props.title ?? 'Screen',
+      titleAr: this.props.titleAr ?? 'شاشة',
+      leadIcon: ic[this.props.lead ?? 'back'] || '#i-back',
+      trailIcon: tr[this.props.trail ?? 'none'] || '#i-none'
+    };
+  }
+}
+</script>
+</body>
+</html>

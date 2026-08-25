@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lian-tokens.css">
+<script src="lian-defs.js"></script>
+</helmet>
+<div data-t="day" dir="ltr" style="background: var(--board); color: var(--ink); min-height: var(--h-screen); padding: var(--s-44) var(--s-40) var(--s-80); box-sizing: border-box">
+
+  <header style="display: flex; flex-direction: column; gap: var(--s-10); max-width: 900px; margin-bottom: var(--s-40)">
+    <div style="display: flex; align-items: center; gap: var(--s-12)">
+      <svg viewBox="0 0 99.22 128" style="width: 22px; height: 28.4px; color: var(--ink)"><use href="#i-mark"></use></svg>
+      <div style="font-size: var(--fs-12); font-weight: var(--fw-700); letter-spacing: var(--tracking-caps-wider); text-transform: uppercase; color: var(--muted)">Lian · theme × direction</div>
+    </div>
+    <div style="font-size: var(--fs-28); line-height: var(--lh-36); font-weight: var(--fw-700)">Three themes, two directions, one hierarchy.</div>
+    <div style="font-size: var(--fs-15); color: var(--muted); max-width: 72ch; text-wrap: pretty">Time controls luminance and environment. Mood controls accent temperature, chroma, density and motion. When they disagree, time wins the canvas and mood wins the accents — so warm at 2am keeps the night canvas with warmer rose and lilac, and quiet at night keeps the night canvas with the quiet palette's restraint and less decoration. Information architecture never changes; only the surface does.</div>
+  </header>
+
+  <div style="display: flex; flex-wrap: wrap; gap: var(--s-28); margin-bottom: var(--s-44)">
+
+    <figure data-t="day" dir="ltr" style="margin: 0; display: flex; flex-direction: column; gap: var(--s-10)">
+      <figcaption style="display: flex; flex-direction: column; gap: var(--s-1)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700); color: var(--text)">Day · warm · English</span><span style="font-size: var(--fs-12); color: var(--muted)">Cream canvas, blush surfaces, rose accents</span></figcaption>
+      <div style="width: 340px; height: 600px; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-26); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column">
+        <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="340px,44px"></dc-import>
+        <dc-import name="LianHead" mood="Feeling warm today" mood-ar="اليوم فيه دفء" style="flex: 0 0 auto" hint-size="340px,60px"></dc-import>
+        <div style="flex: 1; overflow: hidden; padding-inline: var(--s-14); display: flex; flex-direction: column; justify-content: flex-end; gap: var(--s-12)">
+          <div style="max-width: 250px; background: var(--surf); border-radius: var(--r-18); padding: var(--s-12) var(--s-15); font-size: var(--fs-15)"><span data-l="en">Good morning. You sounded lighter yesterday.</span><span data-l="ar">صباح الخير. امبارح كان في خفّة في كلامك.</span></div>
+          <div style="align-self: flex-end; max-width: 230px; background: var(--user); border-radius: var(--r-18); padding: var(--s-12) var(--s-15); font-size: var(--fs-15)"><span data-l="en">It stayed, mostly.</span><span data-l="ar">فضلت، معظمها.</span></div>
+          <div style="display: flex; gap: var(--s-10); background: var(--tint); border-radius: var(--r-16); padding: var(--s-12) var(--s-14)"><svg viewBox="0 0 99.22 128" style="width: 13px; height: 16.8px; color: var(--ink); flex: 0 0 var(--i-13); margin-top: var(--s-3)"><use href="#i-mark"></use></svg><div style="font-size: var(--fs-14); line-height: var(--lh-22)"><span data-l="en">Eating out is down this week.</span><span data-l="ar">الأكل بره أقل الأسبوع ده.</span></div></div>
+        </div>
+        <dc-import name="LianInput" mode="text" style="flex: 0 0 auto" hint-size="340px,68px"></dc-import>
+        <dc-import name="LianNav" active="chat" style="flex: 0 0 auto" hint-size="316px,76px"></dc-import>
+      </div>
+    </figure>
+
+    <figure data-t="day" dir="rtl" style="margin: 0; display: flex; flex-direction: column; gap: var(--s-10)">
+      <figcaption dir="ltr" style="display: flex; flex-direction: column; gap: var(--s-1)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700); color: var(--text)">Day · warm · العربية</span><span style="font-size: var(--fs-12); color: var(--muted)">Mirrored layout, Tajawal, Arabic-Indic numerals</span></figcaption>
+      <div style="width: 340px; height: 600px; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-26); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column">
+        <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="340px,44px"></dc-import>
+        <dc-import name="LianHead" mood="Feeling warm today" mood-ar="اليوم فيه دفء" style="flex: 0 0 auto" hint-size="340px,60px"></dc-import>
+        <div style="flex: 1; overflow: hidden; padding-inline: var(--s-14); display: flex; flex-direction: column; justify-content: flex-end; gap: var(--s-12)">
+          <div style="max-width: 250px; background: var(--surf); border-radius: var(--r-18); padding: var(--s-12) var(--s-15); font-size: var(--fs-15)"><span data-l="en">Good morning. You sounded lighter yesterday.</span><span data-l="ar">صباح الخير. امبارح كان في خفّة في كلامك.</span></div>
+          <div style="align-self: flex-end; max-width: 230px; background: var(--user); border-radius: var(--r-18); padding: var(--s-12) var(--s-15); font-size: var(--fs-15)"><span data-l="en">It stayed, mostly.</span><span data-l="ar">فضلت، معظمها.</span></div>
+          <div style="display: flex; gap: var(--s-10); background: var(--tint); border-radius: var(--r-16); padding: var(--s-12) var(--s-14)"><svg viewBox="0 0 99.22 128" style="width: 13px; height: 16.8px; color: var(--ink); flex: 0 0 var(--i-13); margin-top: var(--s-3)"><use href="#i-mark"></use></svg><div style="font-size: var(--fs-14); line-height: var(--lh-22)"><span data-l="en">Eating out is down this week.</span><span data-l="ar">الأكل بره أقل الأسبوع ده.</span></div></div>
+        </div>
+        <dc-import name="LianInput" mode="text" style="flex: 0 0 auto" hint-size="340px,68px"></dc-import>
+        <dc-import name="LianNav" active="chat" style="flex: 0 0 auto" hint-size="316px,76px"></dc-import>
+      </div>
+    </figure>
+
+    <figure data-t="quiet" dir="ltr" style="margin: 0; display: flex; flex-direction: column; gap: var(--s-10)">
+      <figcaption style="display: flex; flex-direction: column; gap: var(--s-1)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700); color: var(--text)">Quiet · low · English</span><span style="font-size: var(--fs-12); color: var(--muted)">Desaturated, fewer accents, shorter sentences</span></figcaption>
+      <div style="width: 340px; height: 600px; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-26); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column">
+        <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="340px,44px"></dc-import>
+        <dc-import name="LianHead" mood="A little quiet" mood-ar="هادية شوية" style="flex: 0 0 auto" hint-size="340px,60px"></dc-import>
+        <div style="flex: 1; overflow: hidden; padding-inline: var(--s-14); display: flex; flex-direction: column; justify-content: flex-end; gap: var(--s-12)">
+          <div style="max-width: 250px; background: var(--surf); border-radius: var(--r-18); padding: var(--s-12) var(--s-15); font-size: var(--fs-15)"><span data-l="en">I'm here. We can keep today simple.</span><span data-l="ar">أنا هنا. نخلي النهاردة بسيط.</span></div>
+          <div style="align-self: flex-end; max-width: 230px; background: var(--user); border-radius: var(--r-18); padding: var(--s-12) var(--s-15); font-size: var(--fs-15)"><span data-l="en">Yes. Let's.</span><span data-l="ar">أيوه. يلا.</span></div>
+        </div>
+        <dc-import name="LianInput" mode="text" style="flex: 0 0 auto" hint-size="340px,68px"></dc-import>
+        <dc-import name="LianNav" active="chat" style="flex: 0 0 auto" hint-size="316px,76px"></dc-import>
+      </div>
+    </figure>
+
+    <figure data-t="quiet" dir="rtl" style="margin: 0; display: flex; flex-direction: column; gap: var(--s-10)">
+      <figcaption dir="ltr" style="display: flex; flex-direction: column; gap: var(--s-1)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700); color: var(--text)">Quiet · low · العربية</span><span style="font-size: var(--fs-12); color: var(--muted)">Same restraint, mirrored</span></figcaption>
+      <div style="width: 340px; height: 600px; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-26); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column">
+        <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="340px,44px"></dc-import>
+        <dc-import name="LianHead" mood="A little quiet" mood-ar="هادية شوية" style="flex: 0 0 auto" hint-size="340px,60px"></dc-import>
+        <div style="flex: 1; overflow: hidden; padding-inline: var(--s-14); display: flex; flex-direction: column; justify-content: flex-end; gap: var(--s-12)">
+          <div style="max-width: 250px; background: var(--surf); border-radius: var(--r-18); padding: var(--s-12) var(--s-15); font-size: var(--fs-15)"><span data-l="en">I'm here. We can keep today simple.</span><span data-l="ar">أنا هنا. نخلي النهاردة بسيط.</span></div>
+          <div style="align-self: flex-end; max-width: 230px; background: var(--user); border-radius: var(--r-18); padding: var(--s-12) var(--s-15); font-size: var(--fs-15)"><span data-l="en">Yes. Let's.</span><span data-l="ar">أيوه. يلا.</span></div>
+        </div>
+        <dc-import name="LianInput" mode="text" style="flex: 0 0 auto" hint-size="340px,68px"></dc-import>
+        <dc-import name="LianNav" active="chat" style="flex: 0 0 auto" hint-size="316px,76px"></dc-import>
+      </div>
+    </figure>
+
+    <figure data-t="night" dir="ltr" style="margin: 0; display: flex; flex-direction: column; gap: var(--s-10)">
+      <figcaption style="display: flex; flex-direction: column; gap: var(--s-1)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700); color: var(--text)">Night · English</span><span style="font-size: var(--fs-12); color: var(--muted)">Indigo-plum canvas, not inverted, not black</span></figcaption>
+      <div style="width: 340px; height: 600px; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-26); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column">
+        <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="340px,44px"></dc-import>
+        <dc-import name="LianHead" mood="Late-night thoughts" mood-ar="أفكار آخر الليل" style="flex: 0 0 auto" hint-size="340px,60px"></dc-import>
+        <div style="flex: 1; overflow: hidden; padding-inline: var(--s-14); display: flex; flex-direction: column; justify-content: flex-end; gap: var(--s-12)">
+          <div style="max-width: 250px; background: var(--surf); border-radius: var(--r-18); padding: var(--s-12) var(--s-15); font-size: var(--fs-15)"><span data-l="en">The day is done. You don't have to solve anything else tonight.</span><span data-l="ar">اليوم خلص. مش لازم تحل حاجة تانية الليلة.</span></div>
+          <div style="align-self: flex-end; max-width: 230px; background: var(--user); border-radius: var(--r-18); padding: var(--s-12) var(--s-15); font-size: var(--fs-15)"><span data-l="en">Noted.</span><span data-l="ar">تمام.</span></div>
+        </div>
+        <dc-import name="LianInput" mode="text" style="flex: 0 0 auto" hint-size="340px,68px"></dc-import>
+        <dc-import name="LianNav" active="chat" style="flex: 0 0 auto" hint-size="316px,76px"></dc-import>
+      </div>
+    </figure>
+
+    <figure data-t="night" dir="rtl" style="margin: 0; display: flex; flex-direction: column; gap: var(--s-10)">
+      <figcaption dir="ltr" style="display: flex; flex-direction: column; gap: var(--s-1)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700); color: var(--text)">Night · العربية</span><span style="font-size: var(--fs-12); color: var(--muted)">Mirrored, same contrast targets</span></figcaption>
+      <div style="width: 340px; height: 600px; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-26); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column">
+        <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="340px,44px"></dc-import>
+        <dc-import name="LianHead" mood="Late-night thoughts" mood-ar="أفكار آخر الليل" style="flex: 0 0 auto" hint-size="340px,60px"></dc-import>
+        <div style="flex: 1; overflow: hidden; padding-inline: var(--s-14); display: flex; flex-direction: column; justify-content: flex-end; gap: var(--s-12)">
+          <div style="max-width: 250px; background: var(--surf); border-radius: var(--r-18); padding: var(--s-12) var(--s-15); font-size: var(--fs-15)"><span data-l="en">The day is done. You don't have to solve anything else tonight.</span><span data-l="ar">اليوم خلص. مش لازم تحل حاجة تانية الليلة.</span></div>
+          <div style="align-self: flex-end; max-width: 230px; background: var(--user); border-radius: var(--r-18); padding: var(--s-12) var(--s-15); font-size: var(--fs-15)"><span data-l="en">Noted.</span><span data-l="ar">تمام.</span></div>
+        </div>
+        <dc-import name="LianInput" mode="text" style="flex: 0 0 auto" hint-size="340px,68px"></dc-import>
+        <dc-import name="LianNav" active="chat" style="flex: 0 0 auto" hint-size="316px,76px"></dc-import>
+      </div>
+    </figure>
+
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: var(--s-20)">
+    <div style="display: flex; align-items: baseline; gap: var(--s-14); border-bottom: var(--bw-1) solid var(--line); padding-bottom: var(--s-12)">
+      <h2 style="margin: 0; font-size: var(--fs-22); line-height: var(--lh-30); font-weight: var(--fw-700)">When mood and time disagree</h2>
+      <div style="font-size: var(--fs-14); color: var(--muted)">the canvas follows the clock; the accents follow her</div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: var(--s-28)">
+
+      <figure data-t="night-warm" dir="ltr" style="margin: 0; display: flex; flex-direction: column; gap: var(--s-10)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-1)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700); color: var(--text)">Warm, at 2am</span><span style="font-size: var(--fs-12); color: var(--muted)">Night canvas and surfaces, warmer rose and lilac, unchanged density</span></figcaption>
+        <div style="width: 340px; height: 420px; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-26); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column">
+          <dc-import name="LianHead" mood="Still warm, even now" mood-ar="لسه فيه دفء" style="flex: 0 0 auto" hint-size="340px,60px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-14); display: flex; flex-direction: column; justify-content: flex-end; gap: var(--s-12)">
+            <div style="max-width: 250px; background: var(--surf); border-radius: var(--r-18); padding: var(--s-12) var(--s-15); font-size: var(--fs-15)"><span data-l="en">You're up late again. I'm not going to talk you out of it.</span><span data-l="ar">سهر تاني الليلة. ومش هتكلم في الموضوع.</span></div>
+            <div style="display: flex; gap: var(--s-10); background: var(--tint); border-radius: var(--r-16); padding: var(--s-12) var(--s-14)"><svg viewBox="0 0 99.22 128" style="width: 13px; height: 16.8px; color: var(--rose); flex: 0 0 var(--i-13); margin-top: var(--s-3)"><use href="#i-mark"></use></svg><div style="font-size: var(--fs-14); line-height: var(--lh-22); color: var(--ink)"><span data-l="en">Accents stay warm. The room stays dark.</span><span data-l="ar">اللمسات دافية. والغرفة ضلمة.</span></div></div>
+          </div>
+          <dc-import name="LianInput" mode="text" style="flex: 0 0 auto" hint-size="340px,68px"></dc-import>
+        </div>
+      </figure>
+
+      <figure data-t="night-quiet" dir="ltr" style="margin: 0; display: flex; flex-direction: column; gap: var(--s-10)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-1)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700); color: var(--text)">Quiet, at night</span><span style="font-size: var(--fs-12); color: var(--muted)">Night canvas with the quiet palette's restraint, less decoration, less motion</span></figcaption>
+        <div style="width: 340px; height: 420px; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-26); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column">
+          <dc-import name="LianHead" mood="Quiet tonight" mood-ar="هادية الليلة" style="flex: 0 0 auto" hint-size="340px,60px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-14); display: flex; flex-direction: column; justify-content: flex-end; gap: var(--s-12)">
+            <div style="max-width: 250px; background: var(--surf); border-radius: var(--r-18); padding: var(--s-12) var(--s-15); font-size: var(--fs-15)"><span data-l="en">I'm here. Nothing needs saying.</span><span data-l="ar">أنا هنا. ومافيش حاجة لازم تتقال.</span></div>
+          </div>
+          <dc-import name="LianInput" mode="text" style="flex: 0 0 auto" hint-size="340px,68px"></dc-import>
+        </div>
+      </figure>
+
+      <div style="width: 420px; display: flex; flex-direction: column; gap: var(--s-12); background: var(--canvas); border: var(--bw-1) solid var(--border); border-radius: var(--r-20); padding: var(--s-22); color: var(--text)">
+        <span style="font-size: var(--fs-15); font-weight: var(--fw-700)">Rules that hold in every combination</span>
+        <div style="font-size: var(--fs-14); line-height: var(--lh-24); color: var(--muted); display: flex; flex-direction: column; gap: var(--s-10)">
+          <span>Body text is 16px and every text/background pair meets AA — 4.5:1 normal, 3:1 large. Secondary text uses the muted token or darker, never taupe, rose or lilac.</span>
+          <span>Transitions are 160–220ms for UI and 250–400ms when the surface mood shifts. Low-amplitude opacity and background only; no ambient loops.</span>
+          <span>Colour is never the only state signal — the active tab carries a tint, a heavier label and a filled icon.</span>
+          <span>Gradients appear only as low-contrast environmental surfaces. Never as an "AI effect", and never purple-to-blue.</span>
+          <span>Information architecture is identical across all six combinations. The theme changes warmth, contrast and decoration — nothing structural.</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1560,&quot;height&quot;:1050}}"></script>
+</body>
+</html>

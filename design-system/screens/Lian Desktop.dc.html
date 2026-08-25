@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lian-tokens.css">
+<script src="lian-defs.js"></script>
+</helmet>
+<div data-t="{{ theme }}" dir="{{ dir }}" style="background: var(--board); color: var(--ink); min-height: var(--h-screen); padding: var(--s-44) var(--s-40) var(--s-80); box-sizing: border-box">
+
+  <header style="display: flex; flex-direction: column; gap: var(--s-10); max-width: 900px; margin-bottom: var(--s-44)">
+    <div style="display: flex; align-items: center; gap: var(--s-12)">
+      <svg viewBox="0 0 99.22 128" style="width: 22px; height: 28.4px; color: var(--ink)"><use href="#i-mark"></use></svg>
+      <div style="font-size: var(--fs-12); font-weight: var(--fw-700); letter-spacing: var(--tracking-caps-wider); text-transform: uppercase; color: var(--muted)">Lian · desktop · 1440 × 900</div>
+    </div>
+    <div style="font-size: var(--fs-28); line-height: var(--lh-36); font-weight: var(--fw-700); max-width: 28ch">Chat, Money and Memory are purpose-built. Everything else follows one rule.</div>
+    <div style="font-size: var(--fs-15); color: var(--muted); max-width: 72ch; text-wrap: pretty">At 900px and up the bottom bar becomes a persistent left rail carrying the same five destinations plus the three secondary groups. Every other route uses that rail with a centred 720px column — 800px for legal and long-form. Nothing becomes a dashboard, and the rails mirror in RTL.</div>
+  </header>
+
+  <section style="display: flex; flex-direction: column; gap: var(--s-30)">
+
+    <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+      <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-15); font-weight: var(--fw-700)"><span data-l="en">Desktop chat — purpose-built</span><span data-l="ar">الدردشة على الديسكتوب</span></span><span style="font-size: var(--fs-13); color: var(--muted)">rail · conversations · the conversation stays visually primary · collapsible context panel on the end side</span></figcaption>
+      <div data-screen-label="Desktop / chat" style="width: 1440px; height: 900px; flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-20); box-shadow: var(--elev-1); overflow: hidden; display: flex">
+        <dc-import name="LianRail" active="chat" style="flex: 0 0 268px" hint-size="268px,900px"></dc-import>
+        <div style="width: 248px; flex: 0 0 248px; border-inline-end: var(--bw-1) solid var(--line); display: flex; flex-direction: column; padding: var(--s-20) var(--s-12); gap: var(--s-8); overflow: hidden">
+          <div style="font-size: var(--fs-11); font-weight: var(--fw-700); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding-inline: var(--s-10)"><span data-l="en">Conversations</span><span data-l="ar">المحادثات</span></div>
+          <div style="display: flex; align-items: center; gap: var(--s-10); min-height: var(--h-52); padding-inline: var(--s-10); border-radius: var(--r-12); background: var(--tint)"><svg viewBox="0 0 24 24" style="width: var(--i-17); height: var(--i-17)"><use href="#i-chat"></use></svg><div style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)"><span data-l="en">Main</span><span data-l="ar">الأساسية</span></span><span style="font-size: var(--fs-12); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><span data-l="en">Okay, logged AED 400…</span><span data-l="ar">تمام، سجّلت ٤٠٠…</span></span></div></div>
+          <div style="display: flex; align-items: center; gap: var(--s-10); min-height: var(--h-52); padding-inline: var(--s-10); border-radius: var(--r-12)"><svg viewBox="0 0 24 24" style="width: var(--i-17); height: var(--i-17); color: var(--muted)"><use href="#i-tag"></use></svg><div style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: var(--fs-14); font-weight: var(--fw-600)"><span data-l="en">The move</span><span data-l="ar">الانتقال</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">9 May</span><span data-l="ar">٩ مايو</span></span></div></div>
+          <div style="display: flex; align-items: center; gap: var(--s-10); min-height: var(--h-52); padding-inline: var(--s-10); border-radius: var(--r-12); border: var(--bw-1) dashed var(--edge)"><svg viewBox="0 0 24 24" style="width: var(--i-17); height: var(--i-17); color: var(--muted)"><use href="#i-incognito"></use></svg><div style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: var(--fs-14); font-weight: var(--fw-600)"><span data-l="en">Incognito</span><span data-l="ar">وضع خاص</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">Nothing kept</span><span data-l="ar">بدون حفظ</span></span></div></div>
+        </div>
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+          <div style="height: 72px; flex: 0 0 var(--i-72); border-bottom: var(--bw-1) solid var(--line); display: flex; align-items: center; gap: var(--s-14); padding-inline: var(--s-28)">
+            <div style="width: var(--i-40); height: var(--i-40); flex: 0 0 var(--i-40); border-radius: var(--r-round); background: var(--surf); display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 99.22 128" style="width: 17px; height: 21.9px; color: var(--ink)"><use href="#i-mark"></use></svg></div>
+            <div style="flex: 1; display: flex; flex-direction: column"><span style="font-size: var(--fs-17); font-weight: var(--fw-700)"><span data-l="en">Lian</span><span data-l="ar">لين</span></span><span style="font-size: var(--fs-13); color: var(--muted)"><span data-l="en">Feeling warm today</span><span data-l="ar">اليوم فيه دفء</span></span></div>
+            <svg viewBox="0 0 24 24" style="width: var(--i-20); height: var(--i-20); color: var(--muted)"><use href="#i-search"></use></svg>
+            <svg viewBox="0 0 24 24" style="width: var(--i-20); height: var(--i-20); color: var(--muted)"><use href="#i-more"></use></svg>
+          </div>
+          <div style="flex: 1; overflow: hidden; display: flex; justify-content: center; padding: var(--s-24) var(--s-28)">
+            <div style="width: 100%; max-width: 760px; display: flex; flex-direction: column; justify-content: flex-end; gap: var(--s-16)">
+              <div style="text-align: center; font-size: var(--fs-12); font-weight: var(--fw-600); color: var(--muted)"><span data-l="en">Today</span><span data-l="ar">اليوم</span></div>
+              <div style="max-width: 560px; background: var(--surf); border-radius: var(--r-22); padding: var(--s-15) var(--s-18); font-size: var(--fs-16); line-height: var(--lh-26)"><span data-l="en">Good morning. You sounded lighter yesterday — I hope some of that stayed with you.</span><span data-l="ar">صباح الخير. أمس كان فيه خفّة في كلامك — أتمنى إن شيء منها لسه موجود.</span></div>
+              <div style="align-self: flex-end; max-width: 520px; background: var(--user); border-radius: var(--r-22); padding: var(--s-15) var(--s-18); font-size: var(--fs-16); line-height: var(--lh-26)"><span data-l="en">It did. I paid the gym for the month, 400.</span><span data-l="ar">فعلاً. دفعت الجيم بـ ٤٠٠ للشهر.</span></div>
+              <div style="display: flex; flex-direction: column; gap: var(--s-8)">
+                <div style="max-width: 560px; background: var(--surf); border-radius: var(--r-22); padding: var(--s-15) var(--s-18); font-size: var(--fs-16)"><span data-l="en">Okay, logged AED 400 for the gym today.</span><span data-l="ar">تمام، سجّلت ٤٠٠ د.إ للجيم النهاردة.</span></div>
+                <div style="max-width: 340px; display: flex; align-items: center; gap: var(--s-10); padding: var(--s-11) var(--s-15); border: var(--bw-1) solid var(--line); border-radius: var(--r-16); min-height: var(--tap-min); box-sizing: border-box">
+                  <svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18); color: var(--muted); flex: 0 0 var(--i-18)"><use href="#i-money"></use></svg>
+                  <div style="flex: 1; font-size: var(--fs-14); font-weight: var(--fw-600)"><span data-l="en">AED 400 · Gym · Today</span><span data-l="ar">٤٠٠ د.إ · الجيم · اليوم</span></div>
+                  <svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted); flex: 0 0 var(--i-16)"><use href="#i-chevron"></use></svg>
+                </div>
+              </div>
+              <div style="align-self: flex-end; max-width: 520px; background: var(--user); border-radius: var(--r-22); padding: var(--s-15) var(--s-18); font-size: var(--fs-16)"><span data-l="en">Thanks. Anything I said I'd do today?</span><span data-l="ar">شكراً. فيه حاجة قلت إني هعملها النهاردة؟</span></div>
+              <div style="max-width: 560px; background: var(--surf); border-radius: var(--r-22); padding: var(--s-15) var(--s-18); font-size: var(--fs-16); line-height: var(--lh-26)"><span data-l="en">The brief at ten, and the library book before seven.</span><span data-l="ar">الملخص الساعة عشرة، وكتاب المكتبة قبل سبعة.</span></div>
+            </div>
+          </div>
+          <div style="padding: 0 var(--s-28) var(--s-24); display: flex; justify-content: center">
+            <div style="width: 100%; max-width: 760px; display: flex; align-items: center; gap: var(--s-12)">
+              <div style="flex: 1; min-height: var(--h-52); border-radius: var(--r-24); background: var(--surf2); border: var(--bw-1) solid var(--line); display: flex; align-items: center; padding-inline: var(--s-20); font-size: var(--fs-16); color: var(--muted)"><span data-l="en">Message</span><span data-l="ar">كتابة رسالة</span></div>
+              <div style="width: var(--i-52); height: var(--i-52); flex: 0 0 var(--i-52); border-radius: var(--r-round); background: var(--btn); display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 24 24" style="width: var(--i-22); height: var(--i-22); color: var(--onbtn)"><use href="#i-mic"></use></svg></div>
+            </div>
+          </div>
+        </div>
+        <div style="width: 320px; flex: 0 0 320px; border-inline-start: var(--bw-1) solid var(--line); display: flex; flex-direction: column; padding: var(--s-20); gap: var(--s-12); overflow: hidden">
+          <div style="display: flex; align-items: center; gap: var(--s-10)">
+            <span style="flex: 1; font-size: var(--fs-13); font-weight: var(--fw-700); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted)"><span data-l="en">In this conversation</span><span data-l="ar">في المحادثة دي</span></span>
+            <svg viewBox="0 0 24 24" style="width: var(--i-17); height: var(--i-17); color: var(--muted)"><use href="#i-close"></use></svg>
+          </div>
+          <div style="background: var(--surf); border-radius: var(--r-16); padding: var(--s-13) var(--s-15); display: flex; flex-direction: column; gap: var(--s-5)">
+            <span style="font-size: var(--fs-10); font-weight: var(--fw-700); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Ongoing topic</span><span data-l="ar">موضوع مستمر</span></span>
+            <span style="font-size: var(--fs-14); line-height: var(--lh-22)"><span data-l="en">Looking for an apartment closer to work.</span><span data-l="ar">بيدوّر على شقة أقرب للشغل.</span></span>
+          </div>
+          <div style="background: var(--surf); border-radius: var(--r-16); padding: var(--s-13) var(--s-15); display: flex; flex-direction: column; gap: var(--s-5)">
+            <span style="font-size: var(--fs-10); font-weight: var(--fw-700); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Preference</span><span data-l="ar">تفضيل</span></span>
+            <span style="font-size: var(--fs-14); line-height: var(--lh-22)"><span data-l="en">Prefers being told things directly.</span><span data-l="ar">بيحب الكلام المباشر.</span></span>
+          </div>
+          <div style="background: var(--surf); border-radius: var(--r-16); padding: var(--s-13) var(--s-15); display: flex; flex-direction: column; gap: var(--s-5)">
+            <span style="font-size: var(--fs-10); font-weight: var(--fw-700); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Today's capture</span><span data-l="ar">لقطة النهاردة</span></span>
+            <span style="font-size: var(--fs-14); line-height: var(--lh-22)"><span data-l="en">AED 400 · Gym</span><span data-l="ar">٤٠٠ د.إ · الجيم</span></span>
+          </div>
+          <div style="font-size: var(--fs-12); color: var(--muted); text-wrap: pretty"><span data-l="en">Hidden by default. Opening it never changes what she keeps.</span><span data-l="ar">مخفية افتراضياً. وفتحها مايغيّرش حاجة في اللي بيتحفظ.</span></div>
+        </div>
+      </div>
+    </figure>
+
+    <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+      <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-15); font-weight: var(--fw-700)"><span data-l="en">Desktop money — purpose-built</span><span data-l="ar">المال على الديسكتوب</span></span><span style="font-size: var(--fs-13); color: var(--muted)">summary, categories and her observation on the start side · transactions on the end side · correction opens as a detail panel</span></figcaption>
+      <div data-screen-label="Desktop / money" style="width: 1440px; height: 900px; flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-20); box-shadow: var(--elev-1); overflow: hidden; display: flex">
+        <dc-import name="LianRail" active="money" style="flex: 0 0 268px" hint-size="268px,900px"></dc-import>
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+          <div style="height: 72px; flex: 0 0 var(--i-72); border-bottom: var(--bw-1) solid var(--line); display: flex; align-items: center; gap: var(--s-14); padding-inline: var(--s-32)">
+            <span style="flex: 1; font-size: var(--fs-24); font-weight: var(--fw-700)"><span data-l="en">Money</span><span data-l="ar">المال</span></span>
+            <span style="font-size: var(--fs-14); color: var(--muted)"><span data-l="en">May</span><span data-l="ar">مايو</span></span>
+            <svg viewBox="0 0 24 24" style="width: var(--i-20); height: var(--i-20); color: var(--muted)"><use href="#i-search"></use></svg>
+          </div>
+          <div style="flex: 1; overflow: hidden; display: flex; gap: var(--s-24); padding: var(--s-26) var(--s-32)">
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--s-18)">
+              <div style="background: var(--surf); border-radius: var(--r-22); padding: var(--s-24); display: flex; flex-direction: column; gap: var(--s-20)">
+                <div style="display: flex; flex-direction: column; gap: var(--s-2)">
+                  <span style="font-size: var(--fs-14); color: var(--muted)"><span data-l="en">What's left</span><span data-l="ar">المتبقي</span></span>
+                  <span style="font-size: var(--fs-44); line-height: var(--lh-52); font-weight: var(--fw-700)"><span data-l="en">AED 1,250</span><span data-l="ar">١٢٥٠ د.إ</span></span>
+                </div>
+                <div style="display: flex; gap: var(--s-32)">
+                  <div style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-13); color: var(--muted)"><span data-l="en">In</span><span data-l="ar">داخل</span></span><span style="font-size: var(--fs-20); font-weight: var(--fw-600)"><span data-l="en">AED 3,000</span><span data-l="ar">٣٠٠٠ د.إ</span></span></div>
+                  <div style="width: 1px; background: var(--line)"></div>
+                  <div style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-13); color: var(--muted)"><span data-l="en">Out</span><span data-l="ar">خارج</span></span><span style="font-size: var(--fs-20); font-weight: var(--fw-600)"><span data-l="en">AED 1,750</span><span data-l="ar">١٧٥٠ د.إ</span></span></div>
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: var(--s-10)">
+                <span style="font-size: var(--fs-12); font-weight: var(--fw-700); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Where it went</span><span data-l="ar">أكتر أربع بنود</span></span>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-10)">
+                  <div style="background: var(--surf); border-radius: var(--r-16); padding: var(--s-14); display: flex; flex-direction: column; gap: var(--s-4)"><span style="font-size: var(--fs-13); color: var(--muted)"><span data-l="en">Groceries</span><span data-l="ar">سوبرماركت</span></span><span style="font-size: var(--fs-20); font-weight: var(--fw-700)"><span data-l="en">620</span><span data-l="ar">٦٢٠</span></span></div>
+                  <div style="background: var(--surf); border-radius: var(--r-16); padding: var(--s-14); display: flex; flex-direction: column; gap: var(--s-4)"><span style="font-size: var(--fs-13); color: var(--muted)"><span data-l="en">Eating out</span><span data-l="ar">مطاعم</span></span><span style="font-size: var(--fs-20); font-weight: var(--fw-700)"><span data-l="en">410</span><span data-l="ar">٤١٠</span></span></div>
+                  <div style="background: var(--surf); border-radius: var(--r-16); padding: var(--s-14); display: flex; flex-direction: column; gap: var(--s-4)"><span style="font-size: var(--fs-13); color: var(--muted)"><span data-l="en">Gym</span><span data-l="ar">الجيم</span></span><span style="font-size: var(--fs-20); font-weight: var(--fw-700)"><span data-l="en">400</span><span data-l="ar">٤٠٠</span></span></div>
+                  <div style="background: var(--surf); border-radius: var(--r-16); padding: var(--s-14); display: flex; flex-direction: column; gap: var(--s-4)"><span style="font-size: var(--fs-13); color: var(--muted)"><span data-l="en">Transport</span><span data-l="ar">مواصلات</span></span><span style="font-size: var(--fs-20); font-weight: var(--fw-700)"><span data-l="en">180</span><span data-l="ar">١٨٠</span></span></div>
+                </div>
+              </div>
+              <div style="display: flex; gap: var(--s-14); background: var(--tint); border-radius: var(--r-20); padding: var(--s-18) var(--s-20)">
+                <svg viewBox="0 0 99.22 128" style="width: 16px; height: 20.6px; color: var(--ink); flex: 0 0 var(--i-16); margin-top: var(--s-4)"><use href="#i-mark"></use></svg>
+                <div style="font-size: var(--fs-16); line-height: var(--lh-26); text-wrap: pretty"><span data-l="en">You've been eating out less this week than last. Groceries went up by about the same amount — so nothing really changed, except where it happened.</span><span data-l="ar">الأكل بره أقل الأسبوع ده من اللي قبله. والسوبرماركت زاد بنفس الفرق تقريباً — يعني مافيش فرق حقيقي، غير المكان.</span></div>
+              </div>
+            </div>
+            <div style="width: 400px; flex: 0 0 400px; display: flex; flex-direction: column; gap: var(--s-10)">
+              <div style="display: flex; align-items: baseline; justify-content: space-between"><span style="font-size: var(--fs-12); font-weight: var(--fw-700); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Recent</span><span data-l="ar">آخر الحركات</span></span><span style="font-size: var(--fs-13); color: var(--muted)"><span data-l="en">156 this month</span><span data-l="ar">١٥٦ الشهر ده</span></span></div>
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-62); padding: var(--s-10) var(--s-16); background: var(--tint); border-radius: var(--r-16)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18); color: var(--ink); flex: 0 0 var(--i-18)"><use href="#i-receipt"></use></svg><div style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: var(--fs-15); font-weight: var(--fw-700)"><span data-l="en">Carrefour</span><span data-l="ar">كارفور</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">Today · from a receipt</span><span data-l="ar">اليوم · من فاتورة</span></span></div><span style="font-size: var(--fs-16); font-weight: var(--fw-700)"><span data-l="en">320</span><span data-l="ar">٣٢٠</span></span></div>
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-62); padding: var(--s-10) var(--s-16); background: var(--surf); border-radius: var(--r-16)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18); color: var(--muted); flex: 0 0 var(--i-18)"><use href="#i-chat"></use></svg><div style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: var(--fs-15); font-weight: var(--fw-600)"><span data-l="en">Gym</span><span data-l="ar">الجيم</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">Today · you told me</span><span data-l="ar">اليوم · من كلامنا</span></span></div><span style="font-size: var(--fs-16); font-weight: var(--fw-700)"><span data-l="en">400</span><span data-l="ar">٤٠٠</span></span></div>
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-62); padding: var(--s-10) var(--s-16); background: var(--surf); border-radius: var(--r-16)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18); color: var(--muted); flex: 0 0 var(--i-18)"><use href="#i-receipt"></use></svg><div style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: var(--fs-15); font-weight: var(--fw-600)"><span data-l="en">Pharmacy</span><span data-l="ar">صيدلية</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">14 May</span><span data-l="ar">١٤ مايو</span></span></div><span style="font-size: var(--fs-16); font-weight: var(--fw-700)"><span data-l="en">92</span><span data-l="ar">٩٢</span></span></div>
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-62); padding: var(--s-10) var(--s-16); background: var(--surf); border-radius: var(--r-16)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18); color: var(--muted); flex: 0 0 var(--i-18)"><use href="#i-card"></use></svg><div style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: var(--fs-15); font-weight: var(--fw-600)"><span data-l="en">Salary</span><span data-l="ar">الراتب</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">1 May · money in</span><span data-l="ar">١ مايو · داخل</span></span></div><span style="font-size: var(--fs-16); font-weight: var(--fw-700)"><span data-l="en">3,000</span><span data-l="ar">٣٠٠٠</span></span></div>
+              <div style="height: 1px; background: var(--line); margin-block: var(--s-6)"></div>
+              <div style="border: var(--bw-1) solid var(--line); border-radius: var(--r-18); padding: var(--s-18); display: flex; flex-direction: column; gap: var(--s-12)">
+                <div style="display: flex; align-items: center; gap: var(--s-10)"><span style="flex: 1; font-size: var(--fs-13); font-weight: var(--fw-700); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Correcting Carrefour</span><span data-l="ar">تعديل كارفور</span></span><svg viewBox="0 0 24 24" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-close"></use></svg></div>
+                <div style="min-height: var(--h-54); border: var(--bw-1) solid var(--line); border-radius: var(--r-14); background: var(--surf2); display: flex; align-items: center; padding-inline: var(--s-16); font-size: var(--fs-22); font-weight: var(--fw-700)"><span data-l="en">AED 320</span><span data-l="ar">٣٢٠ د.إ</span></div>
+                <div style="display: flex; gap: var(--s-7); flex-wrap: wrap">
+                  <div style="padding: var(--s-8) var(--s-13); border-radius: var(--r-12); background: var(--tint); font-size: var(--fs-13); font-weight: var(--fw-700); min-height: var(--h-40); box-sizing: border-box; display: flex; align-items: center"><span data-l="en">Groceries</span><span data-l="ar">سوبرماركت</span></div>
+                  <div style="padding: var(--s-8) var(--s-13); border-radius: var(--r-12); border: var(--bw-1) solid var(--line); font-size: var(--fs-13); color: var(--muted); min-height: var(--h-40); box-sizing: border-box; display: flex; align-items: center"><span data-l="en">Home</span><span data-l="ar">البيت</span></div>
+                  <div style="padding: var(--s-8) var(--s-13); border-radius: var(--r-12); border: var(--bw-1) solid var(--line); font-size: var(--fs-13); color: var(--muted); min-height: var(--h-40); box-sizing: border-box; display: flex; align-items: center"><span data-l="en">Eating out</span><span data-l="ar">مطاعم</span></div>
+                </div>
+                <div style="display: flex; align-items: center; gap: var(--s-12); padding: var(--s-10) var(--s-12); background: var(--surf); border-radius: var(--r-14)"><svg viewBox="0 0 24 24" style="width: var(--i-17); height: var(--i-17); color: var(--muted)"><use href="#i-receipt"></use></svg><span style="flex: 1; font-size: var(--fs-14)"><span data-l="en">Receipt attached</span><span data-l="ar">فاتورة مرفقة</span></span><span style="font-size: var(--fs-13); font-weight: var(--fw-600)"><span data-l="en">View</span><span data-l="ar">عرض</span></span></div>
+                <div style="display: flex; gap: var(--s-10)"><div style="flex: 1; min-height: var(--h-46); border-radius: var(--r-14); background: var(--btn); color: var(--onbtn); display: flex; align-items: center; justify-content: center; font-size: var(--fs-15); font-weight: var(--fw-700)"><span data-l="en">Save</span><span data-l="ar">حفظ</span></div><div style="min-height: var(--h-46); padding-inline: var(--s-16); border-radius: var(--r-14); border: var(--bw-1) solid var(--line); display: flex; align-items: center; justify-content: center; font-size: var(--fs-15); font-weight: var(--fw-600); color: var(--danger)"><span data-l="en">Delete</span><span data-l="ar">حذف</span></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </figure>
+
+    <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+      <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-15); font-weight: var(--fw-700)"><span data-l="en">Desktop memory — purpose-built</span><span data-l="ar">الذاكرة على الديسكتوب</span></span><span style="font-size: var(--fs-13); color: var(--muted)">search, filters and list on the start side · the selected memory with provenance on the end side</span></figcaption>
+      <div data-screen-label="Desktop / memory" style="width: 1440px; height: 900px; flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-20); box-shadow: var(--elev-1); overflow: hidden; display: flex">
+        <dc-import name="LianRail" active="memory" style="flex: 0 0 268px" hint-size="268px,900px"></dc-import>
+        <div style="width: 480px; flex: 0 0 480px; border-inline-end: var(--bw-1) solid var(--line); display: flex; flex-direction: column; overflow: hidden">
+          <div style="height: 72px; flex: 0 0 var(--i-72); border-bottom: var(--bw-1) solid var(--line); display: flex; align-items: center; padding-inline: var(--s-24)"><span style="font-size: var(--fs-24); font-weight: var(--fw-700)"><span data-l="en">Memory</span><span data-l="ar">الذاكرة</span></span></div>
+          <div style="padding: var(--s-20) var(--s-24); display: flex; flex-direction: column; gap: var(--s-14); overflow: hidden">
+            <div style="font-size: var(--fs-13); color: var(--muted)"><span data-l="en">I can keep up to 100 lasting memories on the free plan. 34 so far.</span><span data-l="ar">أقدر أحفظ لحد ١٠٠ ذكرى دايمة في الخطة المجانية. لحد دلوقتي ٣٤.</span></div>
+            <div style="min-height: var(--h-48); border-radius: var(--r-18); background: var(--surf); display: flex; align-items: center; gap: var(--s-10); padding-inline: var(--s-16)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18); color: var(--muted)"><use href="#i-search"></use></svg><span style="font-size: var(--fs-15); color: var(--muted)"><span data-l="en">Search what I remember</span><span data-l="ar">البحث في الذاكرة</span></span></div>
+            <div style="display: flex; gap: var(--s-6); flex-wrap: wrap">
+              <div style="padding: var(--s-7) var(--s-13); border-radius: var(--r-12); background: var(--tint); font-size: var(--fs-13); font-weight: var(--fw-700); min-height: var(--h-38); box-sizing: border-box; display: flex; align-items: center"><span data-l="en">All</span><span data-l="ar">الكل</span></div>
+              <div style="padding: var(--s-7) var(--s-13); border-radius: var(--r-12); border: var(--bw-1) solid var(--line); font-size: var(--fs-13); color: var(--muted); min-height: var(--h-38); box-sizing: border-box; display: flex; align-items: center"><span data-l="en">Facts</span><span data-l="ar">حقائق</span></div>
+              <div style="padding: var(--s-7) var(--s-13); border-radius: var(--r-12); border: var(--bw-1) solid var(--line); font-size: var(--fs-13); color: var(--muted); min-height: var(--h-38); box-sizing: border-box; display: flex; align-items: center"><span data-l="en">Preferences</span><span data-l="ar">تفضيلات</span></div>
+              <div style="padding: var(--s-7) var(--s-13); border-radius: var(--r-12); border: var(--bw-1) solid var(--line); font-size: var(--fs-13); color: var(--muted); min-height: var(--h-38); box-sizing: border-box; display: flex; align-items: center"><span data-l="en">Topics</span><span data-l="ar">موضوعات</span></div>
+              <div style="padding: var(--s-7) var(--s-13); border-radius: var(--r-12); border: var(--bw-1) solid var(--line); font-size: var(--fs-13); color: var(--muted); min-height: var(--h-38); box-sizing: border-box; display: flex; align-items: center"><span data-l="en">People</span><span data-l="ar">أشخاص</span></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: var(--s-8)">
+              <div style="background: var(--tint); border-radius: var(--r-16); padding: var(--s-14) var(--s-16); display: flex; flex-direction: column; gap: var(--s-5)"><span style="font-size: var(--fs-10); font-weight: var(--fw-700); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Person</span><span data-l="ar">شخص</span></span><span style="font-size: var(--fs-15); line-height: var(--lh-24)"><span data-l="en">Her sister's birthday is 3 June, and she dislikes surprises.</span><span data-l="ar">عيد ميلاد أختها ٣ يونيو، وما بتحبش المفاجآت.</span></span></div>
+              <div style="background: var(--surf); border-radius: var(--r-16); padding: var(--s-14) var(--s-16); display: flex; flex-direction: column; gap: var(--s-5)"><span style="font-size: var(--fs-10); font-weight: var(--fw-700); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Ongoing topic</span><span data-l="ar">موضوع مستمر</span></span><span style="font-size: var(--fs-15); line-height: var(--lh-24)"><span data-l="en">Looking for an apartment closer to work.</span><span data-l="ar">بيدوّر على شقة أقرب للشغل.</span></span></div>
+              <div style="background: var(--surf); border-radius: var(--r-16); padding: var(--s-14) var(--s-16); display: flex; flex-direction: column; gap: var(--s-5)"><span style="font-size: var(--fs-10); font-weight: var(--fw-700); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Preference</span><span data-l="ar">تفضيل</span></span><span style="font-size: var(--fs-15); line-height: var(--lh-24)"><span data-l="en">Prefers being told things directly, without softening.</span><span data-l="ar">بيحب الكلام المباشر بدون تلطيف.</span></span></div>
+              <div style="background: var(--surf); border-radius: var(--r-16); padding: var(--s-14) var(--s-16); display: flex; flex-direction: column; gap: var(--s-5)"><span style="font-size: var(--fs-10); font-weight: var(--fw-700); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Moment</span><span data-l="ar">لحظة</span></span><span style="font-size: var(--fs-15); line-height: var(--lh-24)"><span data-l="en">The night the presentation went well and the relief was audible.</span><span data-l="ar">الليلة اللي العرض فيها عدّى بسلام، والارتياح كان واضح.</span></span></div>
+            </div>
+          </div>
+        </div>
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+          <div style="height: 72px; flex: 0 0 var(--i-72); border-bottom: var(--bw-1) solid var(--line); display: flex; align-items: center; gap: var(--s-14); padding-inline: var(--s-32)"><span style="flex: 1; font-size: var(--fs-15); font-weight: var(--fw-700); color: var(--muted)"><span data-l="en">Selected memory</span><span data-l="ar">الذكرى المختارة</span></span><svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19); color: var(--muted)"><use href="#i-edit"></use></svg><svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19); color: var(--danger)"><use href="#i-trash"></use></svg></div>
+          <div style="flex: 1; padding: var(--s-32); display: flex; flex-direction: column; gap: var(--s-22); max-width: 620px">
+            <span style="font-size: var(--fs-11); font-weight: var(--fw-700); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Person</span><span data-l="ar">شخص</span></span>
+            <div style="font-size: var(--fs-24); line-height: var(--lh-36); font-weight: var(--fw-600); text-wrap: pretty"><span data-l="en">Her sister's birthday is 3 June, and she dislikes surprises.</span><span data-l="ar">عيد ميلاد أختها ٣ يونيو، وما بتحبش المفاجآت.</span></div>
+            <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-62); padding: var(--s-12) var(--s-18); background: var(--surf); border-radius: var(--r-16)">
+              <svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18); color: var(--muted); flex: 0 0 var(--i-18)"><use href="#i-chat"></use></svg>
+              <div style="flex: 1; display: flex; flex-direction: column"><span style="font-size: var(--fs-14); font-weight: var(--fw-600)"><span data-l="en">From your message on 18 May.</span><span data-l="ar">من رسالتك في ١٨ مايو.</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">Open it in the conversation</span><span data-l="ar">فتحها في الدردشة</span></span></div>
+              <svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg>
+            </div>
+            <div style="font-size: var(--fs-14); line-height: var(--lh-24); color: var(--muted); text-wrap: pretty"><span data-l="en">If you delete the source message, I'll ask whether this should go with it. If you keep it, it will say "Source removed — kept by you."</span><span data-l="ar">لو الرسالة الأصلية اتحذفت، هسأل لو الذكرى تتحذف معاها. ولو اتحفظت، هتقول «المصدر محذوف — والذكرى محفوظة بقرارك».</span></div>
+          </div>
+        </div>
+      </div>
+    </figure>
+
+    <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+      <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-15); font-weight: var(--fw-700)"><span data-l="en">The fallback rule — every other route</span><span data-l="ar">القاعدة العامة لبقية الشاشات</span></span><span style="font-size: var(--fs-13); color: var(--muted)">persistent rail · centred 720px column · no bottom navigation · dialogs and side sheets instead of bottom sheets. Shown here on Tasks &amp; notes.</span></figcaption>
+      <div data-screen-label="Desktop / fallback" style="width: 1440px; height: 900px; flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-20); box-shadow: var(--elev-1); overflow: hidden; display: flex">
+        <dc-import name="LianRail" active="tasks" style="flex: 0 0 268px" hint-size="268px,900px"></dc-import>
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+          <div style="height: 72px; flex: 0 0 var(--i-72); border-bottom: var(--bw-1) solid var(--line); display: flex; align-items: center; justify-content: center">
+            <div style="width: 100%; max-width: 720px; display: flex; align-items: center; padding-inline: var(--s-8)"><span style="flex: 1; font-size: var(--fs-24); font-weight: var(--fw-700)"><span data-l="en">Tasks &amp; notes</span><span data-l="ar">المهام والملاحظات</span></span><svg viewBox="0 0 24 24" style="width: var(--i-20); height: var(--i-20); color: var(--muted)"><use href="#i-search"></use></svg></div>
+          </div>
+          <div style="flex: 1; overflow: hidden; display: flex; justify-content: center; padding: var(--s-30) var(--s-32)">
+            <div style="width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: var(--s-22)">
+              <div style="font-size: var(--fs-20); line-height: var(--lh-32); text-wrap: pretty"><span data-l="en">Three things today, and the book that's still in the bag.</span><span data-l="ar">تلات حاجات النهاردة، والكتاب اللي لسه في الشنطة.</span></div>
+              <div style="display: flex; gap: var(--s-10)">
+                <div style="flex: 1; background: var(--surf); border-radius: var(--r-18); padding: var(--s-16); display: flex; align-items: center; gap: var(--s-12)"><div style="width: var(--i-26); height: var(--i-26); flex: 0 0 var(--i-26); border-radius: var(--r-round); background: var(--ink); display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 24 24" style="width: var(--i-15); height: var(--i-15); color: var(--onink)"><use href="#i-check"></use></svg></div><span style="font-size: var(--fs-15); font-weight: var(--fw-600)"><span data-l="en">Water</span><span data-l="ar">ماء</span></span></div>
+                <div style="flex: 1; background: var(--surf); border-radius: var(--r-18); padding: var(--s-16); display: flex; align-items: center; gap: var(--s-12)"><div style="width: var(--i-26); height: var(--i-26); flex: 0 0 var(--i-26); border-radius: var(--r-round); border: var(--bw-1-6) solid var(--edge)"></div><span style="font-size: var(--fs-15); font-weight: var(--fw-600)"><span data-l="en">Walk</span><span data-l="ar">مشي</span></span></div>
+                <div style="flex: 1; background: var(--surf); border-radius: var(--r-18); padding: var(--s-16); display: flex; align-items: center; gap: var(--s-12)"><div style="width: var(--i-26); height: var(--i-26); flex: 0 0 var(--i-26); border-radius: var(--r-round); border: var(--bw-1-6) solid var(--edge)"></div><span style="font-size: var(--fs-15); font-weight: var(--fw-600)"><span data-l="en">Read</span><span data-l="ar">قراءة</span></span></div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: var(--s-8)">
+                <span style="font-size: var(--fs-12); font-weight: var(--fw-700); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Today · Tuesday 15 May</span><span data-l="ar">اليوم · الثلاثاء ١٥ مايو</span></span>
+                <div style="display: flex; align-items: center; gap: var(--s-14); min-height: var(--h-62); padding: var(--s-10) var(--s-18); background: var(--surf); border-radius: var(--r-16)"><div style="width: var(--i-22); height: var(--i-22); flex: 0 0 var(--i-22); border-radius: var(--r-round); border: var(--bw-1-6) solid var(--edge)"></div><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Review the project brief</span><span data-l="ar">مراجعة ملخص المشروع</span></span><span style="font-size: var(--fs-14); color: var(--muted)"><span data-l="en">10:00</span><span data-l="ar">١٠:٠٠</span></span></div>
+                <div style="display: flex; align-items: center; gap: var(--s-14); min-height: var(--h-62); padding: var(--s-10) var(--s-18); background: var(--surf); border-radius: var(--r-16)"><div style="width: var(--i-22); height: var(--i-22); flex: 0 0 var(--i-22); border-radius: var(--r-round); border: var(--bw-1-6) solid var(--edge)"></div><div style="flex: 1; display: flex; flex-direction: column"><span style="font-size: var(--fs-16)"><span data-l="en">Return the library book</span><span data-l="ar">ترجيع كتاب المكتبة</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">You mentioned this yesterday.</span><span data-l="ar">جه في كلامنا امبارح.</span></span></div><span style="font-size: var(--fs-14); color: var(--muted)"><span data-l="en">18:00</span><span data-l="ar">١٨:٠٠</span></span></div>
+                <div style="display: flex; align-items: center; gap: var(--s-14); min-height: var(--h-62); padding: var(--s-10) var(--s-18); background: var(--surf); border-radius: var(--r-16); opacity: .6"><div style="width: var(--i-22); height: var(--i-22); flex: 0 0 var(--i-22); border-radius: var(--r-round); background: var(--ink); display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 24 24" style="width: var(--i-14); height: var(--i-14); color: var(--onink)"><use href="#i-check"></use></svg></div><span style="flex: 1; font-size: var(--fs-16); text-decoration: line-through"><span data-l="en">Call the clinic</span><span data-l="ar">مكالمة العيادة</span></span></div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: var(--s-8)">
+                <span style="font-size: var(--fs-12); font-weight: var(--fw-700); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Notes</span><span data-l="ar">ملاحظات</span></span>
+                <div style="display: flex; align-items: center; gap: var(--s-14); min-height: var(--h-58); padding: var(--s-10) var(--s-18); background: var(--surf); border-radius: var(--r-16)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18); color: var(--muted)"><use href="#i-note"></use></svg><span style="flex: 1; font-size: var(--fs-15)"><span data-l="en">Questions for the landlord</span><span data-l="ar">أسئلة لصاحب البيت</span></span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </figure>
+
+  </section>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1560,&quot;height&quot;:1100},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;day&quot;,&quot;quiet&quot;,&quot;night&quot;],&quot;default&quot;:&quot;day&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Theme&quot;},&quot;locale&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;English&quot;,&quot;العربية&quot;],&quot;default&quot;:&quot;English&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Theme&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const locale = this.props.locale ?? 'English';
+    return { theme: this.props.theme ?? 'day', dir: locale === 'English' ? 'ltr' : 'rtl' };
+  }
+}
+</script>
+</body>
+</html>

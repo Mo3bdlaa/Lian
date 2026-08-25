@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="width: 268px; flex: 0 0 268px; align-self: stretch; background: var(--surf2); border-inline-end: var(--bw-1) solid var(--line); display: flex; flex-direction: column; color: var(--ink); overflow: hidden">
+  <div style="padding: var(--s-22) var(--s-18) var(--s-16); display: flex; flex-direction: column; gap: var(--s-12); border-bottom: var(--bw-1) solid var(--line)">
+    <svg viewBox="0 0 571.37 216" style="width: 74px; height: 28px; color: var(--ink)"><use href="#i-lockup"></use></svg>
+    <div style="display: flex; align-items: center; gap: var(--s-11); padding: var(--s-8); border-radius: var(--r-14); background: var(--surf)">
+      <div style="width: var(--i-38); height: var(--i-38); flex: 0 0 var(--i-38); border-radius: var(--r-round); background: var(--rose); display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 99.22 128" style="width: 16px; height: 20.6px; color: var(--ink)"><use href="#i-mark"></use></svg></div>
+      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: var(--fs-15); font-weight: var(--fw-700)"><span data-l="en">Lian</span><span data-l="ar">لين</span></span><span style="font-size: var(--fs-12); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><span data-l="en">Feeling warm today</span><span data-l="ar">اليوم فيه دفء</span></span></div>
+      <svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-15); height: var(--i-15); color: var(--muted); flex: 0 0 var(--i-15)"><use href="#i-chevron"></use></svg>
+    </div>
+  </div>
+  <div style="flex: 1; overflow: hidden; padding: var(--s-14) var(--s-12); display: flex; flex-direction: column; gap: var(--s-16)">
+    <div style="display: flex; flex-direction: column; gap: var(--s-2)">
+      <div data-nav="{{ c }}" style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--tap-min); padding-inline: var(--s-12); border-radius: var(--r-12); font-size: var(--fs-15)"><svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19)"><use href="#i-chat"></use></svg><span data-l="en">Chat</span><span data-l="ar">الدردشة</span></div>
+      <div data-nav="{{ t }}" style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--tap-min); padding-inline: var(--s-12); border-radius: var(--r-12); font-size: var(--fs-15)"><svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19)"><use href="#i-tasks"></use></svg><span data-l="en">Tasks</span><span data-l="ar">المهام</span></div>
+      <div data-nav="{{ m }}" style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--tap-min); padding-inline: var(--s-12); border-radius: var(--r-12); font-size: var(--fs-15)"><svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19)"><use href="#i-money"></use></svg><span data-l="en">Money</span><span data-l="ar">المال</span></div>
+      <div data-nav="{{ s }}" style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--tap-min); padding-inline: var(--s-12); border-radius: var(--r-12); font-size: var(--fs-15)"><svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19)"><use href="#i-story"></use></svg><span data-l="en">Our story</span><span data-l="ar">قصتنا</span></div>
+      <div data-nav="{{ g }}" style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--tap-min); padding-inline: var(--s-12); border-radius: var(--r-12); font-size: var(--fs-15)"><svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19)"><use href="#i-settings"></use></svg><span data-l="en">Settings</span><span data-l="ar">الإعدادات</span></div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: var(--s-2)">
+      <span style="font-size: var(--fs-11); font-weight: var(--fw-700); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding-inline: var(--s-12); padding-bottom: var(--s-4)"><span data-l="en">Remember &amp; revisit</span><span data-l="ar">الذاكرة والرجوع</span></span>
+      <div data-nav="{{ mem }}" style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-42); padding-inline: var(--s-12); border-radius: var(--r-12); font-size: var(--fs-14)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18)"><use href="#i-memory"></use></svg><span data-l="en">Memory</span><span data-l="ar">الذاكرة</span></div>
+      <div data-nav="0" style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-42); padding-inline: var(--s-12); border-radius: var(--r-12); font-size: var(--fs-14)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18)"><use href="#i-search"></use></svg><span data-l="en">Search</span><span data-l="ar">البحث</span></div>
+      <div data-nav="0" style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-42); padding-inline: var(--s-12); border-radius: var(--r-12); font-size: var(--fs-14)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18)"><use href="#i-album"></use></svg><span data-l="en">Album</span><span data-l="ar">الألبوم</span></div>
+      <div data-nav="0" style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-42); padding-inline: var(--s-12); border-radius: var(--r-12); font-size: var(--fs-14)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18)"><use href="#i-briefing"></use></svg><span data-l="en">Morning briefing</span><span data-l="ar">إفادة الصبح</span></div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: var(--s-2)">
+      <span style="font-size: var(--fs-11); font-weight: var(--fw-700); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding-inline: var(--s-12); padding-bottom: var(--s-4)"><span data-l="en">Life with Lian</span><span data-l="ar">الحياة مع لين</span></span>
+      <div data-nav="0" style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-42); padding-inline: var(--s-12); border-radius: var(--r-12); font-size: var(--fs-14)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18)"><use href="#i-health"></use></svg><span data-l="en">Health</span><span data-l="ar">الصحة</span></div>
+      <div data-nav="0" style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-42); padding-inline: var(--s-12); border-radius: var(--r-12); font-size: var(--fs-14)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18)"><use href="#i-assistants"></use></svg><span data-l="en">Assistants</span><span data-l="ar">المساعدون</span></div>
+      <div data-nav="0" style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-42); padding-inline: var(--s-12); border-radius: var(--r-12); font-size: var(--fs-14)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18)"><use href="#i-person"></use></svg><span data-l="en">About you</span><span data-l="ar">عنك</span></div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: var(--s-2)">
+      <span style="font-size: var(--fs-11); font-weight: var(--fw-700); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding-inline: var(--s-12); padding-bottom: var(--s-4)"><span data-l="en">Trust &amp; ownership</span><span data-l="ar">الثقة والملكية</span></span>
+      <div data-nav="0" style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-42); padding-inline: var(--s-12); border-radius: var(--r-12); font-size: var(--fs-14)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18)"><use href="#i-shield"></use></svg><span data-l="en">Security</span><span data-l="ar">الأمان</span></div>
+      <div data-nav="0" style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-42); padding-inline: var(--s-12); border-radius: var(--r-12); font-size: var(--fs-14)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18)"><use href="#i-data"></use></svg><span data-l="en">Your data</span><span data-l="ar">بياناتك</span></div>
+      <div data-nav="0" style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-42); padding-inline: var(--s-12); border-radius: var(--r-12); font-size: var(--fs-14)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18)"><use href="#i-card"></use></svg><span data-l="en">Subscription</span><span data-l="ar">الاشتراك</span></div>
+    </div>
+  </div>
+  <div style="padding: var(--s-12); border-top: var(--bw-1) solid var(--line)">
+    <div style="display: flex; align-items: center; gap: var(--s-11); padding: var(--s-8); border-radius: var(--r-12)">
+      <div style="width: var(--i-32); height: var(--i-32); flex: 0 0 var(--i-32); border-radius: var(--r-round); background: var(--user); display: flex; align-items: center; justify-content: center; font-size: var(--fs-13); font-weight: var(--fw-700)"><span data-l="en">F</span><span data-l="ar">ف</span></div>
+      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: var(--fs-14); font-weight: var(--fw-600)"><span data-l="en">Fatma</span><span data-l="ar">فاطمة</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">Free plan</span><span data-l="ar">الخطة المجانية</span></span></div>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:268,&quot;height&quot;:860},&quot;active&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;chat&quot;,&quot;tasks&quot;,&quot;money&quot;,&quot;story&quot;,&quot;settings&quot;,&quot;memory&quot;,&quot;none&quot;],&quot;default&quot;:&quot;chat&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const a = this.props.active ?? 'chat';
+    const f = k => (k === a ? '1' : '0');
+    return { c: f('chat'), t: f('tasks'), m: f('money'), s: f('story'), g: f('settings'), mem: f('memory') };
+  }
+}
+</script>
+</body>
+</html>

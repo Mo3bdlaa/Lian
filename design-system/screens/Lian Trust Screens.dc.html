@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lian-tokens.css">
+<script src="lian-defs.js"></script>
+</helmet>
+<div data-t="{{ theme }}" dir="{{ dir }}" style="background: var(--board); color: var(--ink); min-height: var(--h-screen); padding: var(--s-44) var(--s-40) var(--s-80); box-sizing: border-box">
+
+  <header style="display: flex; flex-direction: column; gap: var(--s-10); max-width: 900px; margin-bottom: var(--s-44)">
+    <div style="display: flex; align-items: center; gap: var(--s-12)">
+      <svg viewBox="0 0 99.22 128" style="width: 22px; height: 28.4px; color: var(--ink)"><use href="#i-mark"></use></svg>
+      <div style="font-size: var(--fs-12); font-weight: var(--fw-700); letter-spacing: var(--tracking-caps-wider); text-transform: uppercase; color: var(--muted)">Lian · identity &amp; trust · 390 px</div>
+    </div>
+    <div style="font-size: var(--fs-28); line-height: var(--lh-36); font-weight: var(--fw-700); max-width: 26ch">Assistants, settings, security, data, subscription, limits.</div>
+    <div style="font-size: var(--fs-15); color: var(--muted); max-width: 68ch; text-wrap: pretty">The screens where trust is either earned or lost. Serious states stay calm and human: no bank chrome, no red banners, no retention offers when someone leaves.</div>
+  </header>
+
+  <section style="display: flex; flex-direction: column; gap: var(--s-22); margin-bottom: var(--s-64)">
+    <div style="display: flex; align-items: baseline; gap: var(--s-14); border-bottom: var(--bw-1) solid var(--line); padding-bottom: var(--s-12)">
+      <h2 style="margin: 0; font-size: var(--fs-22); line-height: var(--lh-30); font-weight: var(--fw-700)"><span data-l="en">Assistants</span><span data-l="ar">المساعدون</span></h2>
+      <div style="font-size: var(--fs-14); color: var(--muted)">single-assistant state · two or more · creating one · profile with gender and voice. Abstract mark family, never photoreal portraits.</div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: var(--s-40)">
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">One assistant</span><span style="font-size: var(--fs-13); color: var(--muted)">no switcher offered — nothing to switch to</span></figcaption>
+        <div data-screen-label="Assistants / single" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <dc-import name="LianTop" title="Assistants" title-ar="المساعدون" lead="back" trail="none" style="flex: 0 0 auto" hint-size="390px,54px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-16); display: flex; flex-direction: column; gap: var(--s-14)">
+            <div style="background: var(--surf); border-radius: var(--r-20); padding: var(--s-16); display: flex; align-items: center; gap: var(--s-14)">
+              <div style="width: var(--i-52); height: var(--i-52); flex: 0 0 var(--i-52); border-radius: var(--r-round); background: var(--rose); display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 99.22 128" style="width: 22px; height: 28.4px; color: var(--ink)"><use href="#i-mark"></use></svg></div>
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--s-2)">
+                <span style="font-size: var(--fs-18); font-weight: var(--fw-700)"><span data-l="en">Lian</span><span data-l="ar">لين</span></span>
+                <span style="font-size: var(--fs-14); color: var(--muted)"><span data-l="en">Warm, direct, notices things.</span><span data-l="ar">دافية، مباشرة، وبتلاحظ.</span></span>
+              </div>
+              <span style="font-size: var(--fs-12); font-weight: var(--fw-700); padding: var(--s-5) var(--s-10); border-radius: var(--r-10); background: var(--canvas)"><span data-l="en">Active</span><span data-l="ar">نشطة</span></span>
+            </div>
+            <div style="font-size: var(--fs-15); color: var(--muted); line-height: var(--lh-24); text-wrap: pretty; padding-inline: var(--s-4)"><span data-l="en">Another assistant would be a separate person: their own name, their own memory, their own way of talking. Nothing crosses over.</span><span data-l="ar">أي مساعد تاني هيكون شخص منفصل: اسمه، وذاكرته، وطريقته في الكلام. مافيش حاجة تعدّي بينهم.</span></div>
+            <div style="min-height: var(--h-52); border-radius: var(--r-18); border: var(--bw-1) solid var(--line); display: flex; align-items: center; justify-content: center; font-size: var(--fs-16); font-weight: var(--fw-600)"><span data-l="en">Create another assistant</span><span data-l="ar">إنشاء مساعد آخر</span></div>
+          </div>
+          <dc-import name="LianNav" active="none" style="flex: 0 0 auto" hint-size="366px,76px"></dc-import>
+        </div>
+      </figure>
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">Two or more</span><span style="font-size: var(--fs-13); color: var(--muted)">each with a distinct mark tint and a personality line</span></figcaption>
+        <div data-screen-label="Assistants / switch" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <dc-import name="LianTop" title="Assistants" title-ar="المساعدون" lead="back" trail="none" style="flex: 0 0 auto" hint-size="390px,54px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-16); display: flex; flex-direction: column; gap: var(--s-10)">
+            <div style="background: var(--tint); border-radius: var(--r-20); padding: var(--s-16); display: flex; align-items: center; gap: var(--s-14)">
+              <div style="width: var(--i-52); height: var(--i-52); flex: 0 0 var(--i-52); border-radius: var(--r-round); background: var(--lilac); display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 99.22 128" style="width: 22px; height: 28.4px; color: var(--ink)"><use href="#i-mark"></use></svg></div>
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-18); font-weight: var(--fw-700)"><span data-l="en">Noor</span><span data-l="ar">نور</span></span><span style="font-size: var(--fs-14); color: var(--muted)"><span data-l="en">Brief, focused, good at work.</span><span data-l="ar">مختصر، مركز، وشغّال.</span></span></div>
+              <span style="font-size: var(--fs-12); font-weight: var(--fw-700); padding: var(--s-5) var(--s-10); border-radius: var(--r-10); background: var(--canvas)"><span data-l="en">Active</span><span data-l="ar">نشط</span></span>
+            </div>
+            <div style="background: var(--surf); border-radius: var(--r-20); padding: var(--s-16); display: flex; align-items: center; gap: var(--s-14)">
+              <div style="width: var(--i-52); height: var(--i-52); flex: 0 0 var(--i-52); border-radius: var(--r-round); background: var(--rose); display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 99.22 128" style="width: 22px; height: 28.4px; color: var(--ink)"><use href="#i-mark"></use></svg></div>
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-18); font-weight: var(--fw-700)"><span data-l="en">Lian</span><span data-l="ar">لين</span></span><span style="font-size: var(--fs-14); color: var(--muted)"><span data-l="en">Warm, direct, notices things.</span><span data-l="ar">دافية، مباشرة، وبتلاحظ.</span></span></div>
+            </div>
+            <div style="font-size: var(--fs-13); color: var(--muted); padding-inline: var(--s-4); text-wrap: pretty"><span data-l="en">They don't know each other. Memory, mood and history stay with whoever earned them.</span><span data-l="ar">مايعرفوش بعض. الذاكرة والمزاج والتاريخ يفضلوا مع صاحبهم.</span></div>
+            <div style="min-height: var(--h-52); border-radius: var(--r-18); border: var(--bw-1) solid var(--line); display: flex; align-items: center; justify-content: center; font-size: var(--fs-16); font-weight: var(--fw-600); margin-top: var(--s-4)"><span data-l="en">Create another assistant</span><span data-l="ar">إنشاء مساعد آخر</span></div>
+          </div>
+          <dc-import name="LianNav" active="none" style="flex: 0 0 auto" hint-size="366px,76px"></dc-import>
+        </div>
+      </figure>
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">Creating one is a conversation</span><span style="font-size: var(--fs-13); color: var(--muted)">not a configuration wizard</span></figcaption>
+        <div data-screen-label="Assistants / create" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <dc-import name="LianTop" title="" title-ar="" lead="close" trail="none" style="flex: 0 0 auto" hint-size="390px,54px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-16); display: flex; flex-direction: column; justify-content: flex-end; gap: var(--s-14)">
+            <div style="align-self: center; width: var(--i-64); height: var(--i-64); border-radius: var(--r-round); background: var(--surf); display: flex; align-items: center; justify-content: center; margin-bottom: var(--s-8)"><svg viewBox="0 0 99.22 128" style="width: 26px; height: 33.5px; color: var(--ink)"><use href="#i-mark"></use></svg></div>
+            <div style="max-width: 292px; background: var(--surf); border-radius: var(--r-20); padding: var(--s-13) var(--s-16); font-size: var(--fs-16)"><span data-l="en">What would you like to call me?</span><span data-l="ar">أنا اسمي إيه؟</span></div>
+            <div style="align-self: flex-end; max-width: 268px; background: var(--user); border-radius: var(--r-20); padding: var(--s-13) var(--s-16); font-size: var(--fs-16)"><span data-l="en">Noor.</span><span data-l="ar">نور.</span></div>
+            <div style="max-width: 292px; background: var(--surf); border-radius: var(--r-20); padding: var(--s-13) var(--s-16); font-size: var(--fs-16)"><span data-l="en">Noor. And should I speak as a woman or a man?</span><span data-l="ar">نور. وأتكلم بصيغة المؤنث ولا المذكر؟</span></div>
+            <div style="display: flex; gap: var(--s-8); align-self: flex-end">
+              <div style="padding: var(--s-10) var(--s-18); border-radius: var(--r-16); border: var(--bw-1) solid var(--line); font-size: var(--fs-15); font-weight: var(--fw-600); min-height: var(--tap-min); box-sizing: border-box; display: flex; align-items: center"><span data-l="en">A woman</span><span data-l="ar">مؤنث</span></div>
+              <div style="padding: var(--s-10) var(--s-18); border-radius: var(--r-16); background: var(--btn); color: var(--onbtn); font-size: var(--fs-15); font-weight: var(--fw-700); min-height: var(--tap-min); box-sizing: border-box; display: flex; align-items: center"><span data-l="en">A man</span><span data-l="ar">مذكر</span></div>
+            </div>
+          </div>
+          <dc-import name="LianInput" mode="text" style="flex: 0 0 auto" hint-size="390px,68px"></dc-import>
+        </div>
+      </figure>
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">Assistant profile</span><span style="font-size: var(--fs-13); color: var(--muted)">Settings → Her identity · gender changes grammar and voice defaults, not capability</span></figcaption>
+        <div data-screen-label="Assistants / profile" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <dc-import name="LianTop" title="Her identity" title-ar="هويتها" lead="back" trail="none" style="flex: 0 0 auto" hint-size="390px,54px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-16); display: flex; flex-direction: column; gap: var(--s-12)">
+            <div style="display: flex; align-items: center; gap: var(--s-14); padding-block: var(--s-4)">
+              <div style="width: var(--i-60); height: var(--i-60); flex: 0 0 var(--i-60); border-radius: var(--r-round); background: var(--rose); display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 99.22 128" style="width: 25px; height: 32.2px; color: var(--ink)"><use href="#i-mark"></use></svg></div>
+              <div style="flex: 1; display: flex; flex-direction: column"><span style="font-size: var(--fs-20); font-weight: var(--fw-700)"><span data-l="en">Lian</span><span data-l="ar">لين</span></span><span style="font-size: var(--fs-13); color: var(--muted)"><span data-l="en">Appearance theme · Rose</span><span data-l="ar">هيئة اللون · وردي</span></span></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56); padding: var(--s-8) var(--s-16); background: var(--surf); border-radius: var(--r-16)"><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Name</span><span data-l="ar">الاسم</span></span><span style="font-size: var(--fs-15); color: var(--muted)"><span data-l="en">Lian</span><span data-l="ar">لين</span></span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+            <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56); padding: var(--s-8) var(--s-16); background: var(--surf); border-radius: var(--r-16)"><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Gender</span><span data-l="ar">النوع</span></span><span style="font-size: var(--fs-15); color: var(--muted)"><span data-l="en">Female</span><span data-l="ar">مؤنث</span></span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+            <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56); padding: var(--s-8) var(--s-16); background: var(--surf); border-radius: var(--r-16)"><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Voice</span><span data-l="ar">الصوت</span></span><span style="font-size: var(--fs-15); color: var(--muted)"><span data-l="en">Layla · warm</span><span data-l="ar">ليلى · دافئ</span></span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+            <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56); padding: var(--s-8) var(--s-16); background: var(--surf); border-radius: var(--r-16)"><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Language &amp; style</span><span data-l="ar">اللغة والأسلوب</span></span><span style="font-size: var(--fs-15); color: var(--muted)"><span data-l="en">Auto</span><span data-l="ar">تلقائي</span></span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+            <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56); padding: var(--s-8) var(--s-16); background: var(--surf); border-radius: var(--r-16)"><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Personality</span><span data-l="ar">الشخصية</span></span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+            <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56); padding: var(--s-8) var(--s-16); background: var(--surf); border-radius: var(--r-16)"><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Quiet hours</span><span data-l="ar">ساعات الهدوء</span></span><span style="font-size: var(--fs-15); color: var(--muted)"><span data-l="en">23:00 – 07:00</span><span data-l="ar">٢٣:٠٠ – ٧:٠٠</span></span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+            <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56); padding: var(--s-8) var(--s-16); background: var(--surf); border-radius: var(--r-16)"><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">How she reaches out</span><span data-l="ar">طريقة تواصلها</span></span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+            <div style="display: flex; align-items: center; gap: var(--s-10); min-height: var(--h-56); padding: var(--s-8) var(--s-16); border-radius: var(--r-16); border: var(--bw-1) solid var(--line)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18); color: var(--muted)"><use href="#i-memory"></use></svg><span style="flex: 1; font-size: var(--fs-15); color: var(--muted)"><span data-l="en">Her memory is managed separately</span><span data-l="ar">ذاكرتها تُدار من مكانها</span></span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+          </div>
+          <dc-import name="LianNav" active="settings" style="flex: 0 0 auto" hint-size="366px,76px"></dc-import>
+        </div>
+      </figure>
+
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: var(--s-22); margin-bottom: var(--s-64)">
+    <div style="display: flex; align-items: baseline; gap: var(--s-14); border-bottom: var(--bw-1) solid var(--line); padding-bottom: var(--s-12)">
+      <h2 style="margin: 0; font-size: var(--fs-22); line-height: var(--lh-30); font-weight: var(--fw-700)"><span data-l="en">Settings</span><span data-l="ar">الإعدادات</span></h2>
+      <div style="font-size: var(--fs-14); color: var(--muted)">root · language &amp; style · personality · quiet hours · voice. Grouped around her, not around the system.</div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: var(--s-40)">
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">Root</span><span style="font-size: var(--fs-13); color: var(--muted)">her identity first, ownership last, nothing technical in between</span></figcaption>
+        <div data-screen-label="Settings / root" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <dc-import name="LianTop" title="Settings" title-ar="الإعدادات" lead="menu" trail="none" style="flex: 0 0 auto" hint-size="390px,54px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-16); display: flex; flex-direction: column; gap: var(--s-14)">
+            <div style="display: flex; flex-direction: column; gap: var(--s-6)">
+              <span style="font-size: var(--fs-11); font-weight: var(--fw-700); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Her</span><span data-l="ar">هي</span></span>
+              <div style="background: var(--surf); border-radius: var(--r-16); overflow: hidden">
+                <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56); padding-inline: var(--s-16)"><svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19); color: var(--muted)"><use href="#i-person"></use></svg><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Her identity</span><span data-l="ar">هويتها</span></span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+                <div style="height: 1px; background: var(--line); margin-inline-start: var(--s-47)"></div>
+                <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56); padding-inline: var(--s-16)"><svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19); color: var(--muted)"><use href="#i-sliders"></use></svg><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Her personality</span><span data-l="ar">شخصيتها</span></span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+                <div style="height: 1px; background: var(--line); margin-inline-start: var(--s-47)"></div>
+                <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56); padding-inline: var(--s-16)"><svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19); color: var(--muted)"><use href="#i-globe"></use></svg><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Language &amp; style</span><span data-l="ar">اللغة والأسلوب</span></span><span style="font-size: var(--fs-14); color: var(--muted)"><span data-l="en">Auto</span><span data-l="ar">تلقائي</span></span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: var(--s-6)">
+              <span style="font-size: var(--fs-11); font-weight: var(--fw-700); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted)"><span data-l="en">When she reaches you</span><span data-l="ar">وقت تواصلها</span></span>
+              <div style="background: var(--surf); border-radius: var(--r-16); overflow: hidden">
+                <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56); padding-inline: var(--s-16)"><svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19); color: var(--muted)"><use href="#i-bell"></use></svg><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Notifications</span><span data-l="ar">التنبيهات</span></span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+                <div style="height: 1px; background: var(--line); margin-inline-start: var(--s-47)"></div>
+                <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56); padding-inline: var(--s-16)"><svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19); color: var(--muted)"><use href="#i-moon"></use></svg><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Quiet hours</span><span data-l="ar">ساعات الهدوء</span></span><span style="font-size: var(--fs-14); color: var(--muted)"><span data-l="en">23:00 – 07:00</span><span data-l="ar">٢٣:٠٠ – ٧:٠٠</span></span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: var(--s-6)">
+              <span style="font-size: var(--fs-11); font-weight: var(--fw-700); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Yours</span><span data-l="ar">ملكك</span></span>
+              <div style="background: var(--surf); border-radius: var(--r-16); overflow: hidden">
+                <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56); padding-inline: var(--s-16)"><svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19); color: var(--muted)"><use href="#i-shield"></use></svg><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Security &amp; devices</span><span data-l="ar">الأمان والأجهزة</span></span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+                <div style="height: 1px; background: var(--line); margin-inline-start: var(--s-47)"></div>
+                <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56); padding-inline: var(--s-16)"><svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19); color: var(--muted)"><use href="#i-data"></use></svg><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Your data</span><span data-l="ar">بياناتك</span></span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+                <div style="height: 1px; background: var(--line); margin-inline-start: var(--s-47)"></div>
+                <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56); padding-inline: var(--s-16)"><svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19); color: var(--muted)"><use href="#i-card"></use></svg><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Subscription</span><span data-l="ar">الاشتراك</span></span><span style="font-size: var(--fs-14); color: var(--muted)"><span data-l="en">Free</span><span data-l="ar">مجاني</span></span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+              </div>
+            </div>
+          </div>
+          <dc-import name="LianNav" active="settings" style="flex: 0 0 auto" hint-size="366px,76px"></dc-import>
+        </div>
+      </figure>
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">Language &amp; style</span><span style="font-size: var(--fs-13); color: var(--muted)">eight canonical options · Auto is the default · no flags · Gulf is one option</span></figcaption>
+        <div data-screen-label="Settings / language" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <dc-import name="LianTop" title="Language &amp; style" title-ar="اللغة والأسلوب" lead="back" trail="none" style="flex: 0 0 auto" hint-size="390px,54px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-16); display: flex; flex-direction: column; gap: var(--s-8)">
+            <div style="background: var(--surf); border-radius: var(--r-16); overflow: hidden">
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-60); padding-inline: var(--s-16); background: var(--tint)"><div style="flex: 1; display: flex; flex-direction: column"><span style="font-size: var(--fs-16); font-weight: var(--fw-700)"><span data-l="en">Auto — match the user</span><span data-l="ar">تلقائي — على طريقتك</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">She replies in whatever you write in</span><span data-l="ar">بترد بلغة الرسالة</span></span></div><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18)"><use href="#i-check"></use></svg></div>
+              <div style="display: flex; align-items: center; min-height: var(--h-54); padding-inline: var(--s-16); font-size: var(--fs-16)"><span data-l="en">English</span><span data-l="ar">الإنجليزية</span></div>
+              <div style="display: flex; align-items: center; min-height: var(--h-54); padding-inline: var(--s-16); font-size: var(--fs-16)"><span data-l="en">Egyptian Arabic</span><span data-l="ar">مصري</span></div>
+              <div style="display: flex; align-items: center; min-height: var(--h-54); padding-inline: var(--s-16); font-size: var(--fs-16)"><span data-l="en">Levantine Arabic</span><span data-l="ar">شامي</span></div>
+              <div style="display: flex; align-items: center; min-height: var(--h-54); padding-inline: var(--s-16); font-size: var(--fs-16)"><span data-l="en">Gulf Arabic</span><span data-l="ar">خليجي</span></div>
+              <div style="display: flex; align-items: center; min-height: var(--h-54); padding-inline: var(--s-16); font-size: var(--fs-16)"><span data-l="en">Maghrebi Arabic</span><span data-l="ar">مغربي</span></div>
+              <div style="display: flex; align-items: center; min-height: var(--h-54); padding-inline: var(--s-16); font-size: var(--fs-16)"><span data-l="en">Modern Standard Arabic</span><span data-l="ar">العربية الفصحى</span></div>
+              <div style="display: flex; align-items: center; min-height: var(--h-54); padding-inline: var(--s-16); font-size: var(--fs-16)"><span data-l="en">French</span><span data-l="ar">الفرنسية</span></div>
+            </div>
+            <div style="display: flex; gap: var(--s-12); background: var(--surf); border-radius: var(--r-18); padding: var(--s-14) var(--s-16); margin-top: var(--s-6)">
+              <svg viewBox="0 0 99.22 128" style="width: 15px; height: 19.4px; color: var(--ink); flex: 0 0 var(--i-15); margin-top: var(--s-4)"><use href="#i-mark"></use></svg>
+              <div style="font-size: var(--fs-15); line-height: var(--lh-24)"><span data-l="en">Like this?</span><span data-l="ar">أتكلم معك بالطريقة دي؟</span></div>
+            </div>
+          </div>
+          <dc-import name="LianNav" active="settings" style="flex: 0 0 auto" hint-size="366px,76px"></dc-import>
+        </div>
+      </figure>
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">Her personality</span><span style="font-size: var(--fs-13); color: var(--muted)">descriptive dials, no numbers, no "AI parameters" · changes preview as sample text</span></figcaption>
+        <div data-screen-label="Settings / personality" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <dc-import name="LianTop" title="Her personality" title-ar="شخصيتها" lead="back" trail="none" style="flex: 0 0 auto" hint-size="390px,54px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-16); display: flex; flex-direction: column; gap: var(--s-20)">
+            <div style="display: flex; flex-direction: column; gap: var(--s-8)">
+              <div style="display: flex; justify-content: space-between; font-size: var(--fs-13); color: var(--muted)"><span data-l="en">Calm</span><span data-l="ar">هادي</span><span data-l="en">Affectionate</span><span data-l="ar">حنيّن</span></div>
+              <div style="height: 6px; border-radius: var(--r-3); background: var(--line); position: relative"><div style="position: absolute; inset-block: 0; inset-inline-start: 0; width: 68%; background: var(--ink); border-radius: var(--r-3)"></div><div style="position: absolute; inset-inline-start: 68%; top: -9px; width: var(--i-24); height: var(--i-24); border-radius: var(--r-round); background: var(--surf2); border: var(--bw-2) solid var(--ink); margin-inline-start: calc(-1 * var(--s-12))"></div></div>
+              <span style="font-size: var(--fs-14); font-weight: var(--fw-600)"><span data-l="en">Warmth</span><span data-l="ar">الدفء</span></span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: var(--s-8)">
+              <div style="display: flex; justify-content: space-between; font-size: var(--fs-13); color: var(--muted)"><span data-l="en">Serious</span><span data-l="ar">جدّي</span><span data-l="en">Playful</span><span data-l="ar">مرح</span></div>
+              <div style="height: 6px; border-radius: var(--r-3); background: var(--line); position: relative"><div style="position: absolute; inset-block: 0; inset-inline-start: 0; width: 30%; background: var(--ink); border-radius: var(--r-3)"></div><div style="position: absolute; inset-inline-start: 30%; top: -9px; width: var(--i-24); height: var(--i-24); border-radius: var(--r-round); background: var(--surf2); border: var(--bw-2) solid var(--ink); margin-inline-start: calc(-1 * var(--s-12))"></div></div>
+              <span style="font-size: var(--fs-14); font-weight: var(--fw-600)"><span data-l="en">Playfulness</span><span data-l="ar">المرح</span></span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: var(--s-8)">
+              <div style="display: flex; justify-content: space-between; font-size: var(--fs-13); color: var(--muted)"><span data-l="en">Waits for you</span><span data-l="ar">تستنى</span><span data-l="en">Reaches out</span><span data-l="ar">تبدأ هي</span></div>
+              <div style="height: 6px; border-radius: var(--r-3); background: var(--line); position: relative"><div style="position: absolute; inset-block: 0; inset-inline-start: 0; width: 80%; background: var(--ink); border-radius: var(--r-3)"></div><div style="position: absolute; inset-inline-start: 80%; top: -9px; width: var(--i-24); height: var(--i-24); border-radius: var(--r-round); background: var(--surf2); border: var(--bw-2) solid var(--ink); margin-inline-start: calc(-1 * var(--s-12))"></div></div>
+              <span style="font-size: var(--fs-14); font-weight: var(--fw-600)"><span data-l="en">Proactivity</span><span data-l="ar">المبادرة</span></span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: var(--s-8)">
+              <div style="display: flex; justify-content: space-between; font-size: var(--fs-13); color: var(--muted)"><span data-l="en">Gentle</span><span data-l="ar">لطيف</span><span data-l="en">Direct</span><span data-l="ar">مباشر</span></div>
+              <div style="height: 6px; border-radius: var(--r-3); background: var(--line); position: relative"><div style="position: absolute; inset-block: 0; inset-inline-start: 0; width: 74%; background: var(--ink); border-radius: var(--r-3)"></div><div style="position: absolute; inset-inline-start: 74%; top: -9px; width: var(--i-24); height: var(--i-24); border-radius: var(--r-round); background: var(--surf2); border: var(--bw-2) solid var(--ink); margin-inline-start: calc(-1 * var(--s-12))"></div></div>
+              <span style="font-size: var(--fs-14); font-weight: var(--fw-600)"><span data-l="en">Directness</span><span data-l="ar">المباشرة</span></span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: var(--s-8)">
+              <div style="display: flex; justify-content: space-between; font-size: var(--fs-13); color: var(--muted)"><span data-l="en">Subtle</span><span data-l="ar">خفيف</span><span data-l="en">Motivating</span><span data-l="ar">محفّز</span></div>
+              <div style="height: 6px; border-radius: var(--r-3); background: var(--line); position: relative"><div style="position: absolute; inset-block: 0; inset-inline-start: 0; width: 40%; background: var(--ink); border-radius: var(--r-3)"></div><div style="position: absolute; inset-inline-start: 40%; top: -9px; width: var(--i-24); height: var(--i-24); border-radius: var(--r-round); background: var(--surf2); border: var(--bw-2) solid var(--ink); margin-inline-start: calc(-1 * var(--s-12))"></div></div>
+              <span style="font-size: var(--fs-14); font-weight: var(--fw-600)"><span data-l="en">Encouragement</span><span data-l="ar">التشجيع</span></span>
+            </div>
+            <div style="display: flex; gap: var(--s-12); background: var(--surf); border-radius: var(--r-18); padding: var(--s-14) var(--s-16)">
+              <svg viewBox="0 0 99.22 128" style="width: 15px; height: 19.4px; color: var(--ink); flex: 0 0 var(--i-15); margin-top: var(--s-4)"><use href="#i-mark"></use></svg>
+              <div style="font-size: var(--fs-15); line-height: var(--lh-24); text-wrap: pretty"><span data-l="en">"You've moved this twice. Do you want to drop it, or do it badly and be done?"</span><span data-l="ar">«أجّلتها مرتين. تسقط خلاص، ولا تخلص بأي شكل وتُنسى؟»</span></div>
+            </div>
+          </div>
+          <dc-import name="LianNav" active="settings" style="flex: 0 0 auto" hint-size="366px,76px"></dc-import>
+        </div>
+      </figure>
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">Quiet hours</span><span style="font-size: var(--fs-13); color: var(--muted)">simple times and days · one security exception · no timeline visualisation</span></figcaption>
+        <div data-screen-label="Settings / quiet hours" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <dc-import name="LianTop" title="Quiet hours" title-ar="ساعات الهدوء" lead="back" trail="none" style="flex: 0 0 auto" hint-size="390px,54px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-16); display: flex; flex-direction: column; gap: var(--s-14)">
+            <div style="display: flex; gap: var(--s-12); background: var(--surf); border-radius: var(--r-18); padding: var(--s-14) var(--s-16)">
+              <svg viewBox="0 0 99.22 128" style="width: 15px; height: 19.4px; color: var(--ink); flex: 0 0 var(--i-15); margin-top: var(--s-4)"><use href="#i-mark"></use></svg>
+              <div style="font-size: var(--fs-15); line-height: var(--lh-24); text-wrap: pretty"><span data-l="en">I'll keep things quiet during these hours unless something important needs your attention.</span><span data-l="ar">هحافظ على الهدوء في الساعات دي، إلا لو فيه حاجة مهمة فعلاً.</span></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-60); padding: var(--s-10) var(--s-16); background: var(--surf); border-radius: var(--r-16)"><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Quiet hours</span><span data-l="ar">ساعات الهدوء</span></span><div style="width: 46px; height: 28px; border-radius: var(--r-14); background: var(--ink); padding: var(--s-3); box-sizing: border-box; display: flex; justify-content: flex-end"><div style="width: var(--i-22); height: var(--i-22); border-radius: var(--r-round); background: var(--onink)"></div></div></div>
+            <div style="display: flex; gap: var(--s-10)">
+              <div style="flex: 1; display: flex; flex-direction: column; gap: var(--s-6)"><span style="font-size: var(--fs-12); font-weight: var(--fw-700); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)"><span data-l="en">From</span><span data-l="ar">من</span></span><div style="min-height: var(--h-60); border: var(--bw-1) solid var(--line); border-radius: var(--r-16); background: var(--surf2); display: flex; align-items: center; justify-content: center; font-size: var(--fs-24); font-weight: var(--fw-700)"><span data-l="en">23:00</span><span data-l="ar">٢٣:٠٠</span></div></div>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: var(--s-6)"><span style="font-size: var(--fs-12); font-weight: var(--fw-700); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Until</span><span data-l="ar">إلى</span></span><div style="min-height: var(--h-60); border: var(--bw-1) solid var(--line); border-radius: var(--r-16); background: var(--surf2); display: flex; align-items: center; justify-content: center; font-size: var(--fs-24); font-weight: var(--fw-700)"><span data-l="en">07:00</span><span data-l="ar">٧:٠٠</span></div></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: var(--s-6)">
+              <span style="font-size: var(--fs-12); font-weight: var(--fw-700); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Days</span><span data-l="ar">الأيام</span></span>
+              <div style="display: flex; gap: var(--s-6)">
+                <div style="flex: 1; min-height: var(--tap-min); border-radius: var(--r-12); background: var(--tint); display: flex; align-items: center; justify-content: center; font-size: var(--fs-13); font-weight: var(--fw-700)"><span data-l="en">Sun</span><span data-l="ar">أحد</span></div>
+                <div style="flex: 1; min-height: var(--tap-min); border-radius: var(--r-12); background: var(--tint); display: flex; align-items: center; justify-content: center; font-size: var(--fs-13); font-weight: var(--fw-700)"><span data-l="en">Mon</span><span data-l="ar">اثنين</span></div>
+                <div style="flex: 1; min-height: var(--tap-min); border-radius: var(--r-12); background: var(--tint); display: flex; align-items: center; justify-content: center; font-size: var(--fs-13); font-weight: var(--fw-700)"><span data-l="en">Tue</span><span data-l="ar">ثلاثاء</span></div>
+                <div style="flex: 1; min-height: var(--tap-min); border-radius: var(--r-12); background: var(--tint); display: flex; align-items: center; justify-content: center; font-size: var(--fs-13); font-weight: var(--fw-700)"><span data-l="en">Wed</span><span data-l="ar">أربعاء</span></div>
+                <div style="flex: 1; min-height: var(--tap-min); border-radius: var(--r-12); background: var(--tint); display: flex; align-items: center; justify-content: center; font-size: var(--fs-13); font-weight: var(--fw-700)"><span data-l="en">Thu</span><span data-l="ar">خميس</span></div>
+                <div style="flex: 1; min-height: var(--tap-min); border-radius: var(--r-12); border: var(--bw-1) solid var(--line); display: flex; align-items: center; justify-content: center; font-size: var(--fs-13); color: var(--muted)"><span data-l="en">Fri</span><span data-l="ar">جمعة</span></div>
+                <div style="flex: 1; min-height: var(--tap-min); border-radius: var(--r-12); border: var(--bw-1) solid var(--line); display: flex; align-items: center; justify-content: center; font-size: var(--fs-13); color: var(--muted)"><span data-l="en">Sat</span><span data-l="ar">سبت</span></div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-64); padding: var(--s-10) var(--s-16); background: var(--surf); border-radius: var(--r-16)"><div style="flex: 1; display: flex; flex-direction: column"><span style="font-size: var(--fs-16)"><span data-l="en">Allow urgent security alerts</span><span data-l="ar">السماح بتنبيهات الأمان العاجلة</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">A new device signing in, and nothing else</span><span data-l="ar">دخول جهاز جديد فقط</span></span></div><div style="width: 46px; height: 28px; border-radius: var(--r-14); background: var(--ink); padding: var(--s-3); box-sizing: border-box; display: flex; justify-content: flex-end"><div style="width: var(--i-22); height: var(--i-22); border-radius: var(--r-round); background: var(--onink)"></div></div></div>
+          </div>
+          <dc-import name="LianNav" active="settings" style="flex: 0 0 auto" hint-size="366px,76px"></dc-import>
+        </div>
+      </figure>
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">Voice</span><span style="font-size: var(--fs-13); color: var(--muted)">a paid feature, stated plainly · recommendations follow gender without locking it</span></figcaption>
+        <div data-screen-label="Settings / voice" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <dc-import name="LianTop" title="Voice" title-ar="الصوت" lead="back" trail="none" style="flex: 0 0 auto" hint-size="390px,54px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-16); display: flex; flex-direction: column; gap: var(--s-12)">
+            <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-64); padding: var(--s-10) var(--s-16); background: var(--tint); border-radius: var(--r-16)">
+              <div style="width: var(--i-40); height: var(--i-40); flex: 0 0 var(--i-40); border-radius: var(--r-round); background: var(--canvas); display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19)"><use href="#i-play"></use></svg></div>
+              <div style="flex: 1; display: flex; flex-direction: column"><span style="font-size: var(--fs-16); font-weight: var(--fw-700)"><span data-l="en">Layla</span><span data-l="ar">ليلى</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">Warm, unhurried · recommended</span><span data-l="ar">دافئ، مترسّل · مقترح</span></span></div>
+              <svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18)"><use href="#i-check"></use></svg>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-64); padding: var(--s-10) var(--s-16); background: var(--surf); border-radius: var(--r-16)">
+              <div style="width: var(--i-40); height: var(--i-40); flex: 0 0 var(--i-40); border-radius: var(--r-round); background: var(--canvas); display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19); color: var(--muted)"><use href="#i-play"></use></svg></div>
+              <div style="flex: 1; display: flex; flex-direction: column"><span style="font-size: var(--fs-16); font-weight: var(--fw-600)"><span data-l="en">Hana</span><span data-l="ar">هنا</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">Brighter, quicker</span><span data-l="ar">أخف وأسرع</span></span></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-64); padding: var(--s-10) var(--s-16); background: var(--surf); border-radius: var(--r-16)">
+              <div style="width: var(--i-40); height: var(--i-40); flex: 0 0 var(--i-40); border-radius: var(--r-round); background: var(--canvas); display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19); color: var(--muted)"><use href="#i-play"></use></svg></div>
+              <div style="flex: 1; display: flex; flex-direction: column"><span style="font-size: var(--fs-16); font-weight: var(--fw-600)"><span data-l="en">Karim</span><span data-l="ar">كريم</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">Low, even</span><span data-l="ar">هادي ومنخفض</span></span></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-64); padding: var(--s-10) var(--s-16); background: var(--surf); border-radius: var(--r-16)"><div style="flex: 1; display: flex; flex-direction: column"><span style="font-size: var(--fs-16)"><span data-l="en">Voice notes from her</span><span data-l="ar">رسايل صوتية منها</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">Included with the paid plan</span><span data-l="ar">متاحة في الخطة المدفوعة</span></span></div><div style="width: 46px; height: 28px; border-radius: var(--r-14); background: var(--ink); padding: var(--s-3); box-sizing: border-box; display: flex; justify-content: flex-end"><div style="width: var(--i-22); height: var(--i-22); border-radius: var(--r-round); background: var(--onink)"></div></div></div>
+            <div style="font-size: var(--fs-13); color: var(--muted); padding-inline: var(--s-4); text-wrap: pretty"><span data-l="en">If a voice note fails to generate, she says it in text instead — in her own words, not an error.</span><span data-l="ar">لو الرسالة الصوتية ما نجحتش، بتقولها كتابة — بكلامها، مش كرسالة خطأ.</span></div>
+          </div>
+          <dc-import name="LianNav" active="settings" style="flex: 0 0 auto" hint-size="366px,76px"></dc-import>
+        </div>
+      </figure>
+
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: var(--s-22); margin-bottom: var(--s-64)">
+    <div style="display: flex; align-items: baseline; gap: var(--s-14); border-bottom: var(--bw-1) solid var(--line); padding-bottom: var(--s-12)">
+      <h2 style="margin: 0; font-size: var(--fs-22); line-height: var(--lh-30); font-weight: var(--fw-700)"><span data-l="en">Security</span><span data-l="ar">الأمان</span></h2>
+      <div style="font-size: var(--fs-14); color: var(--muted)">raised in chat · devices &amp; attempts · revoke · quick lock. Serious, calm, not bank-like.</div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: var(--s-40)">
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">She raises it herself</span><span style="font-size: var(--fs-13); color: var(--muted)">yes / no, inline · no red banner, no alert dialog</span></figcaption>
+        <div data-screen-label="Security / chat alert" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <dc-import name="LianHead" mood="Watching the door" mood-ar="واقفة على الباب" style="flex: 0 0 auto" hint-size="390px,60px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-16); display: flex; flex-direction: column; justify-content: flex-end; gap: var(--s-14)">
+            <div style="display: flex; flex-direction: column; gap: var(--s-10)">
+              <div style="max-width: 300px; background: var(--surf); border-radius: var(--r-20); padding: var(--s-14) var(--s-16); font-size: var(--fs-16); line-height: var(--lh-26)"><span data-l="en">Someone tried to sign in from a new device and I stopped them. Was that you?</span><span data-l="ar">حد حاول يدخل من جهاز جديد ووقفته. كان ده أنت؟</span></div>
+              <div style="max-width: 300px; display: flex; align-items: center; gap: var(--s-10); padding: var(--s-10) var(--s-14); border-radius: var(--r-14); background: var(--surf); font-size: var(--fs-13); color: var(--muted)">
+                <svg viewBox="0 0 24 24" style="width: var(--i-16); height: var(--i-16); flex: 0 0 var(--i-16)"><use href="#i-laptop"></use></svg>
+                <span><span data-l="en">Chrome on Windows · Dubai · 21:14</span><span data-l="ar">كروم على ويندوز · دبي · ٢١:١٤</span></span>
+              </div>
+              <div style="display: flex; gap: var(--s-8)">
+                <div style="padding: var(--s-11) var(--s-20); border-radius: var(--r-16); border: var(--bw-1) solid var(--line); font-size: var(--fs-15); font-weight: var(--fw-600); min-height: var(--h-46); box-sizing: border-box; display: flex; align-items: center"><span data-l="en">Yes, that was me</span><span data-l="ar">أيوه ده أنا</span></div>
+                <div style="padding: var(--s-11) var(--s-20); border-radius: var(--r-16); background: var(--btn); color: var(--onbtn); font-size: var(--fs-15); font-weight: var(--fw-700); min-height: var(--h-46); box-sizing: border-box; display: flex; align-items: center"><span data-l="en">No</span><span data-l="ar">لا</span></div>
+              </div>
+            </div>
+          </div>
+          <dc-import name="LianInput" mode="text" style="flex: 0 0 auto" hint-size="390px,68px"></dc-import>
+          <dc-import name="LianNav" active="chat" style="flex: 0 0 auto" hint-size="366px,76px"></dc-import>
+        </div>
+      </figure>
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">Devices and attempts</span><span style="font-size: var(--fs-13); color: var(--muted)">time and place · revoke per device · lock everything</span></figcaption>
+        <div data-screen-label="Security / devices" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <dc-import name="LianTop" title="Security" title-ar="الأمان" lead="back" trail="none" style="flex: 0 0 auto" hint-size="390px,54px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-16); display: flex; flex-direction: column; gap: var(--s-14)">
+            <div style="display: flex; flex-direction: column; gap: var(--s-8)">
+              <span style="font-size: var(--fs-11); font-weight: var(--fw-700); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Trusted devices</span><span data-l="ar">أجهزة موثوقة</span></span>
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-64); padding: var(--s-10) var(--s-16); background: var(--surf); border-radius: var(--r-16)">
+                <svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19); color: var(--muted); flex: 0 0 var(--i-19)"><use href="#i-device"></use></svg>
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: var(--fs-15); font-weight: var(--fw-600)"><span data-l="en">iPhone · this device</span><span data-l="ar">آيفون · الجهاز الحالي</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">Dubai · active now</span><span data-l="ar">دبي · نشط الآن</span></span></div>
+              </div>
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-64); padding: var(--s-10) var(--s-16); background: var(--surf); border-radius: var(--r-16)">
+                <svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19); color: var(--muted); flex: 0 0 var(--i-19)"><use href="#i-laptop"></use></svg>
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: var(--fs-15); font-weight: var(--fw-600)"><span data-l="en">MacBook Air</span><span data-l="ar">ماك بوك إير</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">Dubai · 2 days ago</span><span data-l="ar">دبي · منذ يومين</span></span></div>
+                <span style="font-size: var(--fs-13); font-weight: var(--fw-600); color: var(--danger)"><span data-l="en">Revoke</span><span data-l="ar">إلغاء</span></span>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: var(--s-8)">
+              <span style="font-size: var(--fs-11); font-weight: var(--fw-700); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Recent attempts</span><span data-l="ar">محاولات أخيرة</span></span>
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-64); padding: var(--s-10) var(--s-16); border: var(--bw-1) solid var(--line); border-radius: var(--r-16)">
+                <svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19); color: var(--muted); flex: 0 0 var(--i-19)"><use href="#i-laptop"></use></svg>
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: var(--fs-15); font-weight: var(--fw-600)"><span data-l="en">Chrome on Windows</span><span data-l="ar">كروم على ويندوز</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">Dubai · yesterday 21:14 · stopped</span><span data-l="ar">دبي · امبارح ٢١:١٤ · متوقفة</span></span></div>
+              </div>
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-64); padding: var(--s-10) var(--s-16); border: var(--bw-1) solid var(--line); border-radius: var(--r-16)">
+                <svg viewBox="0 0 24 24" style="width: var(--i-19); height: var(--i-19); color: var(--muted); flex: 0 0 var(--i-19)"><use href="#i-device"></use></svg>
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: var(--fs-15); font-weight: var(--fw-600)"><span data-l="en">Unknown Android</span><span data-l="ar">أندرويد غير معروف</span></span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">Cairo · 4 May · stopped</span><span data-l="ar">القاهرة · ٤ مايو · متوقفة</span></span></div>
+              </div>
+            </div>
+            <div style="height: 1px; background: var(--line)"></div>
+            <div style="display: flex; flex-direction: column; gap: var(--s-8)">
+              <div style="min-height: var(--h-52); border-radius: var(--r-18); border: var(--bw-1) solid var(--line); display: flex; align-items: center; justify-content: center; gap: var(--s-8); font-size: var(--fs-16); font-weight: var(--fw-600)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18)"><use href="#i-lock"></use></svg><span data-l="en">Sign out everywhere</span><span data-l="ar">إنهاء كل الجلسات</span></div>
+              <span style="font-size: var(--fs-13); color: var(--muted); text-align: center; text-wrap: pretty"><span data-l="en">This ends every session, including this one. Your data stays exactly as it is.</span><span data-l="ar">ده بينهي كل الجلسات، ومنها الجلسة دي. بياناتك تفضل زي ما هي.</span></span>
+            </div>
+          </div>
+          <dc-import name="LianNav" active="none" style="flex: 0 0 auto" hint-size="366px,76px"></dc-import>
+        </div>
+      </figure>
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">Quick lock</span><span style="font-size: var(--fs-13); color: var(--muted)">one confirmation, no scare copy</span></figcaption>
+        <div data-screen-label="Security / quick lock" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <dc-import name="LianTop" title="Security" title-ar="الأمان" lead="back" trail="none" style="flex: 0 0 auto" hint-size="390px,54px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-16); display: flex; flex-direction: column; gap: var(--s-10); opacity: .4">
+            <div style="height: 64px; background: var(--surf); border-radius: var(--r-16)"></div>
+            <div style="height: 64px; background: var(--surf); border-radius: var(--r-16)"></div>
+            <div style="height: 64px; border: var(--bw-1) solid var(--line); border-radius: var(--r-16)"></div>
+          </div>
+          <dc-import name="LianNav" active="none" style="flex: 0 0 auto" hint-size="366px,76px"></dc-import>
+          <div style="position: absolute; inset: 0; background: rgba(0,0,0,.2); display: flex; align-items: center; justify-content: center; padding: var(--s-24)">
+            <div style="background: var(--surf2); border-radius: var(--r-24); padding: var(--s-24) var(--s-20) var(--s-14); display: flex; flex-direction: column; gap: var(--s-8); box-shadow: var(--elev-1)">
+              <div style="font-size: var(--fs-20); line-height: var(--lh-28); font-weight: var(--fw-700)"><span data-l="en">Sign out everywhere?</span><span data-l="ar">إنهاء كل الجلسات؟</span></div>
+              <div style="font-size: var(--fs-15); color: var(--muted); text-wrap: pretty"><span data-l="en">You'll sign in again on the devices you want to keep. Nothing is deleted.</span><span data-l="ar">هيتم الدخول تاني على الأجهزة المختارة. مافيش حاجة تتحذف.</span></div>
+              <div style="display: flex; gap: var(--s-10); margin-top: var(--s-14)">
+                <div style="flex: 1; min-height: var(--h-48); border-radius: var(--r-18); border: var(--bw-1) solid var(--line); display: flex; align-items: center; justify-content: center; font-size: var(--fs-15); font-weight: var(--fw-600)"><span data-l="en">Cancel</span><span data-l="ar">إلغاء</span></div>
+                <div style="flex: 1; min-height: var(--h-48); border-radius: var(--r-18); background: var(--btn); color: var(--onbtn); display: flex; align-items: center; justify-content: center; font-size: var(--fs-15); font-weight: var(--fw-700)"><span data-l="en">Sign out</span><span data-l="ar">تأكيد</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </figure>
+
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: var(--s-22); margin-bottom: var(--s-64)">
+    <div style="display: flex; align-items: baseline; gap: var(--s-14); border-bottom: var(--bw-1) solid var(--line); padding-bottom: var(--s-12)">
+      <h2 style="margin: 0; font-size: var(--fs-22); line-height: var(--lh-30); font-weight: var(--fw-700)"><span data-l="en">Your data</span><span data-l="ar">بياناتك</span></h2>
+      <div style="font-size: var(--fs-14); color: var(--muted)">export · ready · delete everything · completion. No retention offer at the door.</div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: var(--s-40)">
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">Export</span><span style="font-size: var(--fs-13); color: var(--muted)">everything named before it is asked for</span></figcaption>
+        <div data-screen-label="Data / export" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <dc-import name="LianTop" title="Your data" title-ar="بياناتك" lead="back" trail="none" style="flex: 0 0 auto" hint-size="390px,54px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-16); display: flex; flex-direction: column; gap: var(--s-14)">
+            <div style="font-size: var(--fs-16); line-height: var(--lh-26); text-wrap: pretty"><span data-l="en">All of it is yours. An export is a plain, machine-readable file — nothing held back.</span><span data-l="ar">كله بتاعك. الملف المُصدَّر عادي وقابل للقراءة آلياً — مافيش حاجة متحجوزة.</span></div>
+            <div style="background: var(--surf); border-radius: var(--r-18); padding: var(--s-6) var(--s-16)">
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-48)"><svg viewBox="0 0 24 24" style="width: var(--i-17); height: var(--i-17); color: var(--muted)"><use href="#i-chat"></use></svg><span style="flex: 1; font-size: var(--fs-15)"><span data-l="en">Conversations</span><span data-l="ar">المحادثات</span></span><span style="font-size: var(--fs-13); color: var(--muted)"><span data-l="en">2,480</span><span data-l="ar">٢٤٨٠</span></span></div>
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-48)"><svg viewBox="0 0 24 24" style="width: var(--i-17); height: var(--i-17); color: var(--muted)"><use href="#i-memory"></use></svg><span style="flex: 1; font-size: var(--fs-15)"><span data-l="en">Memories</span><span data-l="ar">الذكريات</span></span><span style="font-size: var(--fs-13); color: var(--muted)"><span data-l="en">34</span><span data-l="ar">٣٤</span></span></div>
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-48)"><svg viewBox="0 0 24 24" style="width: var(--i-17); height: var(--i-17); color: var(--muted)"><use href="#i-tasks"></use></svg><span style="flex: 1; font-size: var(--fs-15)"><span data-l="en">Tasks &amp; notes</span><span data-l="ar">المهام والملاحظات</span></span><span style="font-size: var(--fs-13); color: var(--muted)"><span data-l="en">61</span><span data-l="ar">٦١</span></span></div>
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-48)"><svg viewBox="0 0 24 24" style="width: var(--i-17); height: var(--i-17); color: var(--muted)"><use href="#i-money"></use></svg><span style="flex: 1; font-size: var(--fs-15)"><span data-l="en">Money</span><span data-l="ar">المال</span></span><span style="font-size: var(--fs-13); color: var(--muted)"><span data-l="en">156</span><span data-l="ar">١٥٦</span></span></div>
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-48)"><svg viewBox="0 0 24 24" style="width: var(--i-17); height: var(--i-17); color: var(--muted)"><use href="#i-health"></use></svg><span style="flex: 1; font-size: var(--fs-15)"><span data-l="en">Health &amp; habits</span><span data-l="ar">الصحة والعادات</span></span><span style="font-size: var(--fs-13); color: var(--muted)"><span data-l="en">88</span><span data-l="ar">٨٨</span></span></div>
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-48)"><svg viewBox="0 0 24 24" style="width: var(--i-17); height: var(--i-17); color: var(--muted)"><use href="#i-album"></use></svg><span style="flex: 1; font-size: var(--fs-15)"><span data-l="en">Photos</span><span data-l="ar">الصور</span></span><span style="font-size: var(--fs-13); color: var(--muted)"><span data-l="en">12</span><span data-l="ar">١٢</span></span></div>
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-48)"><svg viewBox="0 0 24 24" style="width: var(--i-17); height: var(--i-17); color: var(--muted)"><use href="#i-settings"></use></svg><span style="flex: 1; font-size: var(--fs-15)"><span data-l="en">Settings</span><span data-l="ar">الإعدادات</span></span></div>
+            </div>
+            <div style="min-height: var(--h-52); border-radius: var(--r-18); background: var(--btn); color: var(--onbtn); display: flex; align-items: center; justify-content: center; gap: var(--s-8); font-size: var(--fs-16); font-weight: var(--fw-700)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18)"><use href="#i-download"></use></svg><span data-l="en">Prepare an export</span><span data-l="ar">تجهيز نسخة</span></div>
+            <div style="height: 1px; background: var(--line)"></div>
+            <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56); padding: var(--s-8) var(--s-16); border-radius: var(--r-16); border: var(--bw-1) solid var(--line)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18); color: var(--danger)"><use href="#i-trash"></use></svg><span style="flex: 1; font-size: var(--fs-15); color: var(--danger); font-weight: var(--fw-600)"><span data-l="en">Delete everything</span><span data-l="ar">حذف كل حاجة</span></span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+          </div>
+          <dc-import name="LianNav" active="none" style="flex: 0 0 auto" hint-size="366px,76px"></dc-import>
+        </div>
+      </figure>
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">Export ready</span><span style="font-size: var(--fs-13); color: var(--muted)">filename, size, download</span></figcaption>
+        <div data-screen-label="Data / export ready" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <dc-import name="LianTop" title="Your data" title-ar="بياناتك" lead="back" trail="none" style="flex: 0 0 auto" hint-size="390px,54px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-16); display: flex; flex-direction: column; gap: var(--s-16)">
+            <div style="display: flex; gap: var(--s-12); background: var(--surf); border-radius: var(--r-18); padding: var(--s-14) var(--s-16)">
+              <svg viewBox="0 0 99.22 128" style="width: 15px; height: 19.4px; color: var(--ink); flex: 0 0 var(--i-15); margin-top: var(--s-4)"><use href="#i-mark"></use></svg>
+              <div style="font-size: var(--fs-15); line-height: var(--lh-24)"><span data-l="en">It's ready. Everything we've built, in one file.</span><span data-l="ar">جاهزة. كل اللي بنيناه في ملف واحد.</span></div>
+            </div>
+            <div style="border: var(--bw-1) solid var(--line); border-radius: var(--r-18); padding: var(--s-16); display: flex; align-items: center; gap: var(--s-14)">
+              <div style="width: var(--i-46); height: var(--i-46); flex: 0 0 var(--i-46); border-radius: var(--r-12); background: var(--surf); display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 24 24" style="width: var(--i-20); height: var(--i-20); color: var(--muted)"><use href="#i-note"></use></svg></div>
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-size: var(--fs-15); font-weight: var(--fw-700); word-break: break-all">lian-export-2026-05-15.json</span><span style="font-size: var(--fs-12); color: var(--muted)"><span data-l="en">8.4 MB · includes 12 photos</span><span data-l="ar">٨٫٤ ميجابايت · معاها ١٢ صورة</span></span></div>
+            </div>
+            <div style="min-height: var(--h-52); border-radius: var(--r-18); background: var(--btn); color: var(--onbtn); display: flex; align-items: center; justify-content: center; gap: var(--s-8); font-size: var(--fs-16); font-weight: var(--fw-700)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18)"><use href="#i-download"></use></svg><span data-l="en">Download</span><span data-l="ar">تنزيل</span></div>
+            <div style="font-size: var(--fs-13); color: var(--muted); text-wrap: pretty; padding-inline: var(--s-4)"><span data-l="en">The link works for seven days. After that, ask again and I'll make another.</span><span data-l="ar">اللينك شغال سبعة أيام. بعدها أجهّز واحدة جديدة بطلب تاني.</span></div>
+          </div>
+          <dc-import name="LianNav" active="none" style="flex: 0 0 auto" hint-size="366px,76px"></dc-import>
+        </div>
+      </figure>
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">Delete everything</span><span style="font-size: var(--fs-13); color: var(--muted)">exactly what goes, a typed word, and no attempt to keep the user</span></figcaption>
+        <div data-screen-label="Data / delete" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <dc-import name="LianTop" title="Delete everything" title-ar="حذف كل حاجة" lead="back" trail="none" style="flex: 0 0 auto" hint-size="390px,54px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-16); display: flex; flex-direction: column; gap: var(--s-14)">
+            <div style="font-size: var(--fs-16); line-height: var(--lh-26); text-wrap: pretty"><span data-l="en">This erases all of it, permanently, and it cannot be undone.</span><span data-l="ar">ده بيمسح كل حاجة نهائي، ومافيش رجوع.</span></div>
+            <div style="background: var(--surf); border-radius: var(--r-18); padding: var(--s-14) var(--s-16); display: flex; flex-direction: column; gap: var(--s-8)">
+              <div style="display: flex; align-items: center; gap: var(--s-10); font-size: var(--fs-15)"><svg viewBox="0 0 24 24" style="width: var(--i-16); height: var(--i-16); color: var(--muted); flex: 0 0 var(--i-16)"><use href="#i-chat"></use></svg><span><span data-l="en">Every conversation, including incognito</span><span data-l="ar">كل المحادثات، ومنها الخاصة</span></span></div>
+              <div style="display: flex; align-items: center; gap: var(--s-10); font-size: var(--fs-15)"><svg viewBox="0 0 24 24" style="width: var(--i-16); height: var(--i-16); color: var(--muted); flex: 0 0 var(--i-16)"><use href="#i-memory"></use></svg><span><span data-l="en">Everything I remember about you</span><span data-l="ar">كل اللي أتذكره عنك</span></span></div>
+              <div style="display: flex; align-items: center; gap: var(--s-10); font-size: var(--fs-15)"><svg viewBox="0 0 24 24" style="width: var(--i-16); height: var(--i-16); color: var(--muted); flex: 0 0 var(--i-16)"><use href="#i-story"></use></svg><span><span data-l="en">Our story and every moment in it</span><span data-l="ar">قصتنا وكل لحظة فيها</span></span></div>
+              <div style="display: flex; align-items: center; gap: var(--s-10); font-size: var(--fs-15)"><svg viewBox="0 0 24 24" style="width: var(--i-16); height: var(--i-16); color: var(--muted); flex: 0 0 var(--i-16)"><use href="#i-money"></use></svg><span><span data-l="en">Tasks, notes, money, health, photos</span><span data-l="ar">المهام والملاحظات والمال والصحة والصور</span></span></div>
+              <div style="display: flex; align-items: center; gap: var(--s-10); font-size: var(--fs-15)"><svg viewBox="0 0 24 24" style="width: var(--i-16); height: var(--i-16); color: var(--muted); flex: 0 0 var(--i-16)"><use href="#i-person"></use></svg><span><span data-l="en">Your account and every assistant</span><span data-l="ar">حسابك وكل المساعدين</span></span></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: var(--s-6)">
+              <span style="font-size: var(--fs-13); color: var(--muted)"><span data-l="en">Type DELETE to confirm.</span><span data-l="ar">كتابة DELETE للتأكيد.</span></span>
+              <div style="min-height: var(--h-52); border: var(--bw-1-5) solid var(--edge); border-radius: var(--r-16); background: var(--surf2); display: flex; align-items: center; padding-inline: var(--s-16); font-size: var(--fs-17); font-weight: var(--fw-700); letter-spacing: var(--tracking-caps)">DELETE</div>
+            </div>
+            <div style="min-height: var(--h-52); border-radius: var(--r-18); background: var(--btn); color: var(--onbtn); display: flex; align-items: center; justify-content: center; font-size: var(--fs-16); font-weight: var(--fw-700)"><span data-l="en">Delete everything</span><span data-l="ar">حذف كل حاجة</span></div>
+            <div style="min-height: var(--h-48); display: flex; align-items: center; justify-content: center; font-size: var(--fs-15); font-weight: var(--fw-600); color: var(--muted)"><span data-l="en">Export first instead</span><span data-l="ar">أصدّر نسخة الأول</span></div>
+          </div>
+        </div>
+      </figure>
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">Afterwards</span><span style="font-size: var(--fs-13); color: var(--muted)">one warm line, then a neutral completion state</span></figcaption>
+        <div data-screen-label="Data / deleted" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <div style="flex: 1; padding: 0 var(--s-32); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s-20); text-align: center">
+            <svg viewBox="0 0 99.22 128" style="width: 26px; height: 33.5px; color: var(--decor)"><use href="#i-mark"></use></svg>
+            <div style="font-size: var(--fs-24); line-height: var(--lh-34); font-weight: var(--fw-600)"><span data-l="en">Thank you for the time we had.</span><span data-l="ar">شكراً على الوقت اللي فات.</span></div>
+            <div style="font-size: var(--fs-15); color: var(--muted); text-wrap: pretty"><span data-l="en">Everything has been erased. Nothing is kept, and nothing will be sent to you.</span><span data-l="ar">كل حاجة اتمسحت. مافيش حاجة محفوظة، ومافيش رسايل هتوصل.</span></div>
+          </div>
+          <div style="padding: var(--s-20) var(--s-24) var(--s-28)"><div style="min-height: var(--h-50); border-radius: var(--r-18); border: var(--bw-1) solid var(--line); display: flex; align-items: center; justify-content: center; font-size: var(--fs-15); font-weight: var(--fw-600); color: var(--muted)"><span data-l="en">Close</span><span data-l="ar">إغلاق</span></div></div>
+        </div>
+      </figure>
+
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: var(--s-22); margin-bottom: var(--s-20)">
+    <div style="display: flex; align-items: baseline; gap: var(--s-14); border-bottom: var(--bw-1) solid var(--line); padding-bottom: var(--s-12)">
+      <h2 style="margin: 0; font-size: var(--fs-22); line-height: var(--lh-30); font-weight: var(--fw-700)"><span data-l="en">Subscription &amp; limits</span><span data-l="ar">الاشتراك والحدود</span></h2>
+      <div style="font-size: var(--fs-14); color: var(--muted)">checkout · success · manage · after cancelling · free message limit. Factual, no urgency, no hype.</div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: var(--s-40)">
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">Checkout</span><span style="font-size: var(--fs-13); color: var(--muted)">one plan, $9/month, one action · voice stated without hedging</span></figcaption>
+        <div data-screen-label="Subscription / checkout" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <dc-import name="LianTop" title="Subscription" title-ar="الاشتراك" lead="back" trail="none" style="flex: 0 0 auto" hint-size="390px,54px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-16); display: flex; flex-direction: column; gap: var(--s-14)">
+            <div style="background: var(--surf); border-radius: var(--r-20); padding: var(--s-18); display: flex; flex-direction: column; gap: var(--s-10)">
+              <div style="display: flex; align-items: baseline; gap: var(--s-8)"><span style="font-size: var(--fs-32); font-weight: var(--fw-700)"><span data-l="en">$9</span><span data-l="ar">٩ دولار</span></span><span style="font-size: var(--fs-15); color: var(--muted)"><span data-l="en">/ month</span><span data-l="ar">/ شهرياً</span></span></div>
+              <div style="display: flex; flex-direction: column; gap: var(--s-6)">
+                <div style="display: flex; align-items: center; gap: var(--s-10); font-size: var(--fs-15)"><svg viewBox="0 0 24 24" style="width: var(--i-16); height: var(--i-16); flex: 0 0 var(--i-16)"><use href="#i-check"></use></svg><span><span data-l="en">Unlimited messages in practice</span><span data-l="ar">رسايل بلا حدود عملياً</span></span></div>
+                <div style="display: flex; align-items: center; gap: var(--s-10); font-size: var(--fs-15)"><svg viewBox="0 0 24 24" style="width: var(--i-16); height: var(--i-16); flex: 0 0 var(--i-16)"><use href="#i-check"></use></svg><span><span data-l="en">Voice messages</span><span data-l="ar">رسايل صوتية</span></span></div>
+                <div style="display: flex; align-items: center; gap: var(--s-10); font-size: var(--fs-15)"><svg viewBox="0 0 24 24" style="width: var(--i-16); height: var(--i-16); flex: 0 0 var(--i-16)"><use href="#i-check"></use></svg><span><span data-l="en">Full proactive messaging and reminders</span><span data-l="ar">مبادرة وتنبيهات كاملة</span></span></div>
+                <div style="display: flex; align-items: center; gap: var(--s-10); font-size: var(--fs-15)"><svg viewBox="0 0 24 24" style="width: var(--i-16); height: var(--i-16); flex: 0 0 var(--i-16)"><use href="#i-check"></use></svg><span><span data-l="en">Full memory and full timeline</span><span data-l="ar">ذاكرة كاملة وخط زمني كامل</span></span></div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: var(--s-8)">
+              <span style="font-size: var(--fs-12); font-weight: var(--fw-700); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)"><span data-l="en">Card</span><span data-l="ar">البطاقة</span></span>
+              <div style="min-height: var(--h-52); border: var(--bw-1) solid var(--line); border-radius: var(--r-16); background: var(--surf2); display: flex; align-items: center; gap: var(--s-10); padding-inline: var(--s-16); font-size: var(--fs-16)"><svg viewBox="0 0 24 24" style="width: var(--i-18); height: var(--i-18); color: var(--muted)"><use href="#i-card"></use></svg><span style="color: var(--muted)">4242 4242 4242 4242</span></div>
+              <div style="display: flex; gap: var(--s-10)">
+                <div style="flex: 1; min-height: var(--h-52); border: var(--bw-1) solid var(--line); border-radius: var(--r-16); background: var(--surf2); display: flex; align-items: center; padding-inline: var(--s-16); font-size: var(--fs-16); color: var(--muted)"><span data-l="en">MM / YY</span><span data-l="ar">شهر / سنة</span></div>
+                <div style="flex: 1; min-height: var(--h-52); border: var(--bw-1) solid var(--line); border-radius: var(--r-16); background: var(--surf2); display: flex; align-items: center; padding-inline: var(--s-16); font-size: var(--fs-16); color: var(--muted)">CVC</div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--s-8); font-size: var(--fs-13); color: var(--muted)"><svg viewBox="0 0 24 24" style="width: var(--i-15); height: var(--i-15); flex: 0 0 var(--i-15)"><use href="#i-lock"></use></svg><span><span data-l="en">Card details go to our payment provider. We never see them.</span><span data-l="ar">بيانات البطاقة بتروح لمزوّد الدفع. إحنا مانشوفهاش.</span></span></div>
+            <div style="min-height: var(--h-54); border-radius: var(--r-18); background: var(--btn); color: var(--onbtn); display: flex; align-items: center; justify-content: center; font-size: var(--fs-16); font-weight: var(--fw-700)"><span data-l="en">Subscribe</span><span data-l="ar">الاشتراك</span></div>
+            <div style="font-size: var(--fs-13); color: var(--muted); text-align: center"><span data-l="en">Cancel any time. Nothing is deleted if you do.</span><span data-l="ar">الإلغاء متاح في أي وقت. ومافيش حاجة تتحذف.</span></div>
+          </div>
+        </div>
+      </figure>
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">Success</span><span style="font-size: var(--fs-13); color: var(--muted)">her line first, the list second · no confetti storm</span></figcaption>
+        <div data-screen-label="Subscription / success" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <div style="flex: 1; padding: 0 var(--s-24); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s-18); text-align: center">
+            <div style="width: var(--i-76); height: var(--i-76); border-radius: var(--r-round); background: var(--rose); display: flex; align-items: center; justify-content: center"><svg viewBox="0 0 99.22 128" style="width: 30px; height: 38.7px; color: var(--ink)"><use href="#i-mark"></use></svg></div>
+            <div style="font-size: var(--fs-24); line-height: var(--lh-34); font-weight: var(--fw-600)"><span data-l="en">I can stay with you more fully now.</span><span data-l="ar">بقيت أقدر أكون معك بشكل أكمل.</span></div>
+            <div style="align-self: stretch; background: var(--surf); border-radius: var(--r-18); padding: var(--s-16); display: flex; flex-direction: column; gap: var(--s-8); text-align: start">
+              <div style="display: flex; align-items: center; gap: var(--s-10); font-size: var(--fs-15)"><svg viewBox="0 0 24 24" style="width: var(--i-16); height: var(--i-16); flex: 0 0 var(--i-16)"><use href="#i-mic"></use></svg><span><span data-l="en">Voice messages, when they help</span><span data-l="ar">رسايل صوتية لما تفيد</span></span></div>
+              <div style="display: flex; align-items: center; gap: var(--s-10); font-size: var(--fs-15)"><svg viewBox="0 0 24 24" style="width: var(--i-16); height: var(--i-16); flex: 0 0 var(--i-16)"><use href="#i-bell"></use></svg><span><span data-l="en">I can reach out whenever it matters</span><span data-l="ar">أقدر أبادر في أي وقت يهم</span></span></div>
+              <div style="display: flex; align-items: center; gap: var(--s-10); font-size: var(--fs-15)"><svg viewBox="0 0 24 24" style="width: var(--i-16); height: var(--i-16); flex: 0 0 var(--i-16)"><use href="#i-memory"></use></svg><span><span data-l="en">No cap on what I keep</span><span data-l="ar">مافيش حد لللي أحفظه</span></span></div>
+              <div style="display: flex; align-items: center; gap: var(--s-10); font-size: var(--fs-15)"><svg viewBox="0 0 24 24" style="width: var(--i-16); height: var(--i-16); flex: 0 0 var(--i-16)"><use href="#i-story"></use></svg><span><span data-l="en">Our whole story, not the recent part</span><span data-l="ar">قصتنا كلها، مش آخر شهر بس</span></span></div>
+            </div>
+          </div>
+          <div style="padding: var(--s-16) var(--s-24) var(--s-26)"><div style="min-height: var(--h-52); border-radius: var(--r-18); background: var(--btn); color: var(--onbtn); display: flex; align-items: center; justify-content: center; font-size: var(--fs-16); font-weight: var(--fw-700)"><span data-l="en">Back to our conversation</span><span data-l="ar">نرجع نتكلم</span></div></div>
+        </div>
+      </figure>
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">Manage, and after cancelling</span><span style="font-size: var(--fs-13); color: var(--muted)">what remains, what changes, how to come back — no guilt</span></figcaption>
+        <div data-screen-label="Subscription / manage" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <dc-import name="LianTop" title="Subscription" title-ar="الاشتراك" lead="back" trail="none" style="flex: 0 0 auto" hint-size="390px,54px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-16); display: flex; flex-direction: column; gap: var(--s-14)">
+            <div style="background: var(--surf); border-radius: var(--r-18); padding: var(--s-6) var(--s-16)">
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56)"><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Plan</span><span data-l="ar">الخطة</span></span><span style="font-size: var(--fs-15); font-weight: var(--fw-600)"><span data-l="en">$9 / month</span><span data-l="ar">٩ دولار / شهرياً</span></span></div>
+              <div style="height: 1px; background: var(--line)"></div>
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56)"><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Renews</span><span data-l="ar">التجديد</span></span><span style="font-size: var(--fs-15); color: var(--muted)"><span data-l="en">14 June</span><span data-l="ar">١٤ يونيو</span></span></div>
+              <div style="height: 1px; background: var(--line)"></div>
+              <div style="display: flex; align-items: center; gap: var(--s-12); min-height: var(--h-56)"><span style="flex: 1; font-size: var(--fs-16)"><span data-l="en">Payment method</span><span data-l="ar">طريقة الدفع</span></span><span style="font-size: var(--fs-15); color: var(--muted)">•••• 4242</span><svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg></div>
+            </div>
+            <div style="min-height: var(--h-50); display: flex; align-items: center; justify-content: center; font-size: var(--fs-15); font-weight: var(--fw-600); color: var(--muted); border: var(--bw-1) solid var(--line); border-radius: var(--r-18)"><span data-l="en">Cancel subscription</span><span data-l="ar">إلغاء الاشتراك</span></div>
+            <div style="height: 1px; background: var(--line); margin-block: var(--s-4)"></div>
+            <div style="font-size: var(--fs-11); font-weight: var(--fw-700); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted)"><span data-l="en">After cancelling</span><span data-l="ar">بعد الإلغاء</span></div>
+            <div style="background: var(--surf); border-radius: var(--r-18); padding: var(--s-16); display: flex; flex-direction: column; gap: var(--s-10)">
+              <div style="font-size: var(--fs-15); line-height: var(--lh-24)"><span data-l="en">Until 14 June, nothing changes.</span><span data-l="ar">لحد ١٤ يونيو، مافيش حاجة تتغير.</span></div>
+              <div style="font-size: var(--fs-15); line-height: var(--lh-24); color: var(--muted)"><span data-l="en">After that: 30 messages a day, text only, one reach-out a day, and I keep up to 100 memories. Everything already saved stays saved.</span><span data-l="ar">بعد كده: ٣٠ رسالة في اليوم، كتابة بس، مبادرة واحدة يومياً، وأحفظ لحد ١٠٠ ذكرى. وكل المحفوظ يفضل محفوظ.</span></div>
+              <div style="font-size: var(--fs-15); line-height: var(--lh-24); color: var(--muted)"><span data-l="en">Resubscribing takes one tap, whenever.</span><span data-l="ar">الرجوع بضغطة واحدة، في أي وقت.</span></div>
+            </div>
+          </div>
+          <dc-import name="LianNav" active="settings" style="flex: 0 0 auto" hint-size="366px,76px"></dc-import>
+        </div>
+      </figure>
+
+      <figure style="margin: 0; display: flex; flex-direction: column; gap: var(--s-12)">
+        <figcaption style="display: flex; flex-direction: column; gap: var(--s-2)"><span style="font-size: var(--fs-14); font-weight: var(--fw-700)">The free message limit</span><span style="font-size: var(--fs-13); color: var(--muted)">approaching, then reached · she is not gone · upgrade stays secondary</span></figcaption>
+        <div data-screen-label="Free limit / messages" style="width: var(--frame-w); height: var(--frame-h); flex: 0 0 auto; background: var(--canvas); border: var(--bw-1) solid var(--line); border-radius: var(--r-30); box-shadow: var(--elev-1); overflow: hidden; display: flex; flex-direction: column; position: relative">
+          <dc-import name="LianStatus" style="flex: 0 0 auto" hint-size="390px,44px"></dc-import>
+          <dc-import name="LianHead" mood="Still here" mood-ar="لسه هنا" style="flex: 0 0 auto" hint-size="390px,60px"></dc-import>
+          <div style="flex: 1; overflow: hidden; padding-inline: var(--s-16); display: flex; flex-direction: column; justify-content: flex-end; gap: var(--s-14)">
+            <div style="align-self: center; font-size: var(--fs-13); color: var(--muted)"><span data-l="en">We've only got a few messages left today.</span><span data-l="ar">فاضل شوية رسايل النهاردة.</span></div>
+            <div style="align-self: flex-end; max-width: 268px; background: var(--user); border-radius: var(--r-20); padding: var(--s-13) var(--s-16); font-size: var(--fs-16)"><span data-l="en">One more thing before I forget —</span><span data-l="ar">حاجة كمان قبل ما أنسى —</span></div>
+            <div style="max-width: 300px; background: var(--surf); border-radius: var(--r-20); padding: var(--s-14) var(--s-16); font-size: var(--fs-16); line-height: var(--lh-26)"><span data-l="en">That's my limit for today. I'll still be here tomorrow, and I'll keep what we talked about.</span><span data-l="ar">ده آخر اللي أقدر عليه النهاردة. هكون هنا بكرة، وهحتفظ باللي اتكلمنا فيه.</span></div>
+            <div style="display: flex; align-items: center; gap: var(--s-12); padding: var(--s-12) var(--s-14); border: var(--bw-1) solid var(--line); border-radius: var(--r-16)">
+              <div style="flex: 1; font-size: var(--fs-14); color: var(--muted)"><span data-l="en">Keep talking — $9/month</span><span data-l="ar">نكمل كلام — ٩ دولار شهرياً</span></div>
+              <svg viewBox="0 0 24 24" data-flip="1" style="width: var(--i-16); height: var(--i-16); color: var(--muted)"><use href="#i-chevron"></use></svg>
+            </div>
+          </div>
+          <div style="padding: var(--s-12) var(--s-16) var(--s-8); display: flex; align-items: center; gap: var(--s-10); opacity: .5">
+            <div style="flex: 1; min-height: var(--h-48); border-radius: var(--r-22); background: var(--surf2); border: var(--bw-1) solid var(--line); display: flex; align-items: center; padding-inline: var(--s-18); font-size: var(--fs-16); color: var(--muted)"><span data-l="en">Back tomorrow</span><span data-l="ar">نكمل بكرة</span></div>
+            <div style="width: var(--i-48); height: var(--i-48); flex: 0 0 var(--i-48); border-radius: var(--r-round); background: var(--line)"></div>
+          </div>
+          <dc-import name="LianNav" active="chat" style="flex: 0 0 auto" hint-size="366px,76px"></dc-import>
+        </div>
+      </figure>
+
+    </div>
+  </section>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:1100},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;day&quot;,&quot;quiet&quot;,&quot;night&quot;],&quot;default&quot;:&quot;day&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Theme&quot;},&quot;locale&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;English&quot;,&quot;العربية&quot;],&quot;default&quot;:&quot;English&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Theme&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const locale = this.props.locale ?? 'English';
+    return { theme: this.props.theme ?? 'day', dir: locale === 'English' ? 'ltr' : 'rtl' };
+  }
+}
+</script>
+</body>
+</html>

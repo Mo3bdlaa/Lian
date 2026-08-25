@@ -1,0 +1,207 @@
+/* ==========================================================================
+   Lian — token layer.  Every design decision in the set is a token here, and
+   the screens consume tokens only: no raw hex, radius, size, weight, shadow or
+   duration inline.  Documented in TOKENS.md.
+   Load once per document:  <link rel="stylesheet" href="lian-tokens.css">
+
+   Two tiers:
+     1. palettes  — every theme's colours, named by theme (--night-surface).
+                    This is the only place a colour value is written.
+     2. roles     — the semantic names the screens use (--surface), pointing at
+                    tier 1.  A theme switch repoints the roles; a recolour edits
+                    tier 1.  Nothing else changes.
+   ========================================================================== */
+
+/* --- 1. brand palette ---------------------------------------------------- */
+:root {
+  --brand-plum:#3B2948; --brand-cream:#FFF8F3; --brand-blush:#FCECEF;
+  --brand-rose:#F6D7DE; --brand-lilac:#DCCDF2; --brand-lilac-200:#CFC3DD;
+  --brand-taupe:#CDBEB6; --brand-white:#FFFFFF;
+  /* the standalone logo files read this; in product the symbols use currentColor */
+  --lian-brand-ink:var(--text);
+}
+
+/* --- 2. theme palettes (tier 1) ------------------------------------------ */
+:root {
+  /* day */
+  --day-canvas:#FFF8F3; --day-surface:#FCECEF; --day-raised:#FFFFFF; --day-bubble-mine:#E7DEF4;
+  --day-accent:#F6D7DE; --day-accent-alt:#DCCDF2; --day-decor:#CDBEB6; --day-edge:#8B7870; --day-border:#E9E7F1;
+  --day-text:#3B2948; --day-muted:#6B5B76; --day-on-text:#FFF8F3; --day-destructive:#A8434B;
+  --day-nav-active:#EFEAF4; --day-button-fill:#3B2948; --day-button-ink:#FFF8F3; --day-board:#EFE7E3;
+  --day-elev-1:0 10px 30px rgba(59,41,72,.10); --day-elev-2:0 18px 48px rgba(59,41,72,.16);
+  /* quiet */
+  --quiet-canvas:#F7F3F2; --quiet-surface:#EFE8EA; --quiet-raised:#FBF8F8; --quiet-bubble-mine:#EFEAF2;
+  --quiet-accent:#D7BBC3; --quiet-accent-alt:#C9C1D7; --quiet-decor:#B8ACA8; --quiet-edge:#827675; --quiet-border:#E2DADD;
+  --quiet-text:#403744; --quiet-muted:#6E6774; --quiet-on-text:#F7F3F2; --quiet-destructive:#9E4A50;
+  --quiet-nav-active:#EFE9ED; --quiet-button-fill:#403744; --quiet-button-ink:#F7F3F2; --quiet-board:#E9E3E2;
+  --quiet-elev-1:0 10px 30px rgba(64,55,68,.10); --quiet-elev-2:0 18px 48px rgba(64,55,68,.16);
+  /* night */
+  --night-canvas:#171827; --night-surface:#222238; --night-raised:#2A2A42; --night-bubble-mine:#2B2743;
+  --night-accent:#8D6674; --night-accent-alt:#75658E; --night-decor:#6A6478; --night-edge:#857F94; --night-border:#32324C;
+  --night-text:#F4EEF8; --night-muted:#9993AA; --night-on-text:#171827; --night-destructive:#E39098;
+  --night-nav-active:#232338; --night-button-fill:#75658E; --night-button-ink:#F4EEF8; --night-board:#0D0E1A;
+  --night-elev-1:0 10px 30px rgba(0,0,0,.4); --night-elev-2:0 18px 48px rgba(0,0,0,.55);
+  /* night-warm */
+  --night-warm-canvas:#171827; --night-warm-surface:#262036; --night-warm-raised:#2E2740; --night-warm-bubble-mine:#332941;
+  --night-warm-accent:#A5757F; --night-warm-accent-alt:#8B7399; --night-warm-decor:#7A6B72; --night-warm-edge:#8F8188; --night-warm-border:#3A3049;
+  --night-warm-text:#F7EEF2; --night-warm-muted:#A99BA5; --night-warm-on-text:#171827; --night-warm-destructive:#E39098;
+  --night-warm-nav-active:#2A2337; --night-warm-button-fill:#796485; --night-warm-button-ink:#F7EEF2; --night-warm-board:#0D0E1A;
+  --night-warm-elev-1:0 10px 30px rgba(0,0,0,.4); --night-warm-elev-2:0 18px 48px rgba(0,0,0,.55);
+  /* night-quiet */
+  --night-quiet-canvas:#171827; --night-quiet-surface:#20202F; --night-quiet-raised:#262636; --night-quiet-bubble-mine:#26263A;
+  --night-quiet-accent:#8A7378; --night-quiet-accent-alt:#787286; --night-quiet-decor:#666069; --night-quiet-edge:#827C8B; --night-quiet-border:#2C2C3C;
+  --night-quiet-text:#EFEAF0; --night-quiet-muted:#98939E; --night-quiet-on-text:#171827; --night-quiet-destructive:#DC9098;
+  --night-quiet-nav-active:#1F1F2D; --night-quiet-button-fill:#6B6678; --night-quiet-button-ink:#EFEAF0; --night-quiet-board:#0D0E1A;
+  --night-quiet-elev-1:0 10px 30px rgba(0,0,0,.4); --night-quiet-elev-2:0 18px 48px rgba(0,0,0,.55);
+}
+
+/* --- 3. semantic roles (tier 2) ------------------------------------------ */
+:root, [data-t="day"] {
+  --canvas:var(--day-canvas); --surface:var(--day-surface); --raised:var(--day-raised); --bubble-mine:var(--day-bubble-mine);
+  --accent:var(--day-accent); --accent-alt:var(--day-accent-alt); --decor:var(--day-decor); --edge:var(--day-edge); --border:var(--day-border);
+  --text:var(--day-text); --muted:var(--day-muted); --on-text:var(--day-on-text); --destructive:var(--day-destructive);
+  --nav-active:var(--day-nav-active); --button-fill:var(--day-button-fill); --button-ink:var(--day-button-ink); --board:var(--day-board);
+  --elev-1:var(--day-elev-1); --elev-2:var(--day-elev-2);
+  --bubble-hers:var(--surface);
+  --surf:var(--surface); --surf2:var(--raised); --user:var(--bubble-mine); --ink:var(--text);
+  --line:var(--border); --rose:var(--accent); --lilac:var(--accent-alt);
+  --onink:var(--on-text); --danger:var(--destructive); --btn:var(--button-fill); --onbtn:var(--button-ink);
+  --tint:var(--nav-active); --sh:var(--elev-1);
+}
+[data-t="quiet"] {
+  --canvas:var(--quiet-canvas); --surface:var(--quiet-surface); --raised:var(--quiet-raised); --bubble-mine:var(--quiet-bubble-mine);
+  --accent:var(--quiet-accent); --accent-alt:var(--quiet-accent-alt); --decor:var(--quiet-decor); --edge:var(--quiet-edge); --border:var(--quiet-border);
+  --text:var(--quiet-text); --muted:var(--quiet-muted); --on-text:var(--quiet-on-text); --destructive:var(--quiet-destructive);
+  --nav-active:var(--quiet-nav-active); --button-fill:var(--quiet-button-fill); --button-ink:var(--quiet-button-ink); --board:var(--quiet-board);
+  --elev-1:var(--quiet-elev-1); --elev-2:var(--quiet-elev-2);
+  --bubble-hers:var(--surface);
+  --surf:var(--surface); --surf2:var(--raised); --user:var(--bubble-mine); --ink:var(--text);
+  --line:var(--border); --rose:var(--accent); --lilac:var(--accent-alt);
+  --onink:var(--on-text); --danger:var(--destructive); --btn:var(--button-fill); --onbtn:var(--button-ink);
+  --tint:var(--nav-active); --sh:var(--elev-1);
+}
+[data-t="night"] {
+  --canvas:var(--night-canvas); --surface:var(--night-surface); --raised:var(--night-raised); --bubble-mine:var(--night-bubble-mine);
+  --accent:var(--night-accent); --accent-alt:var(--night-accent-alt); --decor:var(--night-decor); --edge:var(--night-edge); --border:var(--night-border);
+  --text:var(--night-text); --muted:var(--night-muted); --on-text:var(--night-on-text); --destructive:var(--night-destructive);
+  --nav-active:var(--night-nav-active); --button-fill:var(--night-button-fill); --button-ink:var(--night-button-ink); --board:var(--night-board);
+  --elev-1:var(--night-elev-1); --elev-2:var(--night-elev-2);
+  --bubble-hers:var(--surface);
+  --surf:var(--surface); --surf2:var(--raised); --user:var(--bubble-mine); --ink:var(--text);
+  --line:var(--border); --rose:var(--accent); --lilac:var(--accent-alt);
+  --onink:var(--on-text); --danger:var(--destructive); --btn:var(--button-fill); --onbtn:var(--button-ink);
+  --tint:var(--nav-active); --sh:var(--elev-1);
+}
+[data-t="night-warm"] {
+  --canvas:var(--night-warm-canvas); --surface:var(--night-warm-surface); --raised:var(--night-warm-raised); --bubble-mine:var(--night-warm-bubble-mine);
+  --accent:var(--night-warm-accent); --accent-alt:var(--night-warm-accent-alt); --decor:var(--night-warm-decor); --edge:var(--night-warm-edge); --border:var(--night-warm-border);
+  --text:var(--night-warm-text); --muted:var(--night-warm-muted); --on-text:var(--night-warm-on-text); --destructive:var(--night-warm-destructive);
+  --nav-active:var(--night-warm-nav-active); --button-fill:var(--night-warm-button-fill); --button-ink:var(--night-warm-button-ink); --board:var(--night-warm-board);
+  --elev-1:var(--night-warm-elev-1); --elev-2:var(--night-warm-elev-2);
+  --bubble-hers:var(--surface);
+  --surf:var(--surface); --surf2:var(--raised); --user:var(--bubble-mine); --ink:var(--text);
+  --line:var(--border); --rose:var(--accent); --lilac:var(--accent-alt);
+  --onink:var(--on-text); --danger:var(--destructive); --btn:var(--button-fill); --onbtn:var(--button-ink);
+  --tint:var(--nav-active); --sh:var(--elev-1);
+}
+[data-t="night-quiet"] {
+  --canvas:var(--night-quiet-canvas); --surface:var(--night-quiet-surface); --raised:var(--night-quiet-raised); --bubble-mine:var(--night-quiet-bubble-mine);
+  --accent:var(--night-quiet-accent); --accent-alt:var(--night-quiet-accent-alt); --decor:var(--night-quiet-decor); --edge:var(--night-quiet-edge); --border:var(--night-quiet-border);
+  --text:var(--night-quiet-text); --muted:var(--night-quiet-muted); --on-text:var(--night-quiet-on-text); --destructive:var(--night-quiet-destructive);
+  --nav-active:var(--night-quiet-nav-active); --button-fill:var(--night-quiet-button-fill); --button-ink:var(--night-quiet-button-ink); --board:var(--night-quiet-board);
+  --elev-1:var(--night-quiet-elev-1); --elev-2:var(--night-quiet-elev-2);
+  --bubble-hers:var(--surface);
+  --surf:var(--surface); --surf2:var(--raised); --user:var(--bubble-mine); --ink:var(--text);
+  --line:var(--border); --rose:var(--accent); --lilac:var(--accent-alt);
+  --onink:var(--on-text); --danger:var(--destructive); --btn:var(--button-fill); --onbtn:var(--button-ink);
+  --tint:var(--nav-active); --sh:var(--elev-1);
+}
+
+/* --- 4. type ------------------------------------------------------------- */
+:root {
+  --font-latin:Nunito,-apple-system,"Segoe UI",sans-serif;
+  --font-arabic:Tajawal,"Segoe UI",sans-serif;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  --fw-400:400; --fw-500:500; --fw-600:600; --fw-700:700;
+  --lh-body:1.5;
+  --tracking-caps:0.12em; --tracking-caps-wide:0.14em; --tracking-caps-wider:0.16em;
+  --fs-9:9px; --fs-10:10px; --fs-11:11px; --fs-12:12px; --fs-13:13px; --fs-14:14px; --fs-15:15px; --fs-16:16px; --fs-17:17px; --fs-18:18px;
+  --fs-20:20px; --fs-22:22px; --fs-24:24px; --fs-26:26px; --fs-28:28px; --fs-30:30px; --fs-32:32px; --fs-36:36px; --fs-44:44px; --fs-52:52px;
+  --fs-74:74px;
+  --lh-16:16px; --lh-18:18px; --lh-19:19px; --lh-20:20px; --lh-21:21px; --lh-22:22px; --lh-23:23px; --lh-24:24px; --lh-25:25px; --lh-26:26px;
+  --lh-28:28px; --lh-30:30px; --lh-32:32px; --lh-34:34px; --lh-36:36px; --lh-38:38px; --lh-40:40px; --lh-44:44px; --lh-48:48px; --lh-52:52px;
+  --lh-58:58px; --lh-84:84px;
+}
+/* the Arabic scale diverges here: looser body leading, +4px on every heading
+   line-height, and 600 resolves to 700 because Tajawal has no cut 600. */
+[dir="rtl"] {
+  --lh-body:1.72; --fw-600:700;
+  --lh-30:34px; --lh-32:36px; --lh-34:38px; --lh-36:40px; --lh-38:42px; --lh-40:44px; --lh-44:48px; --lh-48:52px; --lh-52:56px; --lh-58:62px;
+  --lh-84:88px;
+}
+
+/* --- 5. geometry --------------------------------------------------------- */
+:root {
+  --r-1:1px; --r-2:2px; --r-3:3px; --r-4:4px; --r-8:8px; --r-9:9px; --r-10:10px; --r-11:11px; --r-12:12px; --r-13:13px;
+  --r-14:14px; --r-16:16px; --r-18:18px; --r-20:20px; --r-22:22px; --r-24:24px; --r-26:26px; --r-30:30px;
+  --r-round:50%; --r-pill:999px;
+  --bw-1:1px; --bw-1-4:1.4px; --bw-1-5:1.5px; --bw-1-6:1.6px; --bw-2:2px; --bw-3:3px;
+  --s-1:1px; --s-1-5:1.5px; --s-2:2px; --s-3:3px; --s-4:4px; --s-5:5px; --s-6:6px; --s-7:7px; --s-8:8px; --s-9:9px;
+  --s-10:10px; --s-11:11px; --s-12:12px; --s-13:13px; --s-14:14px; --s-15:15px; --s-16:16px; --s-18:18px; --s-20:20px; --s-22:22px;
+  --s-24:24px; --s-26:26px; --s-28:28px; --s-30:30px; --s-32:32px; --s-40:40px; --s-44:44px; --s-47:47px; --s-48:48px; --s-50:50px;
+  --s-56:56px; --s-64:64px; --s-72:72px; --s-80:80px;
+  --i-6:6px; --i-7:7px; --i-8:8px; --i-10:10px; --i-12:12px; --i-13:13px; --i-14:14px; --i-15:15px; --i-16:16px; --i-17:17px;
+  --i-18:18px; --i-19:19px; --i-20:20px; --i-21:21px; --i-22:22px; --i-24:24px; --i-26:26px; --i-28:28px; --i-30:30px; --i-32:32px;
+  --i-34:34px; --i-36:36px; --i-38:38px; --i-40:40px; --i-44:44px; --i-46:46px; --i-48:48px; --i-52:52px; --i-60:60px; --i-64:64px;
+  --i-68:68px; --i-72:72px; --i-76:76px; --i-88:88px;
+  --h-38:38px; --h-40:40px; --h-42:42px; --h-44:44px; --h-46:46px; --h-48:48px; --h-50:50px; --h-52:52px; --h-54:54px; --h-56:56px;
+  --h-58:58px; --h-60:60px; --h-62:62px; --h-64:64px; --h-68:68px; --h-76:76px; --h-78:78px; --h-84:84px; --h-110:110px; --h-120:120px;
+  --tap-min:44px; --h-screen:100vh;
+  --frame-w:390px; --frame-h:844px;
+  /* the curves that carry the product's shape, by role */
+  --r-card:var(--r-16); --r-bubble:var(--r-18); --r-panel:var(--r-20);
+  --r-sheet:var(--r-30); --r-chip:var(--r-14); --r-nav:var(--r-22);
+}
+
+/* --- 6. depth, motion, icons --------------------------------------------- */
+:root {
+  --dur-fast:120ms; --dur-base:200ms; --dur-slow:360ms;
+  --dur-dots:1.2s; --dur-caret:1.1s;
+  --ease-standard:cubic-bezier(.4,0,.2,1); --ease-out:cubic-bezier(0,0,.2,1);
+  --icon-stroke:1.55;
+  /* hairlines drawn on dark surfaces, where a solid border reads as a box */
+  --rule-faint:rgba(244,238,248,.1); --rule-soft:rgba(244,238,248,.13); --rule-strong:rgba(244,238,248,.28);
+}
+
+/* --- 7. non-brand colour: platform chrome, incognito --------------------- */
+:root {
+  /* system colours in the OS dialog and lock screen: the OS draws them, not us */
+  --os-action:#0A7AFF; --os-dialog:#F2F2F5; --os-label-2:#3C3C43;
+  --os-label-3:#8A8A8E; --os-black:#000;
+  /* incognito is its own near-black family, darker than Night */
+  --incognito-canvas:#191622; --incognito-canvas-deep:#14141F;
+  --incognito-badge:#0E0E17; --incognito-glow:#2E2434; --incognito-deep:#12101A;
+  --incognito-text:#F4EEF8;
+}
+
+/* --- 8. base rules ------------------------------------------------------- */
+body { margin:0; background:var(--board); }
+a { color:var(--text); text-decoration:none; }
+a:hover { color:var(--muted); }
+[dir="ltr"] { font-family:var(--font-latin); line-height:var(--lh-body); }
+[dir="rtl"] { font-family:var(--font-arabic); line-height:var(--lh-body); }
+/* Language visibility. The nested case matters: the themes sheet puts dir="rtl"
+   frames inside a dir="ltr" page, and a descendant selector from the outer dir
+   hides the Arabic inside them. :dir() asks each span for its own computed
+   direction — the nearest dir attribute. The first line is the fallback for
+   engines without :dir(). */
+[dir="ltr"] [data-l="ar"], [dir="rtl"] [data-l="en"] { display:none; }
+[data-l="ar"]:dir(rtl), [data-l="en"]:dir(ltr) { display:revert; }
+[data-l="ar"]:dir(ltr), [data-l="en"]:dir(rtl) { display:none; }
+[dir="rtl"] [data-flip] { transform:scaleX(-1); }
+[data-nav="1"] { background:var(--nav-active); color:var(--text); font-weight:var(--fw-700); }
+[data-nav="0"] { color:var(--muted); font-weight:var(--fw-500); }
+/* one icon family, one stroke weight — inherited into <use> shadow trees */
+svg { stroke-width:var(--icon-stroke); }
+@keyframes lianDots { 0%,65%,100% { opacity:.28; transform:translateY(0) } 30% { opacity:1; transform:translateY(-2.5px) } }
+@keyframes lianCaret { 0%,45% { opacity:1 } 55%,100% { opacity:0 } }
