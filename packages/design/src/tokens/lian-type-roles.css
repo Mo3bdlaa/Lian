@@ -1,0 +1,58 @@
+/* ==========================================================================
+   Lian — type ROLE tier (tier 3), additive to design-system/lian-tokens.css.
+   Load order:  lian-tokens.css  →  lian-type-roles.css
+
+   WHY THIS FILE EXISTS
+   lian-tokens.css carries 21 font sizes and 22 line-heights, honestly named
+   for their px value.  TOKENS.md §2 is candid that this is "what the set
+   actually uses" rather than a scale.  Consumed directly, application code
+   picks --fs-15 or --fs-16 by feel and the raw-value lint still passes:
+   LESSONS §9's letter is satisfied while its intent leaks.
+
+   So: every numeric token stays defined (the reference screens keep working),
+   and application code may use ONLY the role names below.  tools/gates/
+   tokens-raw.ts fails the build on a numeric --fs-* / --lh-* / --fw-* inside
+   packages/ or apps/.
+
+   This file names NO values.  Every role points at a numeric token in
+   lian-tokens.css, so the Arabic divergence in that file's [dir="rtl"] block
+   (heading line-heights +4px, --fw-600 → 700, --lh-body 1.5 → 1.72) reaches
+   the roles automatically.  Adding a value here would be a second source of
+   truth — the failure LESSONS §7 describes, in the type layer.
+
+   Naming: --t-<role>-fs | -lh | -fw.  The `t-` prefix is not decoration; it
+   keeps the tier collision-free (--lh-body already exists as a unitless
+   numeric token) and makes the lint a one-line rule.
+   ========================================================================== */
+:root {
+  /* headings — line-heights point at --lh-30 and above, which the RTL block bumps */
+  --t-display-fs:var(--fs-36); --t-display-lh:var(--lh-44); --t-display-fw:var(--fw-600);
+  --t-h1-fs:var(--fs-28);      --t-h1-lh:var(--lh-36);      --t-h1-fw:var(--fw-600);
+  --t-h2-fs:var(--fs-22);      --t-h2-lh:var(--lh-30);      --t-h2-fw:var(--fw-600);
+  --t-h3-fs:var(--fs-18);      --t-h3-lh:var(--lh-26);      --t-h3-fw:var(--fw-600);
+
+  /* body — --lh-body is unitless and is the token the RTL block relaxes to 1.72 */
+  --t-body-fs:var(--fs-16);        --t-body-lh:var(--lh-body); --t-body-fw:var(--fw-400);
+  --t-body-strong-fs:var(--fs-16); --t-body-strong-lh:var(--lh-body); --t-body-strong-fw:var(--fw-600);
+  --t-body-sm-fs:var(--fs-14);     --t-body-sm-lh:var(--lh-20);  --t-body-sm-fw:var(--fw-400);
+  --t-caption-fs:var(--fs-12);     --t-caption-lh:var(--lh-16);  --t-caption-fw:var(--fw-500);
+
+  /* message text is its own role even though it currently equals body: chat
+     copy is the likeliest thing in the product to diverge from document body,
+     and a shared role would make that a find-and-replace instead of one edit */
+  --t-message-fs:var(--fs-16); --t-message-lh:var(--lh-body); --t-message-fw:var(--fw-400);
+
+  /* uppercase label (tracking comes from --tracking-caps in lian-tokens.css) */
+  --t-label-fs:var(--fs-12); --t-label-lh:var(--lh-16); --t-label-fw:var(--fw-700);
+  --t-label-tracking:var(--tracking-caps);
+
+  /* bottom-nav / rail labels */
+  --t-nav-fs:var(--fs-11); --t-nav-lh:var(--lh-16); --t-nav-fw:var(--fw-500);
+
+  /* money figures and other read-at-a-glance numerals */
+  --t-numeric-fs:var(--fs-22); --t-numeric-lh:var(--lh-30); --t-numeric-fw:var(--fw-600);
+
+  /* technical detail only — hex values, ids.  BRAND-GUIDELINES §9 allows mono
+     here and nowhere else. */
+  --t-mono-fs:var(--fs-13); --t-mono-lh:var(--lh-20); --t-mono-fw:var(--fw-400);
+}
