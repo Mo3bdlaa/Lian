@@ -1,21 +1,55 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "paths": {
-      "@lian/domain": ["./packages/domain/src/index.ts"],
-      "@lian/design": ["./packages/design/src/index.ts"],
-      "@lian/i18n": ["./packages/i18n/src/index.ts"],
-      "@lian/db": ["./packages/db/src/index.ts"],
-      "@lian/prompt": ["./packages/prompt/src/index.ts"],
-      "@lian/llm": ["./packages/llm/src/index.ts"],
-      "@lian/capabilities": ["./packages/capabilities/src/index.ts"],
-      "@lian/auth": ["./packages/auth/src/index.ts"],
-      "@lian/voice": ["./packages/voice/src/index.ts"],
-      "@lian/runtime": ["./packages/runtime/src/index.ts"],
-      "@lian/jobs": ["./packages/jobs/src/index.ts"]
+      "@lian/domain": [
+        "./packages/domain/src/index.ts"
+      ],
+      "@lian/design": [
+        "./packages/design/src/index.ts"
+      ],
+      "@lian/i18n": [
+        "./packages/i18n/src/index.ts"
+      ],
+      "@lian/db": [
+        "./packages/db/src/index.ts"
+      ],
+      "@lian/prompt": [
+        "./packages/prompt/src/index.ts"
+      ],
+      "@lian/llm": [
+        "./packages/llm/src/index.ts"
+      ],
+      "@lian/capabilities": [
+        "./packages/capabilities/src/index.ts"
+      ],
+      "@lian/auth": [
+        "./packages/auth/src/index.ts"
+      ],
+      "@lian/voice": [
+        "./packages/voice/src/index.ts"
+      ],
+      "@lian/runtime": [
+        "./packages/runtime/src/index.ts"
+      ],
+      "@lian/jobs": [
+        "./packages/jobs/src/index.ts"
+      ],
+      "@lian/prompt/test-fakes": [
+        "./packages/prompt/src/test-fakes.ts"
+      ],
+      "@lian/capabilities/test-fakes": [
+        "./packages/capabilities/src/test-fakes.ts"
+      ]
     },
     "baseUrl": "."
   },
-  "include": ["packages/**/*.ts", "tools/**/*.ts", "apps/**/*.ts"]
+  "include": [
+    "packages/**/*.ts",
+    "tools/**/*.ts",
+    "apps/**/*.ts"
+  ]
 }

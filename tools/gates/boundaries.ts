@@ -49,7 +49,16 @@ for (const file of files) {
 
     // Cross-package deep imports: reach a package through its name only, so a
     // package's internals stay internal (§1).
+    //
+    // One sanctioned subpath: '@lian/<pkg>/test-fakes', and only from a test.
+    // The alternative was exporting fakes from the production index, which
+    // puts test scaffolding in the public API of every package — worse.  It
+    // is declared in each package's exports map, so it is a real entry point
+    // rather than a reach-in.
     const deep = spec.match(/^@lian\/([a-z]+)\/(.+)$/);
+    if (deep && deep[2] === 'test-fakes' && path.endsWith('.test.ts')) {
+      continue;
+    }
     if (deep) {
       violations.push({ file: path, line, message: `deep import '${spec}' — import '@lian/${deep[1]}' by package name; internals are internal` });
       continue;

@@ -7,8 +7,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { runTurn, type TurnInput, type TurnPorts, type TurnSink } from './turn.ts';
-import { fakePorts as fakePromptPorts } from '../../prompt/src/test-fakes.ts';
-import { fakePorts as fakeCapabilityPorts } from '../../capabilities/src/test-fakes.ts';
+import { fakePorts as fakePromptPorts } from '@lian/prompt/test-fakes';
+import { fakePorts as fakeCapabilityPorts } from '@lian/capabilities/test-fakes';
 import type { Provider } from '@lian/llm';
 import type { CaptureSummary } from '@lian/domain';
 

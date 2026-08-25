@@ -1,0 +1,123 @@
+// GATE: every lesson has a test, not a comment.
+//
+// "Every constraint in LESSONS gets a test, not a comment. A rule that isn't
+// a failing build is a rule that comes back."
+//
+// This gate reads LESSONS.md, enumerates its sections, and requires each one
+// to name at least one file that exists and contains its marker.  Adding a
+// fifteenth lesson fails the build until it is covered — which is the only
+// way an index like this stays true.
+import { read, ROOT, report, type Violation } from './lib.ts';
+import { existsSync } from 'node:fs';
+
+type Coverage = { readonly where: string; readonly marker: RegExp };
+
+const COVERAGE: Record<number, Coverage[]> = {
+  1: [
+    { where: 'packages/prompt/src/assemble.ts', marker: /THE ONE PATH THAT BUILDS THE SYSTEM PROMPT/ },
+    { where: 'packages/prompt/src/assemble.test.ts', marker: /fault injection over every required port/ },
+    { where: 'packages/runtime/src/turn.test.ts', marker: /assemble through the same path/ },
+    { where: 'tools/gates/boundaries.ts', marker: /persona text outside/ },
+  ],
+  2: [
+    { where: 'packages/prompt/src/blocks.ts', marker: /SCENARIO_OVERRIDE_PREFIX/ },
+    { where: 'packages/prompt/src/assemble.test.ts', marker: /the scenario states that it overrides/ },
+  ],
+  3: [
+    { where: 'packages/llm/src/tagstream.ts', marker: /tail buffer/ },
+    { where: 'packages/llm/src/tagstream.test.ts', marker: /EVERY possible single split point/ },
+  ],
+  4: [
+    { where: 'packages/db/src/repositories/outreach.ts', marker: /unansweredStreak/ },
+    { where: 'packages/db/src/repositories/lessons.test.ts', marker: /backoff counts only her own unanswered messages/ },
+    { where: 'packages/jobs/src/tick.test.ts', marker: /never silenced by backoff/ },
+  ],
+  5: [
+    { where: 'packages/db/src/repositories/canon.ts', marker: /Retrieval is UNCONDITIONAL/ },
+    { where: 'packages/db/src/repositories/lessons.test.ts', marker: /canon is retrieved unconditionally and is never dropped/ },
+  ],
+  6: [
+    { where: 'packages/domain/src/relationship.ts', marker: /STAGE_THRESHOLDS/ },
+    { where: 'packages/db/src/repositories/lessons.test.ts', marker: /relationship stage cannot go backwards/ },
+  ],
+  7: [
+    { where: 'packages/design/src/theme/resolve.ts', marker: /THIS FILE DECIDES THE THEME/ },
+    { where: 'packages/design/src/theme/apply.ts', marker: /ONLY PLACE THE RUNTIME WRITES THE THEME/ },
+    { where: 'tools/gates/theme-single-writer.ts', marker: /sets a CSS custom property at runtime/ },
+  ],
+  8: [
+    { where: 'packages/voice/src/speak.ts', marker: /THE ONLY PLACE AUDIO IS WRITTEN TO THE CACHE/ },
+    { where: 'packages/voice/src/speak.test.ts', marker: /persist:false never writes/ },
+    { where: 'tools/gates/voice-cache.ts', marker: /sole write path/ },
+  ],
+  9: [
+    { where: 'tools/gates/tokens-audit.ts', marker: /resolves to nothing/ },
+    { where: 'tools/gates/tokens-raw.ts', marker: /raw hex colour/ },
+    { where: 'tools/gates/tokens-contrast.ts', marker: /MISSING cell/ },
+    { where: 'tools/gates/tokens-tap.ts', marker: /tap-min/ },
+  ],
+  10: [
+    { where: 'packages/i18n/src/arabic.ts', marker: /DIRECTION OF ADDRESS/ },
+    { where: 'packages/i18n/src/arabic.test.ts', marker: /addressed to HER is correct and passes/ },
+    { where: 'tools/gates/arabic-address.ts', marker: /addressee/ },
+  ],
+  11: [
+    { where: 'packages/db/src/scope.ts', marker: /deliberate decision with legal weight/ },
+    { where: 'tools/gates/db-scoping.ts', marker: /without \$\{scopeColumn\}|scope predicate|scopeColumn/ },
+    { where: 'packages/db/src/repositories/lessons.test.ts', marker: /one assistant cannot read another assistant memory/ },
+    { where: 'packages/capabilities/src/registry.test.ts', marker: /export covers every capability/ },
+  ],
+  12: [
+    { where: 'packages/llm/src/keypool.ts', marker: /COOLDOWN_STATUSES/ },
+    { where: 'packages/llm/src/keypool.test.ts', marker: /the pool state is in the store, not in the instance/ },
+    { where: 'packages/db/src/repositories/usage.ts', marker: /not a rate limit/ },
+    { where: 'packages/runtime/src/turn.test.ts', marker: /per-user model cost ceiling/ },
+    { where: 'packages/jobs/src/signature.ts', marker: /HMAC/ },
+  ],
+  13: [
+    { where: 'packages/domain/src/capability.ts', marker: /COMPOSES INTO THE PROMPT/ },
+    { where: 'packages/capabilities/src/registry.test.ts', marker: /appears nowhere outside its directory/ },
+    { where: 'tools/gates/boundaries.ts', marker: /composes INTO the prompt/ },
+  ],
+  14: [
+    // Scope discipline is mostly a matter of what does NOT exist.  What can
+    // be checked is checked: no calendar anywhere, separate memory per
+    // assistant, and no relationship score crossing the network.
+    { where: 'packages/prompt/src/personas/female.en.ts', marker: /You have no calendar access/ },
+    { where: 'packages/domain/src/relationship.ts', marker: /must never cross the network/ },
+    { where: 'packages/db/src/repositories/lessons.test.ts', marker: /separate memory, no shared awareness/ },
+  ],
+};
+
+const lessons = read(`${ROOT}/LESSONS.md`);
+const sections = [...lessons.matchAll(/^## (\d+)\.\s+(.+)$/gm)].map((m) => ({ number: Number(m[1]), title: m[2]!.trim() }));
+
+const violations: Violation[] = [];
+const rows: string[] = [];
+
+if (sections.length === 0) violations.push({ file: 'LESSONS.md', line: 0, message: 'no numbered sections found — has the format changed?' });
+
+for (const section of sections) {
+  const coverage = COVERAGE[section.number];
+  if (coverage === undefined || coverage.length === 0) {
+    violations.push({
+      file: 'LESSONS.md', line: 0,
+      message: `§${section.number} "${section.title}" has no test.  Every constraint gets a test, not a comment — add one and map it in tools/gates/lessons-index.ts.`,
+    });
+    continue;
+  }
+  const missing: string[] = [];
+  for (const entry of coverage) {
+    const path = `${ROOT}/${entry.where}`;
+    if (!existsSync(path)) { missing.push(`${entry.where} (no such file)`); continue; }
+    if (!entry.marker.test(read(path))) missing.push(`${entry.where} (no longer contains ${entry.marker})`);
+  }
+  if (missing.length > 0) {
+    violations.push({ file: 'LESSONS.md', line: 0, message: `§${section.number} "${section.title}" lost its cover: ${missing.join(', ')}` });
+  }
+  rows.push(`  §${String(section.number).padStart(2)} ${section.title.padEnd(28)} ${coverage.length} file(s)`);
+}
+
+console.log(`  ${sections.length} lesson(s) in LESSONS.md`);
+for (const row of rows) console.log(row);
+report('lessons:index', violations, sections.length);

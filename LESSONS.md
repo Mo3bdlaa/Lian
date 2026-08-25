@@ -171,7 +171,16 @@ The product is sold on ownership. Anything that contradicts it in code
 contradicts it in fact.
 
 - Memory is inspectable, editable, and deletable by the user.
-- Deleting is real: derived memory is removed with its source.
+- Deleting is real: derived memory is removed with its source **by
+  default**. Keeping a memory whose source was deleted is a choice the
+  user makes explicitly, and the memory is then marked as one —
+  `Source removed — kept by you`. The default is deletion; retention
+  is never silent.
+- Provenance is direct and single-source. A memory records the one
+  message it came from. Once a memory can derive from a summary of
+  several messages, provenance is a graph and "this message helped me
+  remember 2 things" stops being computable — so that is out of scope
+  until someone designs it deliberately.
 - Export and full deletion are user-facing features, not support
   requests.
 - Access paths that read one user's data from another context are a
