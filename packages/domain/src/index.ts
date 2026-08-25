@@ -9,3 +9,7 @@ export {
   STAGE_KEYS, stageFor, nextStage, stageKey, publicView,
   type Stage, type StageKey, type PublicRelationship,
 } from './relationship.ts';
+export type {
+  Capability, CapabilityId, CapabilityContext, CapabilityTag, CaptureOutcome,
+  CaptureSummary, OutreachCandidate, ExportSlice,
+} from './capability.ts';
