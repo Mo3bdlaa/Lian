@@ -41,7 +41,15 @@ function tablesIn(sql: string): string[] {
   return [...names];
 }
 
+// A query may exempt itself with a pragma in the comment directly above it:
+//     // db-scoping:allow-unscoped — the token IS the credential here
+// Exemptions are printed on every run.  An unscoped read of a scoped table is
+// allowed to exist — LESSONS §11 calls it "a deliberate decision with legal
+// weight" — but only as a decision someone wrote down.
+const PRAGMA = /db-scoping:allow-unscoped\s+—\s+(.+)/;
+
 const violations: Violation[] = [];
+const exemptions: string[] = [];
 const files = walk(`${ROOT}/packages/db/src`, ['.ts']).filter((f) => !f.endsWith('.test.ts'));
 let queries = 0;
 
@@ -51,6 +59,10 @@ for (const file of files) {
   for (const { text, index } of sqlLiterals(source)) {
     queries++;
     const line = lineOf(source, index);
+    // Look back a few lines for a pragma attached to this query.
+    const preceding = source.slice(0, index).split('\n').slice(-10).join('\n');
+    const pragma = PRAGMA.exec(preceding);
+    if (pragma) { exemptions.push(`${path}:${line}  ${pragma[1]!.trim()}`); continue; }
     const isInsert = /^\s*INSERT\s+INTO/i.test(text);
     for (const table of tablesIn(text)) {
       if (unscoped.has(table)) continue;
@@ -74,4 +86,8 @@ for (const file of files) {
 }
 
 console.log(`  ${queries} query literal(s) across ${files.length} repository file(s)`);
+if (exemptions.length > 0) {
+  console.log(`  ${exemptions.length} recorded unscoped query/queries:`);
+  for (const e of exemptions) console.log(`    ${e}`);
+}
 report('db:scoping', violations, files.length);

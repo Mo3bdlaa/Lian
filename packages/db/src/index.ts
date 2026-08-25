@@ -14,3 +14,4 @@ export * as relationship from './repositories/relationship.ts';
 export * as conversations from './repositories/conversations.ts';
 export * as captures from './repositories/captures.ts';
 export * as life from './repositories/life.ts';
+export * as auth from './repositories/auth.ts';
