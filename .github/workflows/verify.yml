@@ -1,0 +1,42 @@
+# Gates before the code they guard.  Every job here is a rule from LESSONS.md
+# that would otherwise have to be remembered.
+name: verify
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: lian
+          POSTGRES_PASSWORD: lian
+          POSTGRES_DB: lian_test
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+        ports: ['5432:5432']
+
+    env:
+      DATABASE_URL: postgres://lian:lian@127.0.0.1:5432/lian_test
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # Node 22.6+ runs TypeScript directly; there is no build step.
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: typecheck
+        run: npm run typecheck
+      - name: gates
+        run: npm run gates
+      - name: tests
+        run: npm test
