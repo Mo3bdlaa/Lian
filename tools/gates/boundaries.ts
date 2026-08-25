@@ -93,4 +93,22 @@ for (const file of files) {
   }
 }
 
+// LESSONS §1: persona text lives in one place.  A stray copy of her voice in
+// a job handler is exactly how the second assembly path grew last time.
+const PERSONA_MARKERS = [/You are a secretary, more or less/, /never describe yourself as an AI/, /شغلك أقرب لسكرتير/];
+for (const file of files) {
+  const path = rel(file);
+  if (path.startsWith('packages/prompt/src/personas/')) continue;
+  const source = read(file);
+  for (const marker of PERSONA_MARKERS) {
+    const hit = marker.exec(source);
+    if (hit) {
+      violations.push({
+        file: path, line: lineOf(source, hit.index),
+        message: 'persona text outside packages/prompt/src/personas — one path builds the system prompt (LESSONS §1)',
+      });
+    }
+  }
+}
+
 report('boundaries', violations, files.length);
