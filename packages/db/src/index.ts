@@ -20,3 +20,5 @@ export * as summaries from './repositories/summaries.ts';
 export * as reflections from './repositories/reflections.ts';
 export * as push from './repositories/push.ts';
 export * as voice from './repositories/voice.ts';
+export * as limits from './repositories/limits.ts';
+export * as corrections from './repositories/corrections.ts';

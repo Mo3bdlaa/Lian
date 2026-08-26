@@ -1,6 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { proposeOutreach, MAX_PENDING_ASSISTANT_INITIATED, type CandidatePorts } from './candidates.ts';
+import { proposeOutreach, MAX_PENDING_ASSISTANT_INITIATED, BRIEFING_HOUR, type CandidatePorts } from './candidates.ts';
+import { localHour } from '@lian/domain';
 import { runReflections, type ReflectPorts } from './reflect.ts';
 import type { OutreachCandidate } from '@lian/domain';
 
@@ -23,6 +24,7 @@ function fakePorts(candidates: OutreachCandidate[], overrides: Partial<Candidate
   const ports: CandidatePorts = {
     async fromCapabilities() { return candidates; },
     async unsurfacedReflection() { return null; },
+    async briefingWorthSending() { return false; },
     async unansweredStreak() { return 0; },
     async daysSinceLastReachOut() { return 5; },
     async schedule({ candidate: c }) {
@@ -35,6 +37,34 @@ function fakePorts(candidates: OutreachCandidate[], overrides: Partial<Candidate
   };
   return { ports, scheduled };
 }
+
+describe('the morning briefing', () => {
+  test('is proposed at seven in the morning WHERE THEY ARE, not seven UTC', async () => {
+    const fake = fakePorts([], { async briefingWorthSending() { return true; } });
+    await proposeOutreach(input, fake.ports);
+    const briefing = fake.scheduled.find((c) => c.kind === 'briefing');
+    assert.notEqual(briefing, undefined);
+    assert.equal(localHour(briefing!.scheduledFor, input.timeZone), BRIEFING_HOUR);
+    // The bug this is here for: 07:00Z is 11am in Dubai.
+    assert.notEqual(briefing!.scheduledFor.toISOString(), `${input.localDay}T07:00:00.000Z`);
+  });
+
+  test('a day with nothing on it gets no briefing at all', async () => {
+    // UI-UX §9 forbids "we miss you" messaging, and a briefing with nothing
+    // in it IS that message with more sections.
+    const fake = fakePorts([], { async briefingWorthSending() { return false; } });
+    const report = await proposeOutreach(input, fake.ports);
+    assert.equal(report.proposed, 0);
+    assert.equal(fake.scheduled.length, 0);
+  });
+
+  test('it competes with her other reach-outs rather than being extra', async () => {
+    const fake = fakePorts([candidate()], { async briefingWorthSending() { return true; } });
+    const report = await proposeOutreach(input, fake.ports);
+    assert.equal(report.scheduled, MAX_PENDING_ASSISTANT_INITIATED);
+    assert.equal(report.heldBack, 1);
+  });
+});
 
 describe('composing what she reaches out about', () => {
   test('capability candidates are scheduled', async () => {

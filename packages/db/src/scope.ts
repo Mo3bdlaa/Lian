@@ -31,6 +31,8 @@ export const ASSISTANT_SCOPED_TABLES = [
 
 /** Tables with no scope column, by decision rather than omission. */
 export const UNSCOPED_TABLES = [
+  'rate_limits',        // keyed by IP or user id as TEXT; no foreign key to scope by
+  'idempotency_keys',   // claimed before a session is resolved on some routes
   'users',              // the scope root itself
   'schema_migrations',  // infrastructure
   'api_key_pool',       // process-wide provider state, no user in it

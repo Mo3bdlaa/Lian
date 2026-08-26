@@ -8,3 +8,4 @@ export {
   THEME_ATTRIBUTE, DIRECTION_ATTRIBUTE, THEME_COOKIE, DIRECTION_COOKIE,
   type Direction,
 } from './theme/apply.ts';
+export { brandColor, type BrandToken } from './tokens.ts';

@@ -52,6 +52,9 @@
       ],
       "@lian/push": [
         "./packages/push/src/index.ts"
+      ],
+      "@lian/http": [
+        "./packages/http/src/index.ts"
       ]
     },
     "baseUrl": "."

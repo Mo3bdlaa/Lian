@@ -15,7 +15,7 @@ export function fakePorts(): CapabilityPorts & {
     taskRows, txRows, noteRows, healthRows, identityRows,
     tasks: {
       async create(_userId, input) {
-        const row: TaskRecord = { id: `t${++n}`, kind: input.kind, title: input.title, dueOn: input.dueOn, completedAt: null, originMessageId: input.originMessageId };
+        const row: TaskRecord = { id: `t${++n}`, kind: input.kind, title: input.title, dueOn: input.dueOn, recurrence: input.recurrence, completedAt: null, originMessageId: input.originMessageId };
         taskRows.push(row);
         return row;
       },

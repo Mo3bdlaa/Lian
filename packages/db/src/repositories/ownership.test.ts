@@ -21,6 +21,7 @@ import * as profile from './profile.ts';
 import * as reflections from './reflections.ts';
 import * as push from './push.ts';
 import * as auth from './auth.ts';
+import * as limits from './limits.ts';
 
 /** Every table in the schema that holds a row belonging to somebody. */
 async function scopedTables(column: 'user_id' | 'assistant_id'): Promise<string[]> {
@@ -147,6 +148,26 @@ describe('§11 ownership', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, ()
     assert.ok(await accounts.getUser(survivor.user));
   });
 
+  test('deletion takes the rate-limit buckets with it', async () => {
+    // The one table the generic sweep cannot reach. A bucket key reading
+    // `chat:<their uuid>` is still their identifier after they asked to be
+    // forgotten (LESSONS §11).
+    const user = await freshUser();
+    await limits.takeToken(`chat:${user.userId}`, 60, 10, new Date());
+    await limits.takeToken(`write:${user.userId}`, 60, 10, new Date());
+    const before = await db().query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM rate_limits WHERE bucket_key LIKE '%:' || $1`, [user.userId],
+    );
+    assert.equal(before.rows[0]!.n, 2);
+
+    await accounts.deleteAccount(user);
+
+    const after = await db().query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM rate_limits WHERE bucket_key LIKE '%:' || $1`, [user.userId],
+    );
+    assert.equal(after.rows[0]!.n, 0);
+  });
+
   test('every scoped table is reachable by the generic sweep', async () => {
     // If a future table has neither column, deletion would miss it and this
     // test would not notice — so the sweep's own coverage is asserted.
@@ -165,6 +186,9 @@ describe('§11 ownership', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, ()
       'events',            // user_id is nullable: pre-signup events are real
       'sign_in_attempts',  // an attempt on an unknown email has no user yet
       'users',             // the scope root itself
+      // No foreign key to cascade from: swept explicitly by deleteAccount,
+      // and the test below is what says so.
+      'rate_limits',
     ]);
     const unaccounted = all.filter((table) => !scoped.has(table) && !unscoped.has(table));
     assert.deepEqual(unaccounted, [], 'a table in neither set would survive account deletion unnoticed');

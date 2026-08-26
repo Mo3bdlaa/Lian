@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { ownerOfTag, REGISTRY, tagSpecs } from './registry.ts';
 import { observe } from './health/index.ts';
 import { fakePorts } from './test-fakes.ts';
+import { localHour } from '@lian/domain';
 import type { CapabilityContext } from '@lian/domain';
 import type { HealthRecord } from './ports.ts';
 
@@ -15,6 +16,41 @@ const CONTEXT: CapabilityContext = {
 
 const handle = (name: string, payload: unknown, ports: ReturnType<typeof fakePorts>) =>
   ownerOfTag(name)!.handle({ context: CONTEXT, tag: { name, payload, index: 0 }, messageId: 'm-1' }, ports);
+
+describe('a weekly habit is not a daily reminder', () => {
+  // 2026-05-18 is a Monday; 2026-05-19 a Tuesday.
+  const tasks = () => REGISTRY.find((c) => c.id === 'tasks')!;
+
+  test('a Monday/Wednesday habit is proposed on Monday', async () => {
+    const ports = fakePorts();
+    await handle('habit', { title: 'gym', freq: 'weekly', days: [1, 3] }, ports);
+    const candidates = await tasks().proposeOutreach!(CONTEXT, ports);
+    assert.equal(candidates.length, 1);
+    assert.equal(candidates[0]!.reason, 'gym');
+  });
+
+  test('and NOT on Tuesday', async () => {
+    const ports = fakePorts();
+    await handle('habit', { title: 'gym', freq: 'weekly', days: [1, 3] }, ports);
+    const tuesday = { ...CONTEXT, localDay: '2026-05-19' };
+    assert.deepEqual(await tasks().proposeOutreach!(tuesday, ports), []);
+  });
+
+  test('a daily habit is proposed every day', async () => {
+    const ports = fakePorts();
+    await handle('habit', { title: 'water', freq: 'daily' }, ports);
+    for (const localDay of ['2026-05-18', '2026-05-19', '2026-05-20']) {
+      assert.equal((await tasks().proposeOutreach!({ ...CONTEXT, localDay }, ports)).length, 1, localDay);
+    }
+  });
+
+  test("a due task is raised at nine where the person is, not nine UTC", async () => {
+    const ports = fakePorts();
+    await handle('todo', { title: 'renew the licence', due: '2026-05-18' }, ports);
+    const [candidate] = await tasks().proposeOutreach!(CONTEXT, ports);
+    assert.equal(localHour(candidate!.scheduledFor, CONTEXT.timeZone), 9);
+  });
+});
 
 describe('adding a capability stayed cheap (§13)', () => {
   test('every capability owns at least one tag, and no two share a name', () => {

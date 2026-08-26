@@ -31,6 +31,9 @@ const ALLOWED: Record<string, string[]> = {
   auth: ['domain', 'i18n'],
   voice: ['domain'],
   push: ['domain'],
+  // The HTTP layer is transport only: it knows about sessions and rate
+  // limits, and reaches everything else through ports the app wires up.
+  http: ['domain'],
   // composition roots: they wire ports to implementations.
   runtime: ['domain', 'i18n', 'design', 'prompt', 'llm', 'capabilities', 'auth', 'voice', 'db', 'analysis'],
   jobs: ['domain', 'i18n', 'prompt', 'llm', 'capabilities', 'voice', 'db', 'runtime', 'analysis', 'push'],

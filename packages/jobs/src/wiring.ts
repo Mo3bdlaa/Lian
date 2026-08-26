@@ -146,6 +146,16 @@ export function candidatePorts(): CandidatePorts {
         capabilityPorts(input.userId),
       );
     },
+    async briefingWorthSending({ userId, localDay }) {
+      // What PRD §12 says a briefing contains, reduced to the cheapest
+      // question that can be false: is anything due or carried over?  A habit
+      // counts every day by definition — that is what a habit is.
+      const tasks = await db.life.allTasks({ userId });
+      const done = new Set(await db.life.completionsOn({ userId }, localDay));
+      return tasks.some((task) =>
+        task.completedAt === null && !done.has(task.id) &&
+        (task.kind === 'habit' || (task.dueOn !== null && task.dueOn <= localDay)));
+    },
     async unsurfacedReflection(assistantId) {
       const owner = await db.outreach.ownerOf(assistantId);
       if (owner === null) return null;

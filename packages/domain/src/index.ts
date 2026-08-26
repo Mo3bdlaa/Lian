@@ -1,4 +1,4 @@
-export { localHour, localDayKey, isValidTimeZone, type Hour } from './time.ts';
+export { localHour, localDayKey, atLocalHour, isValidTimeZone, type Hour } from './time.ts';
 export { deriveMood, isMood, MOODS, MOOD_THRESHOLDS, type Mood, type MoodSignals } from './mood.ts';
 export {
   PLAN_LIMITS, DAYS_PER_MONTH, limitsFor, monthlyMessageAllowance, messageBudget, APPROACHING_THRESHOLD,

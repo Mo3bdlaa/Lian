@@ -6,11 +6,32 @@
 //
 // PRD §14: no add buttons anywhere.  Capture happens through conversation, so
 // this capability's only write path is a control tag in her reply.
+import { atLocalHour } from '@lian/domain';
 import type { Capability, CapabilityContext, CaptureOutcome, OutreachCandidate, ExportSlice } from '@lian/domain';
 import type { CapabilityPorts } from '../ports.ts';
 import { line } from '../copy.ts';
 
 type TodoPayload = { title?: unknown; due?: unknown; freq?: unknown; days?: unknown };
+
+/** Local hour a due task is raised at. Early enough to act on, late enough
+ *  not to be the thing that wakes someone. */
+const REMINDER_HOUR = 9;
+
+type Recurrence = { freq?: unknown; days?: unknown };
+
+/** ISO weekday, 1 = Monday. The day string is a calendar date, so reading it
+ *  as UTC is exact rather than approximate. */
+function isoWeekdayOf(localDay: string): number {
+  return ((new Date(`${localDay}T00:00:00Z`).getUTCDay() + 6) % 7) + 1;
+}
+
+export function recursOn(recurrence: unknown, localDay: string): boolean {
+  if (recurrence === null || typeof recurrence !== 'object') return false;
+  const { freq, days } = recurrence as Recurrence;
+  if (freq === 'daily') return true;
+  if (freq !== 'weekly' || !Array.isArray(days)) return false;
+  return days.includes(isoWeekdayOf(localDay));
+}
 
 export const tasksCapability: Capability<CapabilityPorts> = {
   id: 'tasks',
@@ -93,13 +114,21 @@ export const tasksCapability: Capability<CapabilityPorts> = {
     const done = new Set(await ports.tasks.completionsOn(context.userId, context.localDay));
     return due
       .filter((task) => !done.has(task.id))
+      // The repository returns every habit — it cannot read a recurrence and
+      // should not try.  A weekly habit on Mondays and Wednesdays is not a
+      // daily reminder, and being reminded of it on Friday is how someone
+      // turns her notifications off.
+      .filter((task) => task.kind !== 'habit' || recursOn(task.recurrence, context.localDay))
       .map((task) => ({
         kind: 'reminder' as const,
         // LESSONS §4: THEY asked for this reminder.  It is user_requested, so
         // an unanswered one never counts toward her backing off.  Noura
         // counted these and muted herself.
         source: 'user_requested' as const,
-        scheduledFor: new Date(`${context.localDay}T09:00:00Z`),
+        // Nine in the morning WHERE THEY ARE. The Z-anchored version of
+        // this line delivered a morning reminder at one in the afternoon in
+        // Dubai, which is most of the intended market.
+        scheduledFor: atLocalHour(context.localDay, REMINDER_HOUR, context.timeZone),
         dedupeKey: `task:${task.id}:${context.localDay}`,
         reason: task.title,
       }));

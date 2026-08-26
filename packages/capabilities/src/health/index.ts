@@ -5,6 +5,7 @@
 // absence has to survive contact with a language model, which will happily
 // volunteer a calorie estimate if nothing tells it not to.  So the prompt
 // fragment says so, and there is nowhere to put a number if it did.
+import { atLocalHour } from '@lian/domain';
 import type { Capability, CaptureOutcome, ExportSlice, OutreachCandidate } from '@lian/domain';
 import type { CapabilityPorts, HealthRecord } from '../ports.ts';
 import { line } from '../copy.ts';
@@ -12,6 +13,9 @@ import { line } from '../copy.ts';
 type HealthPayload = { kind?: unknown; description?: unknown; at?: unknown; minutes?: unknown };
 
 const KINDS = ['meal', 'workout', 'medication'] as const;
+
+/** Local evening: a noticed pattern is conversation, not a morning alert. */
+const PATTERN_HOUR = 18;
 
 function startOfWeek(localDay: string): Date {
   const day = new Date(`${localDay}T00:00:00Z`);
@@ -113,7 +117,7 @@ export const healthCapability: Capability<CapabilityPorts> = {
     if (observation === null) return [];
     return [{
       kind: 'pattern', source: 'assistant_initiated',
-      scheduledFor: new Date(`${context.localDay}T18:00:00Z`),
+      scheduledFor: atLocalHour(context.localDay, PATTERN_HOUR, context.timeZone),
       dedupeKey: `health:pattern:${context.localDay.slice(0, 7)}`,
       reason: observation,
     }];

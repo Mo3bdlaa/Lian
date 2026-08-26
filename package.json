@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test --test-concurrency=1 \"packages/**/*.test.ts\" \"tools/**/*.test.ts\"",
+    "test": "node --test --test-concurrency=1 \"packages/**/*.test.ts\" \"apps/**/*.test.ts\" \"tools/**/*.test.ts\"",
     "gate:boundaries": "node tools/gates/boundaries.ts",
     "gate:tokens:audit": "node tools/gates/tokens-audit.ts",
     "gate:tokens:raw": "node tools/gates/tokens-raw.ts",
@@ -26,7 +26,9 @@
     "db:migrate": "node tools/db/migrate.ts",
     "gate:db:scoping": "node tools/gates/db-scoping.ts",
     "gate:voice": "node tools/gates/voice-cache.ts",
-    "gate:analysis": "node tools/gates/analysis-path.ts"
+    "gate:analysis": "node tools/gates/analysis-path.ts",
+    "dev": "node apps/server/src/main.ts",
+    "tick": "node apps/server/src/ticker.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

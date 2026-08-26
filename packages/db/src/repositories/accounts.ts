@@ -1,6 +1,7 @@
 // Users and assistants.
 import type { Sql } from '../client.ts';
 import { db } from '../client.ts';
+import { purgeBucketsFor } from './limits.ts';
 import type { AssistantScope, UserScope } from '../scope.ts';
 
 export type Plan = 'free' | 'paid';
@@ -196,5 +197,8 @@ export async function setMood(scope: AssistantScope, mood: 'warm' | 'quiet' | 'n
  * opposite of real.
  */
 export async function deleteAccount(scope: UserScope, sql: Sql = db()): Promise<void> {
+  // rate_limits is the one table with nothing to cascade from, so it is swept
+  // by hand here rather than left behind (see limits.purgeBucketsFor).
+  await purgeBucketsFor(scope.userId, sql);
   await sql.query(`DELETE FROM users WHERE id = $1`, [scope.userId]);
 }

@@ -138,17 +138,17 @@ export function capabilityPorts(userId: string): CapabilityPorts {
           kind: input.kind, title: input.title, dueOn: input.dueOn, recurrence: input.recurrence,
           originMessageId: input.originMessageId, originAssistantId: input.originAssistantId,
         });
-        return { id: task.id, kind: task.kind, title: task.title, dueOn: task.dueOn, completedAt: task.completedAt, originMessageId: task.originMessageId };
+        return { id: task.id, kind: task.kind, title: task.title, dueOn: task.dueOn, recurrence: task.recurrence, completedAt: task.completedAt, originMessageId: task.originMessageId };
       },
       async dueOn(userId, day) {
         return (await db.life.dueOn({ userId }, day)).map((t) => ({
-          id: t.id, kind: t.kind, title: t.title, dueOn: t.dueOn, completedAt: t.completedAt, originMessageId: t.originMessageId,
+          id: t.id, kind: t.kind, title: t.title, dueOn: t.dueOn, recurrence: t.recurrence, completedAt: t.completedAt, originMessageId: t.originMessageId,
         }));
       },
       async completionsOn(userId, day) { return db.life.completionsOn({ userId }, day); },
       async all(userId) {
         return (await db.life.allTasks({ userId })).map((t) => ({
-          id: t.id, kind: t.kind, title: t.title, dueOn: t.dueOn, completedAt: t.completedAt, originMessageId: t.originMessageId,
+          id: t.id, kind: t.kind, title: t.title, dueOn: t.dueOn, recurrence: t.recurrence, completedAt: t.completedAt, originMessageId: t.originMessageId,
         }));
       },
       async purge(userId) { await db.life.purgeTasks({ userId }); },

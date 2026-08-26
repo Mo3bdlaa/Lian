@@ -5,6 +5,10 @@
 // acyclic.  @lian/runtime adapts the repositories to these in one place.
 export type TaskRecord = {
   id: string; kind: 'task' | 'habit'; title: string; dueOn: string | null;
+  /** {"freq":"daily"|"weekly","days":[1..7]} on a habit, null on a task.
+   *  Carried here because whether a weekly habit is due TODAY is a question
+   *  only the capability can answer, and it cannot answer it blind. */
+  recurrence: unknown;
   completedAt: Date | null; originMessageId: string | null;
 };
 
