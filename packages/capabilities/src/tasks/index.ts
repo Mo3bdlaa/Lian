@@ -17,6 +17,12 @@ type TodoPayload = { title?: unknown; due?: unknown; freq?: unknown; days?: unkn
  *  not to be the thing that wakes someone. */
 const REMINDER_HOUR = 9;
 
+/** One line, one place: the row is written at capture time and read back
+ *  later by the screens, and the two must not drift. */
+function taskLine(title: string, dueOn: string | null): string {
+  return dueOn === null ? title : `${title} · ${dueOn}`;
+}
+
 type Recurrence = { freq?: unknown; days?: unknown };
 
 /** ISO weekday, 1 = Monday. The day string is a calendar date, so reading it
@@ -103,10 +109,19 @@ export const tasksCapability: Capability<CapabilityPorts> = {
       ok: true, entityTable: 'tasks', entityId: task.id,
       summary: {
         capability: 'tasks', icon: isHabit ? 'i-habit' : 'i-tasks',
-        line: isHabit ? title : dueOn === null ? title : `${title} · ${dueOn}`,
+        line: taskLine(title, isHabit ? null : dueOn),
         correctionRoute: `/tasks/${task.id}`,
       },
     };
+  },
+
+  async describe({ entityIds, context }, ports) {
+    const rows = await ports.tasks.byIds(context.userId, entityIds);
+    return Object.fromEntries(rows.map((task) => [task.id, {
+      capability: 'tasks', icon: task.kind === 'habit' ? 'i-habit' : 'i-tasks',
+      line: taskLine(task.title, task.kind === 'habit' ? null : task.dueOn),
+      correctionRoute: `/tasks/${task.id}`,
+    }]));
   },
 
   async proposeOutreach(context, ports): Promise<OutreachCandidate[]> {

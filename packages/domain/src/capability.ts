@@ -7,7 +7,7 @@
 // handler.  The moment a capability reaches into the persona directly, adding
 // the next one means rewriting the persona."
 //
-// So a capability is a value with six responsibilities, and FIVE CONSUMERS
+// So a capability is a value with seven responsibilities, and SIX CONSUMERS
 // iterate the same registry:
 //
 //   1. prompt assembly   — promptFragment() and contextFragment() build the
@@ -16,6 +16,10 @@
 //   3. the jobs runner   — collects proposeOutreach() candidates
 //   4. data export       — exportFor()   (LESSONS §11)
 //   5. deletion          — purgeFor()    (LESSONS §11)
+//   6. the screens       — describe(), which turns captured rows back into
+//                          the line UI-UX §4 shows, in the language the
+//                          person is reading NOW rather than the one they
+//                          were speaking when it was captured
 //
 // Adding "meals" is a directory and one registry line.  It touches no route
 // handler, no persona file, no export code and no deletion code — and
@@ -97,6 +101,17 @@ export type Capability<Ports = unknown> = {
 
   /** What she might reach out about.  Optional. */
   proposeOutreach?(context: CapabilityContext, ports: Ports): Promise<OutreachCandidate[]>;
+
+  /**
+   * How this capability's captured rows are SHOWN when they are read back —
+   * the inline row in chat, the row on its own screen.
+   *
+   * Batched, because a window of sixty messages can carry many captures and
+   * one query per row is how a chat screen becomes slow. Returns a map keyed
+   * by entity id; a row that no longer exists is simply absent, which is what
+   * a corrected-away capture looks like.
+   */
+  describe(input: { entityIds: readonly string[]; context: CapabilityContext }, ports: Ports): Promise<Record<string, CaptureSummary>>;
 
   /** LESSONS §11: export and deletion are user-facing features, and every
    *  capability answers for its own rows.  Neither is optional. */

@@ -14,6 +14,18 @@ import { line } from '../copy.ts';
 
 type NotePayload = { body?: unknown; title?: unknown; topic?: unknown };
 
+type NoteLike = { id: string; title: string | null; body: string };
+
+/** The row as the screens show it: a title if there is one, else the note
+ *  itself, cut where it stops fitting on one line. */
+function summaryOf(note: NoteLike) {
+  return {
+    capability: 'notes', icon: 'i-note',
+    line: note.title ?? (note.body.length > 48 ? `${note.body.slice(0, 47)}…` : note.body),
+    correctionRoute: `/notes/${note.id}`,
+  };
+}
+
 export const notesCapability: Capability<CapabilityPorts> = {
   id: 'notes',
 
@@ -49,14 +61,12 @@ export const notesCapability: Capability<CapabilityPorts> = {
       originMessageId: messageId, originAssistantId: context.assistantId,
     });
 
-    return {
-      ok: true, entityTable: 'notes', entityId: note.id,
-      summary: {
-        capability: 'notes', icon: 'i-note',
-        line: note.title ?? (body.length > 48 ? `${body.slice(0, 47)}…` : body),
-        correctionRoute: `/notes/${note.id}`,
-      },
-    };
+    return { ok: true, entityTable: 'notes', entityId: note.id, summary: summaryOf(note) };
+  },
+
+  async describe({ entityIds, context }, ports) {
+    const rows = await ports.notes.byIds(context.userId, entityIds);
+    return Object.fromEntries(rows.map((note) => [note.id, summaryOf(note)]));
   },
 
   async exportFor(userId, ports): Promise<ExportSlice[]> {

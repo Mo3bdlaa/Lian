@@ -22,7 +22,11 @@ const RULES: { id: string; re: RegExp; message: string }[] = [
   { id: 'font-weight', re: /\b(?:font-weight|fontWeight)\s*:\s*['"]?\d/g, message: 'raw font weight — use --t-<role>-fw' },
   { id: 'line-height', re: /\b(?:line-height|lineHeight)\s*:\s*['"]?\d/g, message: 'raw line-height — use --t-<role>-lh' },
   { id: 'stroke-width', re: /\b(?:stroke-width|strokeWidth)\s*:\s*['"]?\d/g, message: 'raw stroke width — use --icon-stroke' },
-  { id: 'shadow', re: /\bbox-shadow\s*:\s*(?!var\()/g, message: 'raw shadow — use --elev-1 / --elev-2' },
+  // The lookahead sits directly after the colon on purpose: with `\s*`
+  // before it the pattern backtracks to zero whitespace and then "fails" to
+  // see var( past the space, so `box-shadow: var(--elev-1)` — the correct
+  // spelling — was reported as a violation.
+  { id: 'shadow', re: /\bbox-shadow\s*:(?!\s*var\()/g, message: 'raw shadow — use --elev-1 / --elev-2' },
   { id: 'duration', re: /\btransition(?:-duration)?\s*:\s*[^;\n]*\b\d+m?s\b/g, message: 'raw duration — use --dur-fast / --dur-base / --dur-slow' },
   { id: 'numeric-type', re: /var\(\s*--(?:fs|lh|fw)-\d/g, message: 'numeric type token in application code — use the role tier (--t-body-fs, --t-h2-lh, --t-label-fw …). The numeric tokens exist for the reference screens.' },
 ];

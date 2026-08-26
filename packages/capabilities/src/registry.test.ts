@@ -3,7 +3,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { REGISTRY, contributions, tagSpecs, ownerOfTag, outreachCandidates, exportAll, purgeAll } from './registry.ts';
+import { REGISTRY, contributions, tagSpecs, ownerOfTag, outreachCandidates, exportAll, purgeAll, describeCaptures } from './registry.ts';
 import { fakePorts } from './test-fakes.ts';
 import type { CapabilityContext } from '@lian/domain';
 
@@ -106,6 +106,42 @@ describe('§13 a capability composes into the prompt', () => {
 
     await purgeAll('u-1', ports);
     for (const set of rows) assert.equal(set.length, 0, 'deleting is real, for every capability');
+  });
+
+  test('consumer 6: a captured row reads back as the line the screen shows', async () => {
+    // The chat window is re-read long after the capture, often in the other
+    // language. Re-deriving the line from the row is what makes that work —
+    // storing the line at capture time would freeze the language it was
+    // captured in.
+    const ports = fakePorts();
+    const outcome = await ownerOfTag('spend')!.handle(
+      { context: CONTEXT, tag: { name: 'spend', payload: { amount: 400, currency: 'AED', category: 'gym', date: CONTEXT.localDay }, index: 0 }, messageId: 'm-1' },
+      ports,
+    );
+    assert.ok(outcome.ok);
+
+    const inEnglish = await describeCaptures([{ capability: 'money', entityId: outcome.entityId }], CONTEXT, ports);
+    assert.match(inEnglish[outcome.entityId]!.line, /AED 400 · gym · Today/);
+    assert.equal(inEnglish[outcome.entityId]!.correctionRoute, `/money/${outcome.entityId}`);
+
+    const inArabic = await describeCaptures(
+      [{ capability: 'money', entityId: outcome.entityId }],
+      { ...CONTEXT, language: 'ar' },
+      ports,
+    );
+    assert.match(inArabic[outcome.entityId]!.line, /النهاردة/, 'the row reads in the language it is being read in');
+  });
+
+  test('consumer 6: every capability answers, and a corrected-away row is absent', async () => {
+    // Against the REGISTRY, so adding a capability does not edit this test.
+    const ports = fakePorts();
+    for (const capability of REGISTRY) {
+      const described = await capability.describe({ entityIds: ['nothing-here'], context: CONTEXT }, ports);
+      assert.equal(typeof described, 'object', `${capability.id} does not answer for how its rows are shown`);
+      // Nothing exists under that id, so nothing is described — a deleted
+      // capture must not render as an empty chip.
+      assert.equal(Object.keys(described).length, 0, `${capability.id} described a row that does not exist`);
+    }
   });
 
   test('nothing dispatches on a capability id outside the registry', () => {

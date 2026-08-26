@@ -21,6 +21,203 @@ export type Entry = {
 };
 
 export const CATALOG = {
+  // ── memory (UI-UX §5) ───────────────────────────────────────────────────
+  'memory.title': { en: 'Memory', ar: 'الذاكرة', addressee: 'none' },
+  'memory.search': { en: 'Search what I remember', ar: 'البحث في الذاكرة', addressee: 'none' },
+  'memory.filter_all': { en: 'All', ar: 'الكل', addressee: 'none' },
+  'memory.filter_fact': { en: 'Facts', ar: 'حقائق', addressee: 'none' },
+  'memory.filter_preference': { en: 'Preferences', ar: 'تفضيلات', addressee: 'none' },
+  'memory.filter_topic': { en: 'Topics', ar: 'موضوعات', addressee: 'none' },
+  'memory.filter_moment': { en: 'Moments', ar: 'لحظات', addressee: 'none' },
+  'memory.filter_person': { en: 'People', ar: 'أشخاص', addressee: 'none' },
+  'memory.type_fact': { en: 'Fact', ar: 'حقيقة', addressee: 'none' },
+  'memory.type_preference': { en: 'Preference', ar: 'تفضيل', addressee: 'none' },
+  'memory.type_topic': { en: 'Ongoing topic', ar: 'موضوع مستمر', addressee: 'none' },
+  'memory.type_moment': { en: 'Moment', ar: 'لحظة', addressee: 'none' },
+  'memory.type_person': { en: 'Person', ar: 'شخص', addressee: 'none' },
+  'memory.type_emotional_state': { en: 'How you were', ar: 'حالة', addressee: 'none' },
+  'memory.from_message': { en: 'From your message', ar: 'من رسالتك', addressee: 'user' },
+  // {n} is a COUNT, not composed copy: both languages are authored, and the
+  // only thing substituted is a number that has no grammatical gender here.
+  'memory.kept_so_far': { en: '{n} so far.', ar: 'لحد دلوقتي {n}.', addressee: 'none' },
+  'memory.pending_title': { en: 'Not kept yet', ar: 'لسه ما اتحفظتش', addressee: 'none' },
+  'memory.edit_title': { en: 'Edit this memory', ar: 'تعديل الذكرى', addressee: 'none' },
+
+  // ── tasks (PRD §6.4) ────────────────────────────────────────────────────
+  'tasks.title': { en: 'Tasks & notes', ar: 'المهام والملاحظات', addressee: 'none' },
+  'tasks.today': { en: 'Today', ar: 'النهاردة', addressee: 'none' },
+  'tasks.habits': { en: 'Habits', ar: 'عادات', addressee: 'none' },
+  'tasks.notes': { en: 'Notes', ar: 'ملاحظات', addressee: 'none' },
+  'tasks.done': { en: 'Done', ar: 'خلصت', addressee: 'none' },
+  'tasks.no_date': { en: 'No date', ar: 'بدون تاريخ', addressee: 'none' },
+  'tasks.correct_hint': { en: 'Tap anything to correct it. Nothing here is added by a form.', ar: 'أي حاجة هنا تتصحح باللمس. ومافيش إضافة بنموذج.', addressee: 'none' },
+
+  // ── money (PRD §6.5) ────────────────────────────────────────────────────
+  'money.title': { en: 'Money', ar: 'المال', addressee: 'none' },
+  'money.left': { en: "What's left", ar: 'المتبقي', addressee: 'none' },
+  'money.in': { en: 'In', ar: 'داخل', addressee: 'none' },
+  'money.out': { en: 'Out', ar: 'خارج', addressee: 'none' },
+  'money.where': { en: 'Where it went', ar: 'أكتر أربع بنود', addressee: 'none' },
+  'money.recent': { en: 'Recent', ar: 'آخر الحركات', addressee: 'none' },
+  'money.from_receipt': { en: 'from a receipt', ar: 'من فاتورة', addressee: 'none' },
+  'money.from_chat': { en: 'you told me', ar: 'من كلامنا', addressee: 'user' },
+
+  // ── our story (PRD §10) ─────────────────────────────────────────────────
+  'story.title': { en: 'Our story', ar: 'قصتنا', addressee: 'none' },
+  'story.not_a_score': { en: "Closeness isn't a score. It's what's been said, and how often it turned out to matter later.", ar: 'القرب مش رقم. هو اللي اتقال، وكم مرة طلع مهم بعد كده.', addressee: 'none' },
+  'story.nothing_to_lose': { en: 'There is nothing to unlock and nothing to lose. If you delete things, we go back a step, and that is fine.', ar: 'مافيش حاجة تُفتح ولا حاجة تُخسر. لو حاجة اتحذفت، نرجع خطوة، وده عادي.', addressee: 'none' },
+
+  // ── settings (UI-UX §12) ────────────────────────────────────────────────
+  'settings.title': { en: 'Settings', ar: 'الإعدادات', addressee: 'none' },
+  'settings.her': { en: 'Her', ar: 'هي', addressee: 'none' },
+  'settings.identity': { en: 'Her identity', ar: 'هويتها', addressee: 'none' },
+  'settings.personality': { en: 'Her personality', ar: 'شخصيتها', addressee: 'none' },
+  'settings.language': { en: 'Language & style', ar: 'اللغة والأسلوب', addressee: 'none' },
+  'settings.language_auto': { en: 'Auto', ar: 'تلقائي', addressee: 'none' },
+  'settings.reach': { en: 'When she reaches you', ar: 'وقت تواصلها', addressee: 'user' },
+  'settings.notifications': { en: 'Notifications', ar: 'التنبيهات', addressee: 'none' },
+  'settings.quiet_hours': { en: 'Quiet hours', ar: 'ساعات الهدوء', addressee: 'none' },
+  'settings.yours': { en: 'Yours', ar: 'ملكك', addressee: 'none' },
+  'settings.security': { en: 'Security & devices', ar: 'الأمان والأجهزة', addressee: 'none' },
+  'settings.subscription': { en: 'Subscription', ar: 'الاشتراك', addressee: 'none' },
+  'settings.plan_free': { en: 'Free', ar: 'مجاني', addressee: 'none' },
+  'settings.plan_paid': { en: 'Paid', ar: 'مدفوع', addressee: 'none' },
+  'settings.appearance': { en: 'Appearance', ar: 'المظهر', addressee: 'none' },
+  'settings.appearance_auto': { en: 'Follows the time of day', ar: 'حسب وقت اليوم', addressee: 'none' },
+  'settings.appearance_light': { en: 'Always light', ar: 'فاتح دايماً', addressee: 'none' },
+  'settings.appearance_dark': { en: 'Always dark', ar: 'غامق دايماً', addressee: 'none' },
+  'settings.sign_out_everywhere': { en: 'Sign out everywhere', ar: 'إنهاء كل الجلسات', addressee: 'none' },
+
+  // ── security (UI-UX §16) ────────────────────────────────────────────────
+  'security.title': { en: 'Security', ar: 'الأمان', addressee: 'none' },
+  'security.trusted_devices': { en: 'Trusted devices', ar: 'أجهزة موثوقة', addressee: 'none' },
+  'security.this_device': { en: 'this device', ar: 'الجهاز الحالي', addressee: 'none' },
+  'security.recent_attempts': { en: 'Recent attempts', ar: 'محاولات أخيرة', addressee: 'none' },
+  'security.revoke': { en: 'Revoke', ar: 'إلغاء', addressee: 'none' },
+  'security.outcome_success': { en: 'Signed in', ar: 'دخول', addressee: 'none' },
+  'security.outcome_bad_password': { en: 'Wrong password', ar: 'كلمة سر غلط', addressee: 'none' },
+  'security.outcome_held_new_device': { en: 'Held — new device', ar: 'موقوف — جهاز جديد', addressee: 'none' },
+  'security.outcome_denied': { en: 'Denied by you', ar: 'مرفوض بقرارك', addressee: 'user' },
+  'security.outcome_confirmed': { en: 'Confirmed by you', ar: 'مؤكد بقرارك', addressee: 'user' },
+  'security.outcome_unknown_email': { en: 'Unknown email', ar: 'بريد غير معروف', addressee: 'none' },
+
+  // ── data (UI-UX §17, LESSONS §11) ───────────────────────────────────────
+  'data.title': { en: 'Your data', ar: 'بياناتك', addressee: 'none' },
+  'data.all_yours': { en: 'All of it is yours. An export is a plain, machine-readable file — nothing held back.', ar: 'كله بتاعك. الملف المُصدَّر عادي وقابل للقراءة آلياً — مافيش حاجة متحجوزة.', addressee: 'user' },
+  'data.export': { en: 'Prepare an export', ar: 'تجهيز نسخة', addressee: 'none' },
+  // addressee 'none': "جاهزة" agrees with النسخة (the export), not with the
+  // person. The gate is right to ask — the same adjective addressed to a
+  // reader would encode their gender.
+  'data.export_ready': { en: 'Your export is ready.', ar: 'النسخة جاهزة.', addressee: 'none' },
+  'data.download': { en: 'Download', ar: 'تنزيل', addressee: 'none' },
+  'data.delete_everything': { en: 'Delete everything', ar: 'حذف كل حاجة', addressee: 'none' },
+  'data.delete_warning': { en: 'This erases all of it, permanently, and it cannot be undone.', ar: 'ده بيمسح كل حاجة نهائي، ومافيش رجوع.', addressee: 'none' },
+  'data.delete_conversations': { en: 'Every conversation, including incognito', ar: 'كل المحادثات، ومنها الخاصة', addressee: 'none' },
+  'data.delete_memories': { en: 'Everything I remember about you', ar: 'كل اللي أتذكره عنك', addressee: 'user' },
+  'data.delete_story': { en: 'Our story and every moment in it', ar: 'قصتنا وكل لحظة فيها', addressee: 'none' },
+  'data.delete_life': { en: 'Tasks, notes, money, health, photos', ar: 'المهام والملاحظات والمال والصحة والصور', addressee: 'none' },
+  'data.delete_account': { en: 'Your account and every assistant', ar: 'حسابك وكل المساعدين', addressee: 'none' },
+  'data.type_delete': { en: 'Type DELETE to confirm.', ar: 'كتابة DELETE للتأكيد.', addressee: 'none' },
+  'data.export_first': { en: 'Export first instead', ar: 'أصدّر نسخة الأول', addressee: 'none' },
+
+  // ── the free limit (UI-UX §19) ──────────────────────────────────────────
+  'limit.keep_talking': { en: 'Keep talking — $9/month', ar: 'نكمل كلام — ٩ دولار شهرياً', addressee: 'none' },
+  'limit.back_tomorrow': { en: 'Back tomorrow', ar: 'نكمل بكرة', addressee: 'none' },
+
+  // ── entry (UI-UX §1, PRD §7) ────────────────────────────────────────────
+  'entry.promise': { en: 'An AI secretary that remembers you — and that you actually own.', ar: 'سكرتيرة ذكية بتتذكرك — وملكك فعلاً.', arMale: 'سكرتير ذكي بيتذكرك — وملكك فعلاً.', addressee: 'user' },
+  'entry.detail': { en: 'Your keys. Your database. Your server if you want it. She learns you, texts you first, and grows into someone who knows you.', ar: 'مفاتيحك. قاعدة بياناتك. وسيرفرك لو حبيت. بتتعلمك، وبتبدأ الكلام، وبتكبر لحد ما تعرفك.', arMale: 'مفاتيحك. قاعدة بياناتك. وسيرفرك لو حبيت. بيتعلمك، وبيبدأ الكلام، وبيكبر لحد ما يعرفك.', addressee: 'user' },
+  'entry.create': { en: 'Create an account', ar: 'إنشاء حساب', addressee: 'none' },
+  'entry.have_one': { en: 'I already have one', ar: 'عندي حساب', addressee: 'none' },
+  'entry.email': { en: 'Email', ar: 'البريد', addressee: 'none' },
+  'entry.password': { en: 'Password', ar: 'كلمة السر', addressee: 'none' },
+  'entry.password_hint': { en: 'At least 10 characters.', ar: '١٠ حروف على الأقل.', addressee: 'none' },
+  'entry.sign_in': { en: 'Sign in', ar: 'دخول', addressee: 'none' },
+  'entry.forgot': { en: 'I forgot my password', ar: 'نسيت كلمة السر', addressee: 'none' },
+  'entry.terms_note': { en: "You'll read the terms before anything is stored.", ar: 'الشروط للقراءة قبل تخزين أي حاجة.', addressee: 'none' },
+  'entry.rejected': { en: "That password doesn't match this email.", ar: 'كلمة السر مش مطابقة للبريد ده.', addressee: 'none' },
+  'entry.bad_email': { en: 'That does not look like an email address.', ar: 'ده مش شكل بريد إلكتروني.', addressee: 'none' },
+  'entry.weak_password': { en: 'Passwords need to be at least 10 characters.', ar: 'كلمة السر لازم تبقى ١٠ حروف على الأقل.', addressee: 'none' },
+  'entry.held_device': { en: 'I have asked you to confirm this device by email.', ar: 'بعتّ رسالة لتأكيد الجهاز ده.', arMale: 'بعتّ رسالة لتأكيد الجهاز ده.', addressee: 'user' },
+
+  // ── consent (PRD §7) ────────────────────────────────────────────────────
+  'consent.title': { en: 'Two things, and then we can talk.', ar: 'حاجتين، وبعدين نتكلم.', addressee: 'none' },
+  'consent.adult': { en: "I'm 18 or older.", ar: 'عندي ١٨ سنة أو أكتر.', addressee: 'none' },
+  'consent.terms': { en: "I've read the terms and the privacy notice below, and I agree to them.", ar: 'قرأت الشروط وإشعار الخصوصية تحت، وموافق عليهم.', addressee: 'none' },
+  'consent.what_stored': { en: 'What is stored', ar: 'إيه اللي بيتخزن', addressee: 'none' },
+  'consent.agree': { en: 'Agree and continue', ar: 'موافقة ومتابعة', addressee: 'none' },
+
+  // ── the app chrome (UI-UX §13, design.md §11) ───────────────────────────
+  // Labels rather than her voice, and authored in both languages here for
+  // the same reason everything else is: the screens must never carry an
+  // Arabic string the address gate cannot see.
+  'nav.chat': { en: 'Chat', ar: 'الدردشة', addressee: 'none' },
+  'nav.tasks': { en: 'Tasks', ar: 'المهام', addressee: 'none' },
+  'nav.money': { en: 'Money', ar: 'المال', addressee: 'none' },
+  'nav.story': { en: 'Our story', ar: 'قصتنا', addressee: 'none' },
+  'nav.settings': { en: 'Settings', ar: 'الإعدادات', addressee: 'none' },
+  'nav.menu': { en: 'Menu', ar: 'القائمة', addressee: 'none' },
+
+  'drawer.assistants': { en: 'Assistants', ar: 'المساعدون', addressee: 'none' },
+  'drawer.remember': { en: 'Remember & revisit', ar: 'الذاكرة والرجوع', addressee: 'none' },
+  'drawer.memory': { en: 'Memory', ar: 'الذاكرة', addressee: 'none' },
+  'drawer.search': { en: 'Search', ar: 'البحث', addressee: 'none' },
+  'drawer.album': { en: 'Album', ar: 'الألبوم', addressee: 'none' },
+  'drawer.briefing': { en: 'Morning briefing', ar: 'إفادة الصبح', addressee: 'none' },
+  'drawer.life': { en: 'Life with Lian', ar: 'الحياة مع لين', addressee: 'none' },
+  'drawer.health': { en: 'Health', ar: 'الصحة', addressee: 'none' },
+  'drawer.about_you': { en: 'About you', ar: 'عنك', addressee: 'none' },
+  'drawer.trust': { en: 'Trust & ownership', ar: 'الثقة والملكية', addressee: 'none' },
+  'drawer.security': { en: 'Security', ar: 'الأمان', addressee: 'none' },
+  'drawer.data': { en: 'Your data', ar: 'بياناتك', addressee: 'none' },
+  'drawer.subscription': { en: 'Subscription', ar: 'الاشتراك', addressee: 'none' },
+  'drawer.close': { en: 'Close', ar: 'إغلاق', addressee: 'none' },
+
+  // ── chat (UI-UX §3, §35–§39) ────────────────────────────────────────────
+  'chat.input_placeholder': { en: 'Message', ar: 'كتابة رسالة', addressee: 'none' },
+  'chat.send': { en: 'Send', ar: 'إرسال', addressee: 'none' },
+  'chat.voice': { en: 'Voice note', ar: 'رسالة صوتية', addressee: 'none' },
+  'chat.stop': { en: 'Stop', ar: 'إيقاف', addressee: 'none' },
+  'chat.cancel': { en: 'Cancel', ar: 'إلغاء', addressee: 'none' },
+  'chat.earlier': { en: 'Earlier', ar: 'أقدم', addressee: 'none' },
+  'chat.today': { en: 'Today', ar: 'اليوم', addressee: 'none' },
+  'chat.yesterday': { en: 'Yesterday', ar: 'أمس', addressee: 'none' },
+  'chat.not_sent': { en: 'Not sent', ar: 'لم تُرسل', addressee: 'none' },
+  'chat.try_again': { en: 'Try again', ar: 'إعادة المحاولة', addressee: 'none' },
+  'chat.reply': { en: 'Reply', ar: 'رد', addressee: 'none' },
+  'chat.react': { en: 'React', ar: 'تفاعل', addressee: 'none' },
+  'chat.copy': { en: 'Copy', ar: 'نسخ', addressee: 'none' },
+  'chat.delete': { en: 'Delete', ar: 'حذف', addressee: 'none' },
+  'chat.replying_to': { en: 'Replying to', ar: 'رد على', addressee: 'none' },
+  'chat.empty_hint': { en: 'Say anything — a task, a receipt, or how the day went.', ar: 'أي حاجة تنفع بداية — مهمة، فاتورة، أو حكاية اليوم.', addressee: 'none' },
+  'chat.thinking': { en: 'Thinking', ar: 'بتفكر', arMale: 'بيفكر', addressee: 'none' },
+
+  'message.delete_title': { en: 'Delete this message?', ar: 'أحذف الرسالة؟', addressee: 'none' },
+  'message.delete_only': { en: 'Delete the message only', ar: 'حذف الرسالة فقط', addressee: 'none' },
+  'message.delete_with_memories': { en: 'Delete the message and what I remembered', ar: 'حذف الرسالة واللي اتفكر منها', addressee: 'none' },
+  'message.helped_remember_one': { en: 'This message helped me remember one thing.', ar: 'الرسالة دي ساعدتني أتذكر حاجة واحدة.', addressee: 'none' },
+  'message.helped_remember_many': { en: 'This message helped me remember more than one thing.', ar: 'الرسالة دي ساعدتني أتذكر أكتر من حاجة.', addressee: 'none' },
+
+  // ── reactions (UI-UX §36) ───────────────────────────────────────────────
+  'react.heart': { en: 'Heart', ar: 'قلب', addressee: 'none' },
+  'react.smile': { en: 'Smile', ar: 'ابتسامة', addressee: 'none' },
+  'react.laugh': { en: 'Laugh', ar: 'ضحكة', addressee: 'none' },
+  'react.support': { en: 'Support', ar: 'مساندة', addressee: 'none' },
+  'react.surprise': { en: 'Surprise', ar: 'دهشة', addressee: 'none' },
+
+  // ── common actions ──────────────────────────────────────────────────────
+  'action.save': { en: 'Save', ar: 'حفظ', addressee: 'none' },
+  'action.cancel': { en: 'Cancel', ar: 'إلغاء', addressee: 'none' },
+  'action.delete': { en: 'Delete', ar: 'حذف', addressee: 'none' },
+  'action.edit': { en: 'Edit', ar: 'تعديل', addressee: 'none' },
+  'action.done': { en: 'Done', ar: 'تم', addressee: 'none' },
+  'action.back': { en: 'Back', ar: 'رجوع', addressee: 'none' },
+  'action.close': { en: 'Close', ar: 'إغلاق', addressee: 'none' },
+  'action.continue': { en: 'Continue', ar: 'متابعة', addressee: 'none' },
+  'action.not_now': { en: 'Not now', ar: 'مش دلوقتي', addressee: 'none' },
+  'action.turn_on': { en: 'Turn on', ar: 'تفعيل', addressee: 'none' },
+  'action.loading': { en: 'One moment', ar: 'لحظة', addressee: 'none' },
+
   // ── empty states (design.md §9) ─────────────────────────────────────────
   'chat.empty': { en: "We haven't talked yet. I'm here when you're ready.", ar: 'لسه ما اتكلمناش. أنا هنا في أي وقت.', arMale: 'لسه ما اتكلمناش. أنا هنا في أي وقت.', addressee: 'user' },
   'memory.empty': { en: "As we talk, I'll remember what matters. You can always change or erase anything here.", ar: 'مع الكلام، هفتكر اللي يهم. وأي حاجة هنا قابلة للتعديل أو المسح.', arMale: 'مع الكلام، هفتكر اللي يهم. وأي حاجة هنا قابلة للتعديل أو المسح.', addressee: 'user' },

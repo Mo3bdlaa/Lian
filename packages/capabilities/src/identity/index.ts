@@ -43,6 +43,16 @@ export const identityCapability: Capability<CapabilityPorts> = {
       : 'Record what they want to be called, the language they prefer, and the name they give you.';
   },
 
+  async describe({ entityIds, context }, ports) {
+    // The identity tags all write to the person or to her, so there is one
+    // row to describe rather than a list. What it shows is the fact that is
+    // most likely to be wrong and most easily corrected: what she calls them.
+    const rows = (await ports.identity.exportFor(context.userId)) as { user?: { displayName?: string | null } }[];
+    const name = rows[0]?.user?.displayName ?? null;
+    if (name === null || !entityIds.includes(context.userId)) return {};
+    return { [context.userId]: { capability: 'identity', icon: 'i-person', line: name, correctionRoute: '/profile' } };
+  },
+
   async contextFragment() {
     // The onboarding block in the prompt already says what is still unknown;
     // repeating it here would be two sources for one fact.

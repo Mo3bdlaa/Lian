@@ -9,7 +9,7 @@
 // message arrives mid-scroll.
 import type { Sql } from '../client.ts';
 import { db } from '../client.ts';
-import type { AssistantScope } from '../scope.ts';
+import type { AssistantScope, UserScope } from '../scope.ts';
 
 export type ConversationKind = 'main' | 'side' | 'incognito';
 export type Retention = 'persist' | 'ephemeral';
@@ -82,31 +82,33 @@ export async function hardDeleteConversation(scope: AssistantScope, conversation
 export type Message = {
   id: string; conversationId: string; role: MessageRole; body: string;
   tags: unknown[]; surface: string | null; createdAt: Date;
+  /** UI-UX §35: one earlier message this one answers. */
+  replyToId: string | null;
 };
 type MessageRow = {
   id: string; conversation_id: string; role: MessageRole; body: string;
-  tags: unknown[]; surface: string | null; created_at: Date;
+  tags: unknown[]; surface: string | null; created_at: Date; reply_to_id: string | null;
 };
-const M_COLUMNS = 'id, conversation_id, role, body, tags, surface, created_at';
+const M_COLUMNS = 'id, conversation_id, role, body, tags, surface, created_at, reply_to_id';
 const toMessage = (r: MessageRow): Message => ({
   id: r.id, conversationId: r.conversation_id, role: r.role, body: r.body,
-  tags: r.tags, surface: r.surface, createdAt: r.created_at,
+  tags: r.tags, surface: r.surface, createdAt: r.created_at, replyToId: r.reply_to_id,
 });
 
 export async function appendMessage(
   scope: AssistantScope,
-  input: { conversationId: string; role: MessageRole; body: string; tags?: unknown[]; surface?: string | null; clientId?: string | null },
+  input: { conversationId: string; role: MessageRole; body: string; tags?: unknown[]; surface?: string | null; clientId?: string | null; replyToId?: string | null },
   sql: Sql = db(),
 ): Promise<Message> {
   // LESSONS §3: `body` is already stripped.  Tags are stored separately so a
   // regenerate can void the captures the previous version made (Q7).
   const { rows } = await sql.query<MessageRow>(
-    `INSERT INTO messages (conversation_id, assistant_id, role, body, tags, surface, client_id)
-     VALUES ($2, $1, $3, $4, $5, $6, $7)
+    `INSERT INTO messages (conversation_id, assistant_id, role, body, tags, surface, client_id, reply_to_id)
+     VALUES ($2, $1, $3, $4, $5, $6, $7, $8)
      ON CONFLICT (conversation_id, client_id) WHERE client_id IS NOT NULL DO UPDATE SET body = messages.body
      RETURNING ${M_COLUMNS}`,
     [scope.assistantId, input.conversationId, input.role, input.body,
-     JSON.stringify(input.tags ?? []), input.surface ?? null, input.clientId ?? null],
+     JSON.stringify(input.tags ?? []), input.surface ?? null, input.clientId ?? null, input.replyToId ?? null],
   );
   return toMessage(rows[0]!);
 }
@@ -190,4 +192,57 @@ export async function userMessagesOnDay(
     [scope.assistantId, dayStart, dayEnd],
   );
   return rows[0]?.n ?? 0;
+}
+
+// ── reactions (UI-UX §36) ─────────────────────────────────────────────────
+
+export const REACTIONS = ['heart', 'smile', 'laugh', 'support', 'surprise'] as const;
+export type Reaction = (typeof REACTIONS)[number];
+
+/**
+ * React, or take it back.
+ *
+ * One per person per message — the primary key says so, and the spec says
+ * "keep it compact. No large emoji tray". Reacting with the same feeling
+ * twice removes it, which is what every messaging app has taught people a
+ * second tap means.
+ */
+export async function react(
+  scope: UserScope, messageId: string, kind: Reaction | null, sql: Sql = db(),
+): Promise<Reaction | null> {
+  if (kind === null) {
+    await sql.query(`DELETE FROM message_reactions WHERE user_id = $1 AND message_id = $2`, [scope.userId, messageId]);
+    return null;
+  }
+  const { rows } = await sql.query<{ kind: Reaction }>(
+    `INSERT INTO message_reactions (message_id, user_id, kind) VALUES ($2, $1, $3)
+     ON CONFLICT (message_id, user_id) DO UPDATE SET kind = EXCLUDED.kind, created_at = now()
+     RETURNING kind`,
+    [scope.userId, messageId, kind],
+  );
+  return rows[0]?.kind ?? null;
+}
+
+export async function reactionsFor(
+  scope: UserScope, messageIds: readonly string[], sql: Sql = db(),
+): Promise<Record<string, Reaction>> {
+  if (messageIds.length === 0) return {};
+  const { rows } = await sql.query<{ message_id: string; kind: Reaction }>(
+    `SELECT message_id, kind FROM message_reactions WHERE user_id = $1 AND message_id = ANY($2::uuid[])`,
+    [scope.userId, messageIds],
+  );
+  return Object.fromEntries(rows.map((row) => [row.message_id, row.kind]));
+}
+
+/** The quoted line above a reply — one lookup for the whole window. */
+export async function quotedLines(
+  scope: AssistantScope, messageIds: readonly string[], sql: Sql = db(),
+): Promise<Record<string, { id: string; role: MessageRole; body: string }>> {
+  if (messageIds.length === 0) return {};
+  const { rows } = await sql.query<{ id: string; role: MessageRole; body: string }>(
+    `SELECT id, role, body FROM messages
+     WHERE assistant_id = $1 AND id = ANY($2::uuid[]) AND deleted_at IS NULL`,
+    [scope.assistantId, messageIds],
+  );
+  return Object.fromEntries(rows.map((row) => [row.id, row]));
 }

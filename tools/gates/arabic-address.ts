@@ -7,7 +7,7 @@
 //
 // The rule is about DIRECTION OF ADDRESS, not letters — which is why every
 // entry declares an addressee, and why feminine forms spoken to Lian pass.
-import { report, type Violation } from './lib.ts';
+import { report, walk, rel, read, lineOf, stripComments, ROOT, type Violation } from './lib.ts';
 import { CATALOG } from '../../packages/i18n/src/catalog.ts';
 import { addressViolations } from '../../packages/i18n/src/arabic.ts';
 
@@ -38,5 +38,43 @@ for (const [key, entry] of Object.entries(CATALOG)) {
   }
 }
 
+// ── rule 2: a SCREEN's Arabic comes from the catalogue ────────────────────
+//
+// Rule 1 can only check what it can see. An Arabic label written straight
+// into a screen is a string the address rule never reads, so the letters are
+// not allowed in the presentation layer at all.
+//
+// SCOPE, decided rather than assumed: apps/ and packages/http — everything
+// that renders to a person. Arabic that is addressed to the MODEL stays where
+// it is: the personas (LESSONS §1 keeps persona text on one path), the
+// capabilities' prompt fragments, and the Arabic word lists in affect and
+// extraction. Those are not copy, and moving them into a copy catalogue would
+// break the boundary that keeps them on one path.
+const ARABIC = /[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/;
+const sources = [
+  ...walk(`${ROOT}/apps`, ['.ts', '.tsx', '.css']),
+  ...walk(`${ROOT}/packages/http`, ['.ts', '.tsx', '.css']),
+].filter((file) => !file.endsWith('.test.ts'));
+
+let scanned = 0;
+for (const file of sources) {
+  const path = rel(file);
+  const source = read(file);
+  // A pragma with a reason, printed on every run like every other exemption.
+  const pragma = /arabic:allow-inline\s+—\s+(.+)/.exec(source);
+  if (pragma !== null) continue;
+  scanned += 1;
+  const code = stripComments(source);
+  for (const line of code.split('\n').entries()) {
+    const [index, text] = line;
+    if (!ARABIC.test(text)) continue;
+    violations.push({
+      file: path, line: index + 1,
+      message: `Arabic outside the catalogue — add it to packages/i18n/src/catalog.ts with an addressee, or the address rule can never see it`,
+    });
+  }
+}
+
 console.log(`  ${checked} Arabic string(s) checked, ${addressedToUser} of them addressed to the user`);
+console.log(`  ${scanned} source file(s) scanned for Arabic outside the catalogue`);
 report('arabic:address', violations, checked);

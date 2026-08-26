@@ -63,5 +63,8 @@
     "packages/**/*.ts",
     "tools/**/*.ts",
     "apps/**/*.ts"
+  ],
+  "exclude": [
+    "apps/web/**"
   ]
 }

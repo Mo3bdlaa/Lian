@@ -5,8 +5,10 @@
 // drives are the routes that ship, not a second table built for testing.
 import { anthropicProvider, type Provider } from '@lian/llm';
 import { resolveEmbedder, type AnalysisModel, type Embedder } from '@lian/analysis';
-import { createLianServer, staticFiles } from '@lian/http';
-import { brandColor } from '@lian/design';
+import { createLianServer, manifestJson, SERVICE_WORKER, PUSH_CLIENT } from '@lian/http';
+import { brandColor, resolveTheme } from '@lian/design';
+import { clientModules, stylesheets, icons, version } from './assets.ts';
+import { shell } from './shell.ts';
 import type { JobDeps } from '@lian/jobs';
 import type { Server } from 'node:http';
 import { analysisModelFrom } from './analysis.ts';
@@ -29,6 +31,54 @@ export type Application = {
   readonly deps: Deps;
   readonly runSchedule: (now: Date) => Promise<unknown>;
 };
+
+/**
+ * Everything served that is not an API route.
+ *
+ * Built once at boot: the client's modules with their types stripped, the
+ * three stylesheets in load order, the icon sprite, the PWA files, and the
+ * shell — which is also returned for every unknown path, so a deep link into
+ * a screen works on first load rather than 404ing before the client can
+ * route it.
+ */
+export function assets(): Record<string, { contentType: string; body: string }> {
+  const themeColor = brandColor('brand-cream');
+  const v = version(['apps/web', 'design-system/lian-tokens.css', 'packages/i18n/src', 'packages/domain/src']);
+  // The unauthenticated default: day, ltr. The pre-hydration script corrects
+  // it from the cookie before first paint, and /api/me corrects it again.
+  const page = shell({
+    theme: resolveTheme({ localHour: 12, mood: 'neutral', preference: 'auto' }),
+    direction: 'ltr', themeColor, version: v, title: 'Lian',
+  });
+  return {
+    ...clientModules(['apps/web/src/main.ts']),
+    ...stylesheets(),
+    ...icons(),
+    '/': { contentType: 'text/html; charset=utf-8', body: page },
+    '/manifest.webmanifest': { contentType: 'application/manifest+json; charset=utf-8', body: manifestJson(themeColor) },
+    '/sw.js': { contentType: 'text/javascript; charset=utf-8', body: SERVICE_WORKER },
+    '/push.js': { contentType: 'text/javascript; charset=utf-8', body: PUSH_CLIENT },
+  };
+}
+
+/** The same map, rebuilt when it is stale. Only for development. */
+export function liveAssets(): Record<string, { contentType: string; body: string }> {
+  let built = assets();
+  let builtAt = 0;
+  const fresh = (): Record<string, { contentType: string; body: string }> => {
+    if (Date.now() - builtAt > 250) {
+      built = assets();
+      builtAt = Date.now();
+    }
+    return built;
+  };
+  return new Proxy({} as Record<string, { contentType: string; body: string }>, {
+    get: (_target, key) => (typeof key === 'string' ? fresh()[key] : undefined),
+    has: (_target, key) => typeof key === 'string' && key in fresh(),
+    ownKeys: () => Reflect.ownKeys(fresh()),
+    getOwnPropertyDescriptor: (_target, key) => Object.getOwnPropertyDescriptor(fresh(), key),
+  });
+}
 
 export function createApplication(config: Config, overrides: Overrides = {}): Application {
   const log = overrides.log ?? ((line: string) => { console.log(line); });
@@ -62,10 +112,15 @@ export function createApplication(config: Config, overrides: Overrides = {}): Ap
     runTick: runSchedule,
   };
 
+  // In development the assets are rebuilt on demand, so editing a client
+  // module or the stylesheet is a refresh rather than a restart. In
+  // production they are built once at boot: reading from disk per request is
+  // a syscall on the hot path for no benefit.
+  const files = config.nodeEnv === 'production' ? assets() : liveAssets();
   const server = createLianServer({
     routes: routesFor(deps),
-    // The one literal colour in the product, read from the token file.
-    staticFiles: staticFiles(brandColor('brand-cream')),
+    staticFiles: files,
+    appShell: files['/']!.body,
     onError: (error, path) => { log(`unhandled error on ${path}: ${String(error)}`); },
   });
 

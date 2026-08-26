@@ -16,17 +16,21 @@ import {
 import {
   runTurn, promptPorts, capabilityPorts, turnPorts, absorbPort, ownershipPorts,
   summaryPorts, moodPorts, maybeRollSummary, refreshMood, exportEverything,
-  deleteEverything, serializeArchive, type TurnSink,
+  deleteEverything, serializeArchive, relationshipView, type TurnSink,
 } from '@lian/runtime';
 import { DEFAULT_MODEL, type Provider } from '@lian/llm';
 import { verifyTick } from '@lian/jobs';
-import { localDayKey, nextStep } from '@lian/domain';
+import { localDayKey, localHour, limitsFor, messageBudget, nextStep } from '@lian/domain';
+import { moodPhrase, t } from '@lian/i18n';
+import { describeCaptures, LANGUAGE_STYLES } from '@lian/capabilities';
+import { resolveTheme, timeBand } from '@lian/design';
 
 import type { Embedder, AnalysisModel } from '@lian/analysis';
 import {
   authRoutes, chatRoutes, correctionRoutes, platformRoutes,
   type MiddlewarePorts, type AuthRoutePorts, type ChatRoutePorts,
-  type CorrectionPorts, type PlatformPorts, type Route,
+  type CorrectionPorts, type PlatformPorts, type ReadPorts, type Route,
+  readRoutes,
 } from '@lian/http';
 import type { Config } from './config.ts';
 
@@ -351,6 +355,7 @@ export function platformPorts(deps: Deps): PlatformPorts {
 export function routesFor(deps: Deps): Route[] {
   return [
     ...authRoutes(authRoutePorts(deps), { secureCookies: deps.config.secureCookies }),
+    ...readRoutes(readPorts(deps)),
     ...chatRoutes(chatRoutePorts(deps)),
     ...platformRoutes(platformPorts(deps)),
     // Last: its pattern is `/api/:kind/:id`, which would otherwise shadow a
@@ -358,4 +363,296 @@ export function routesFor(deps: Deps): Route[] {
     // it is stated rather than assumed.
     ...correctionRoutes(correctionPorts(deps)),
   ];
+}
+
+// ── reads (the screens) ───────────────────────────────────────────────────
+
+/**
+ * One snapshot, resolved server-side.
+ *
+ * The client is given the theme rather than asked to compute it (LESSONS §7:
+ * one decision point), her mood as a PHRASE rather than a score (UI-UX §3
+ * forbids the score), and the relationship as a name rather than a day count
+ * (LESSONS §6: the day count never crosses the network).
+ */
+export function readPorts(deps: Deps): ReadPorts {
+  return {
+    ...middlewarePorts(deps),
+    now: deps.now,
+
+    async snapshot(userId) {
+      const user = await db.accounts.getUser({ userId });
+      const assistant = await assistantOf(userId);
+      if (user === null || assistant === null) return null;
+      const scope = { userId, assistantId: assistant.id };
+      const language = languageOf(user.languageStyle);
+      const localDay = dayKeyFor(user.timeZone, deps.now());
+      const hour = localHour(deps.now(), user.timeZone);
+
+      const state = await db.accounts.getState(scope);
+      const mood = state?.mood ?? 'neutral';
+      const relationship = await db.relationship.get(scope);
+      const facts = await db.accounts.onboardingFacts(scope);
+      const step = nextStep(facts);
+      const conversation = await mainConversation(scope);
+      const used = await db.usage.current({ userId }, 'messages', localDay);
+      const limits = limitsFor(user.plan);
+      const view = relationshipView(relationship?.stage ?? 1, language, assistant.gender);
+      const current = view.stages.find((stage) => stage.current);
+
+      return {
+        user: {
+          id: user.id, name: user.displayName, timeZone: user.timeZone,
+          languageStyle: user.languageStyle, language, plan: user.plan,
+          themePreference: user.themePreference,
+        },
+        assistant: {
+          id: assistant.id, name: assistant.name, gender: assistant.gender, mood,
+          moodPhrase: moodPhrase(
+            conversation?.kind === 'incognito' ? 'incognito' : mood,
+            timeBand(hour), language, assistant.gender,
+          ),
+        },
+        theme: resolveTheme({ localHour: hour, mood, preference: user.themePreference }),
+        direction: language === 'ar' ? 'rtl' : 'ltr',
+        localHour: hour,
+        conversation: conversation === null ? null : { id: conversation.id },
+        onboarding: step === 'done' ? null : { step },
+        relationship: { stageName: current?.name ?? '', prose: view.now },
+        limits: {
+          messagesRemaining: messageBudget(user.plan, used).remaining,
+          memoriesKept: await db.memories.countActive(scope),
+          memoriesPending: await db.memories.countPending(scope),
+          memoryCapacity: limits.activeMemoriesPerAssistant,
+          capacityLine: t('memory.capacity_line', language, assistant.gender),
+        },
+      };
+    },
+
+    async messages({ userId, conversationId, before }) {
+      const user = await db.accounts.getUser({ userId });
+      const assistant = await assistantOf(userId);
+      if (user === null || assistant === null) return null;
+      const scope = { userId, assistantId: assistant.id };
+      const conversation = await db.conversations.getConversation(scope, conversationId);
+      if (conversation === null) return null;
+
+      const window = before === null
+        ? await db.conversations.recentWindow(scope, conversationId)
+        : await db.conversations.olderThan(scope, conversationId, { createdAt: new Date(before.at), id: before.id });
+
+      const ids = window.map((message) => message.id);
+      const reactions = await db.conversations.reactionsFor({ userId }, ids);
+      const quoted = await db.conversations.quotedLines(
+        scope,
+        window.map((message) => message.replyToId).filter((id): id is string => id !== null),
+      );
+
+      // Captures, described by the capability that made them (consumer 6),
+      // in the language being read now.
+      const captures = new Map<string, { capability: string; entityId: string }[]>();
+      for (const message of window) {
+        const rows = (await db.captures.forMessage({ userId }, message.id)).filter((row) => row.voidedAt === null);
+        if (rows.length > 0) captures.set(message.id, rows.map((row) => ({ capability: row.capability, entityId: row.entityId })));
+      }
+      const described = await describeCaptures(
+        [...captures.values()].flat(),
+        {
+          userId, assistantId: assistant.id, surface: 'chat',
+          localDay: dayKeyFor(user.timeZone, deps.now()), timeZone: user.timeZone,
+          plan: user.plan, language: languageOf(user.languageStyle),
+        },
+        capabilityPorts(userId),
+      );
+
+      const messages = [];
+      for (const message of window) {
+        const derived = message.role === 'user' ? await db.memories.derivedFrom(scope, message.id) : [];
+        messages.push({
+          id: message.id, role: message.role, body: message.body,
+          at: message.createdAt.toISOString(), surface: message.surface,
+          captures: (captures.get(message.id) ?? [])
+            .map((capture) => described[capture.entityId])
+            .filter((summary): summary is NonNullable<typeof summary> => summary !== undefined)
+            .map((summary) => ({ capability: summary.capability, icon: summary.icon, line: summary.line, correctionRoute: summary.correctionRoute })),
+          reaction: reactions[message.id] ?? null,
+          replyTo: message.replyToId === null ? null : quoted[message.replyToId] ?? null,
+          memoriesDerived: derived.length,
+        });
+      }
+
+      // Whether there is more above decides whether the quiet top affordance
+      // is drawn at all (UI-UX §38 — no spinner takeover).
+      const oldest = window[0];
+      const hasOlder = oldest === undefined
+        ? false
+        : (await db.conversations.olderThan(scope, conversationId, { createdAt: oldest.createdAt, id: oldest.id }, 1)).length > 0;
+
+      return { messages, hasOlder };
+    },
+
+    async memories({ userId, query }) {
+      const assistant = await assistantOf(userId);
+      const user = await db.accounts.getUser({ userId });
+      if (assistant === null || user === null) return [];
+      const scope = { userId, assistantId: assistant.id };
+      const language = languageOf(user.languageStyle);
+      const rows = [
+        ...(await db.memories.list(scope, 'active')).map((row) => ({ row, status: 'active' as const })),
+        // PRD §35: the free plan's queue is a visible, honest state — what
+        // she noticed and has not been able to keep. Never a silent drop.
+        ...(await db.memories.list(scope, 'pending')).map((row) => ({ row, status: 'pending' as const })),
+      ];
+      const needle = query?.toLowerCase() ?? null;
+      return rows
+        .filter(({ row }) => needle === null || row.statement.toLowerCase().includes(needle))
+        .map(({ row, status }) => ({
+          id: row.id, type: row.type, typeLabel: t(`memory.type_${row.type}` as 'memory.type_fact', language, assistant.gender),
+          statement: row.statement, status,
+          createdAt: row.createdAt.toISOString(),
+          sourceMessageId: row.sourceMessageId,
+          sourceRemovedKept: row.sourceRemovedKept,
+        }));
+    },
+
+    async tasks(userId) {
+      const localDay = dayKeyFor((await db.accounts.getUser({ userId }))?.timeZone ?? 'UTC', deps.now());
+      const done = new Set(await db.life.completionsOn({ userId }, localDay));
+      const tasks = (await db.life.allTasks({ userId })).map((task) => ({
+        id: task.id, kind: task.kind, title: task.title, dueOn: task.dueOn,
+        done: task.completedAt !== null || done.has(task.id),
+      }));
+      const notes = (await db.life.allNotes({ userId })).map((note) => ({
+        id: note.id, title: note.title, body: note.body, createdAt: note.createdAt.toISOString(),
+      }));
+      return { tasks, notes };
+    },
+
+    async money({ userId, month }) {
+      const user = await db.accounts.getUser({ userId });
+      const localDay = dayKeyFor(user?.timeZone ?? 'UTC', deps.now());
+      const period = month ?? localDay.slice(0, 7);
+      const summary = await db.life.monthSummary({ userId }, period);
+      const all = await db.life.allTransactions({ userId });
+      const recent = all
+        .filter((transaction) => transaction.occurredOn.startsWith(period))
+        .slice(0, 12)
+        .map((transaction) => ({
+          id: transaction.id,
+          line: transaction.category ?? transaction.note ?? '',
+          amountMinor: transaction.amountMinor,
+          direction: transaction.direction,
+          occurredOn: transaction.occurredOn,
+          // UI-UX §22 distinguishes what she read from a receipt from what
+          // they told her — provenance, on a money row.
+          fromReceipt: transaction.originMessageId === null,
+        }));
+      return {
+        month: period, inMinor: summary.inMinor, outMinor: summary.outMinor, leftMinor: summary.leftMinor,
+        currency: all[0]?.currency ?? 'AED',
+        categories: summary.topCategories, recent,
+      };
+    },
+
+    async story(userId) {
+      const user = await db.accounts.getUser({ userId });
+      const assistant = await assistantOf(userId);
+      if (user === null || assistant === null) return { now: '', footer: '', stages: [] };
+      const relationship = await db.relationship.get({ userId, assistantId: assistant.id });
+      const view = relationshipView(relationship?.stage ?? 1, languageOf(user.languageStyle), assistant.gender);
+      // LESSONS §6: which stage, never how far through it. There is no day
+      // count in this response and there must never be one.
+      return { now: view.now, footer: view.footer, stages: [...view.stages] };
+    },
+
+    async security({ userId, deviceId }) {
+      const devices = (await db.auth.listDevices({ userId })).map((device) => ({
+        id: device.id,
+        label: deviceLabel(device.userAgent),
+        lastSeen: device.lastSeenAt?.toISOString() ?? null,
+        current: device.id === deviceId,
+      }));
+      const attempts = (await db.auth.recentAttempts({ userId }, 10)).map((attempt) => ({
+        outcome: attempt.outcome, at: attempt.createdAt.toISOString(), location: attempt.locationLabel,
+      }));
+      return { devices, attempts };
+    },
+
+    async updateSettings({ userId, patch }) {
+      // A whitelist, like corrections: a settings body arrives from a client,
+      // and the alternative to naming the fields is letting it name columns.
+      const themePreference = patch['themePreference'];
+      if (typeof themePreference === 'string') {
+        if (!['auto', 'always-light', 'always-dark'].includes(themePreference)) {
+          return { ok: false, reason: 'that is not one of the appearance settings' };
+        }
+        await db.accounts.setThemePreference({ userId }, themePreference as 'auto');
+      }
+      const languageStyle = patch['languageStyle'];
+      if (typeof languageStyle === 'string') {
+        if (!LANGUAGE_STYLES.includes(languageStyle as 'auto')) return { ok: false, reason: 'that is not one of the languages offered' };
+        await db.accounts.setLanguage({ userId }, languageStyle);
+      }
+      const assistantName = patch['assistantName'];
+      if (typeof assistantName === 'string' && assistantName.trim() !== '') {
+        const assistant = await assistantOf(userId);
+        if (assistant !== null) await db.accounts.setAssistantName({ userId, assistantId: assistant.id }, assistantName.trim(), true);
+      }
+      return { ok: true };
+    },
+
+    async revokeDevice({ userId, deviceId }) {
+      await db.auth.revokeDevice({ userId }, deviceId);
+      return true;
+    },
+
+    async react({ userId, messageId, kind }) {
+      return db.conversations.react({ userId }, messageId, kind as db.conversations.Reaction | null);
+    },
+
+    async deleteMessage({ userId, messageId, keepDerived }) {
+      const assistant = await assistantOf(userId);
+      if (assistant === null) return { deleted: false, memoriesRemoved: 0 };
+      const scope = { userId, assistantId: assistant.id };
+      // Q11 / LESSONS §11: what she derived from it goes too, unless they
+      // said to keep it — and then it is marked as kept by them, so the
+      // Memory screen can say so rather than showing a memory with no source.
+      const outcome = await db.memories.deleteSourceMessage(scope, messageId, { keepDerived });
+      const deleted = await db.conversations.softDeleteMessage(scope, messageId);
+      return { deleted, memoriesRemoved: outcome.derivedRemoved };
+    },
+  };
+}
+
+/**
+ * A device, as a person would name it.
+ *
+ * The reference screen says "iPhone · this device", not a user-agent string.
+ * This is deliberately shallow: the platform and the browser, and nothing
+ * that pretends to more precision than a UA string can carry.
+ */
+function deviceLabel(userAgent: string | null): string {
+  if (userAgent === null || userAgent.trim() === '') return 'Unknown device';
+  const platform =
+    /iPhone/i.test(userAgent) ? 'iPhone'
+    : /iPad/i.test(userAgent) ? 'iPad'
+    : /Android/i.test(userAgent) ? 'Android'
+    : /Mac OS X|Macintosh/i.test(userAgent) ? 'Mac'
+    : /Windows/i.test(userAgent) ? 'Windows'
+    : /Linux/i.test(userAgent) ? 'Linux'
+    : 'Device';
+  const browser =
+    /Edg\//i.test(userAgent) ? 'Edge'
+    : /OPR\//i.test(userAgent) ? 'Opera'
+    : /Chrome\//i.test(userAgent) ? 'Chrome'
+    : /Firefox\//i.test(userAgent) ? 'Firefox'
+    : /Safari\//i.test(userAgent) ? 'Safari'
+    : null;
+  return browser === null ? platform : `${platform} · ${browser}`;
+}
+
+/** The 'main' conversation — the one the app opens into. */
+async function mainConversation(scope: { userId: string; assistantId: string }) {
+  const conversations = await db.conversations.listSearchable(scope);
+  return conversations.find((conversation) => conversation.kind === 'main') ?? null;
 }

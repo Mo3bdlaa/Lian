@@ -13,7 +13,12 @@ type TaskRow = {
   id: string; kind: TaskKind; title: string; due_on: string | null;
   recurrence: unknown | null; completed_at: Date | null; origin_message_id: string | null;
 };
-const TASK_COLUMNS = 'id, kind, title, due_on, recurrence, completed_at, origin_message_id';
+// ::text on the date columns, because the driver parses `date` into a JS Date
+// in the server's zone and every consumer here wants the calendar day the row
+// actually holds. Without it `dueOn` is typed string and is not one — and
+// `occurredOn === localDay`, which decides whether a capture row says "Today",
+// silently never matches.
+const TASK_COLUMNS = 'id, kind, title, due_on::text AS due_on, recurrence, completed_at, origin_message_id';
 const toTask = (r: TaskRow): Task => ({
   id: r.id, kind: r.kind, title: r.title, dueOn: r.due_on, recurrence: r.recurrence,
   completedAt: r.completed_at, originMessageId: r.origin_message_id,
@@ -73,6 +78,15 @@ export async function deleteTask(scope: UserScope, taskId: string, sql: Sql = db
   return (rowCount ?? 0) > 0;
 }
 
+export async function tasksByIds(scope: UserScope, ids: readonly string[], sql: Sql = db()): Promise<Task[]> {
+  if (ids.length === 0) return [];
+  const { rows } = await sql.query<TaskRow>(
+    `SELECT ${TASK_COLUMNS} FROM tasks WHERE user_id = $1 AND id = ANY($2::uuid[]) AND deleted_at IS NULL`,
+    [scope.userId, ids],
+  );
+  return rows.map(toTask);
+}
+
 export async function allTasks(scope: UserScope, sql: Sql = db()): Promise<Task[]> {
   const { rows } = await sql.query<TaskRow>(
     `SELECT ${TASK_COLUMNS} FROM tasks WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at`,
@@ -95,7 +109,7 @@ type TxRow = {
   id: string; direction: Direction; amount_minor: number; currency: string;
   category: string | null; occurred_on: string; note: string | null; origin_message_id: string | null;
 };
-const TX_COLUMNS = 'id, direction, amount_minor, currency, category, occurred_on, note, origin_message_id';
+const TX_COLUMNS = 'id, direction, amount_minor, currency, category, occurred_on::text AS occurred_on, note, origin_message_id';
 const toTx = (r: TxRow): Transaction => ({
   id: r.id, direction: r.direction, amountMinor: r.amount_minor, currency: r.currency,
   category: r.category, occurredOn: r.occurred_on, note: r.note, originMessageId: r.origin_message_id,
@@ -149,6 +163,15 @@ export async function deleteTransaction(scope: UserScope, id: string, sql: Sql =
   return (rowCount ?? 0) > 0;
 }
 
+export async function transactionsByIds(scope: UserScope, ids: readonly string[], sql: Sql = db()): Promise<Transaction[]> {
+  if (ids.length === 0) return [];
+  const { rows } = await sql.query<TxRow>(
+    `SELECT ${TX_COLUMNS} FROM transactions WHERE user_id = $1 AND id = ANY($2::uuid[]) AND deleted_at IS NULL`,
+    [scope.userId, ids],
+  );
+  return rows.map(toTx);
+}
+
 export async function allTransactions(scope: UserScope, sql: Sql = db()): Promise<Transaction[]> {
   const { rows } = await sql.query<TxRow>(
     `SELECT ${TX_COLUMNS} FROM transactions WHERE user_id = $1 AND deleted_at IS NULL ORDER BY occurred_on DESC`,
@@ -189,6 +212,15 @@ export async function recentNotes(scope: UserScope, limit: number, sql: Sql = db
   const { rows } = await sql.query<NoteRow>(
     `SELECT ${NOTE_COLUMNS} FROM notes WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT $2`,
     [scope.userId, limit],
+  );
+  return rows.map(toNote);
+}
+
+export async function notesByIds(scope: UserScope, ids: readonly string[], sql: Sql = db()): Promise<Note[]> {
+  if (ids.length === 0) return [];
+  const { rows } = await sql.query<NoteRow>(
+    `SELECT ${NOTE_COLUMNS} FROM notes WHERE user_id = $1 AND id = ANY($2::uuid[]) AND deleted_at IS NULL`,
+    [scope.userId, ids],
   );
   return rows.map(toNote);
 }
@@ -244,6 +276,15 @@ export async function healthWeek(scope: UserScope, from: Date, to: Date, sql: Sq
      WHERE user_id = $1 AND deleted_at IS NULL AND occurred_at >= $2 AND occurred_at < $3
      ORDER BY occurred_at`,
     [scope.userId, from, to],
+  );
+  return rows.map(toHealth);
+}
+
+export async function healthByIds(scope: UserScope, ids: readonly string[], sql: Sql = db()): Promise<HealthEntry[]> {
+  if (ids.length === 0) return [];
+  const { rows } = await sql.query<HealthRow>(
+    `SELECT ${HEALTH_COLUMNS} FROM health_entries WHERE user_id = $1 AND id = ANY($2::uuid[]) AND deleted_at IS NULL`,
+    [scope.userId, ids],
   );
   return rows.map(toHealth);
 }

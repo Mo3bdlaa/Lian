@@ -33,6 +33,7 @@ export type CapabilityPorts = {
   tasks: {
     create(userId: string, input: { kind: 'task' | 'habit'; title: string; dueOn: string | null; recurrence: unknown; originMessageId: string; originAssistantId: string }): Promise<TaskRecord>;
     dueOn(userId: string, day: string): Promise<TaskRecord[]>;
+    byIds(userId: string, ids: readonly string[]): Promise<TaskRecord[]>;
     completionsOn(userId: string, day: string): Promise<string[]>;
     all(userId: string): Promise<TaskRecord[]>;
     purge(userId: string): Promise<void>;
@@ -40,18 +41,21 @@ export type CapabilityPorts = {
   notes: {
     create(userId: string, input: { title: string | null; body: string; topic: string | null; originMessageId: string; originAssistantId: string }): Promise<NoteRecord>;
     recent(userId: string, limit: number): Promise<NoteRecord[]>;
+    byIds(userId: string, ids: readonly string[]): Promise<NoteRecord[]>;
     all(userId: string): Promise<NoteRecord[]>;
     purge(userId: string): Promise<void>;
   };
   health: {
     create(userId: string, input: { kind: 'meal' | 'workout' | 'medication'; description: string; occurredAt: Date; durationMinutes: number | null; originMessageId: string; originAssistantId: string }): Promise<HealthRecord>;
     week(userId: string, from: Date, to: Date): Promise<HealthRecord[]>;
+    byIds(userId: string, ids: readonly string[]): Promise<HealthRecord[]>;
     all(userId: string): Promise<HealthRecord[]>;
     purge(userId: string): Promise<void>;
   };
   money: {
     create(userId: string, input: { direction: 'in' | 'out'; amountMinor: number; currency: string; category: string | null; occurredOn: string; note: string | null; originMessageId: string; originAssistantId: string }): Promise<TransactionRecord>;
     monthSummary(userId: string, month: string): Promise<{ inMinor: number; outMinor: number; leftMinor: number; topCategories: { category: string; totalMinor: number }[] }>;
+    byIds(userId: string, ids: readonly string[]): Promise<TransactionRecord[]>;
     all(userId: string): Promise<TransactionRecord[]>;
     purge(userId: string): Promise<void>;
   };

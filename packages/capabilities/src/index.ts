@@ -1,6 +1,6 @@
 export {
   REGISTRY, capabilityById, ownerOfTag, allTags, contributions, tagSpecs,
-  outreachCandidates, exportAll, purgeAll,
+  outreachCandidates, exportAll, purgeAll, describeCaptures,
 } from './registry.ts';
 export type { CapabilityPorts, TaskRecord, TransactionRecord, NoteRecord, HealthRecord } from './ports.ts';
 export { tasksCapability } from './tasks/index.ts';

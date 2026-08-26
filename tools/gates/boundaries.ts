@@ -62,7 +62,10 @@ for (const file of files) {
     // puts test scaffolding in the public API of every package — worse.  It
     // is declared in each package's exports map, so it is a real entry point
     // rather than a reach-in.
-    const deep = spec.match(/^@lian\/([a-z]+)\/(.+)$/);
+    // [a-z0-9]: '@lian/i18n' has a digit in it, and an earlier version of
+    // this pattern silently skipped every import of it — a gate with a hole
+    // in it reads exactly like a gate without one.
+    const deep = spec.match(/^@lian\/([a-z0-9]+)\/(.+)$/);
     if (deep && deep[2] === 'test-fakes' && path.endsWith('.test.ts')) {
       continue;
     }
@@ -70,7 +73,7 @@ for (const file of files) {
       violations.push({ file: path, line, message: `deep import '${spec}' — import '@lian/${deep[1]}' by package name; internals are internal` });
       continue;
     }
-    const m = spec.match(/^@lian\/([a-z]+)$/);
+    const m = spec.match(/^@lian\/([a-z0-9]+)$/);
     if (!m) {
       // A relative import that climbs out of its own package is the same
       // violation wearing a different spelling.

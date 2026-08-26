@@ -20,6 +20,7 @@ export function fakePorts(): CapabilityPorts & {
         return row;
       },
       async dueOn(_userId, day) { return taskRows.filter((t) => t.dueOn === day || t.kind === 'habit'); },
+      async byIds(_userId, ids) { return taskRows.filter((t) => ids.includes(t.id)); },
       async completionsOn(_userId, day) { return [...(completions.get(day) ?? [])]; },
       async all() { return taskRows; },
       async purge() { taskRows.length = 0; },
@@ -39,6 +40,7 @@ export function fakePorts(): CapabilityPorts & {
         noteRows.push(row);
         return row;
       },
+      async byIds(_userId, ids) { return noteRows.filter((n) => ids.includes(n.id)); },
       async recent(_userId, limit) { return noteRows.slice(-limit).reverse(); },
       async all() { return noteRows; },
       async purge() { noteRows.length = 0; },
@@ -52,6 +54,7 @@ export function fakePorts(): CapabilityPorts & {
         healthRows.push(row);
         return row;
       },
+      async byIds(_userId, ids) { return healthRows.filter((e) => ids.includes(e.id)); },
       async week(_userId, from, to) { return healthRows.filter((e) => e.occurredAt >= from && e.occurredAt < to); },
       async all() { return healthRows; },
       async purge() { healthRows.length = 0; },
@@ -65,6 +68,7 @@ export function fakePorts(): CapabilityPorts & {
         txRows.push(row);
         return row;
       },
+      async byIds(_userId, ids) { return txRows.filter((t) => ids.includes(t.id)); },
       async monthSummary(_userId, month) {
         const rows = txRows.filter((t) => t.occurredOn.startsWith(month));
         const inMinor = rows.filter((r) => r.direction === 'in').reduce((s, r) => s + r.amountMinor, 0);

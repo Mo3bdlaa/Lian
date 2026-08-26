@@ -10,7 +10,7 @@
     "apps/*"
   ],
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p apps/web/tsconfig.json --noEmit",
     "test": "node --test --test-concurrency=1 \"packages/**/*.test.ts\" \"apps/**/*.test.ts\" \"tools/**/*.test.ts\"",
     "gate:boundaries": "node tools/gates/boundaries.ts",
     "gate:tokens:audit": "node tools/gates/tokens-audit.ts",

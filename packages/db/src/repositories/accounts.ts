@@ -142,6 +142,14 @@ export async function setAssistantName(
   );
 }
 
+export async function setThemePreference(
+  scope: UserScope, preference: 'auto' | 'always-light' | 'always-dark', sql: Sql = db(),
+): Promise<void> {
+  // Q8: the pin is an accessibility escape hatch; 'auto' is the product. The
+  // CHECK constraint in migration 0001 is the other half of this.
+  await sql.query(`UPDATE users SET theme_preference = $2 WHERE id = $1`, [scope.userId, preference]);
+}
+
 export async function markNotificationPrompted(scope: UserScope, sql: Sql = db()): Promise<void> {
   await sql.query(
     `UPDATE users SET notification_prompted_at = coalesce(notification_prompted_at, now()) WHERE id = $1`,

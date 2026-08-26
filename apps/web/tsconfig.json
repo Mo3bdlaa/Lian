@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // The browser half. Kept separate from the root config so that server
+    // code cannot reach `document` by accident: the DOM lib is loaded here
+    // and nowhere else, and `npm run typecheck` runs both projects.
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": [],
+    "paths": {
+      "@lian/i18n": ["../../packages/i18n/src/index.ts"],
+      "@lian/domain": ["../../packages/domain/src/index.ts"]
+    },
+    "baseUrl": "."
+  },
+  "include": ["src/**/*.ts"]
+}

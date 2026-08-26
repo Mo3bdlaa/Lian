@@ -19,6 +19,15 @@ function formatMinor(minor: number, currency: string): string {
   return `${currency} ${(minor / 100).toFixed(2).replace(/\.00$/, '')}`;
 }
 
+type TransactionLike = { id: string; amountMinor: number; currency: string; category: string | null; occurredOn: string };
+
+function summaryOf(transaction: TransactionLike, language: 'en' | 'ar', localDay: string) {
+  const parts = [formatMinor(transaction.amountMinor, transaction.currency)];
+  if (transaction.category !== null) parts.push(transaction.category);
+  parts.push(transaction.occurredOn === localDay ? line(language, 'Today', 'النهاردة') : transaction.occurredOn);
+  return { capability: 'money', icon: 'i-money', line: parts.join(' · '), correctionRoute: `/money/${transaction.id}` };
+}
+
 export const moneyCapability: Capability<CapabilityPorts> = {
   id: 'money',
 
@@ -62,14 +71,17 @@ export const moneyCapability: Capability<CapabilityPorts> = {
       originMessageId: messageId, originAssistantId: context.assistantId,
     });
 
-    const parts = [formatMinor(transaction.amountMinor, currency)];
-    if (transaction.category !== null) parts.push(transaction.category);
-    parts.push(occurredOn === context.localDay ? line(context.language, 'Today', 'النهاردة') : occurredOn);
-
     return {
       ok: true, entityTable: 'transactions', entityId: transaction.id,
-      summary: { capability: 'money', icon: 'i-money', line: parts.join(' · '), correctionRoute: `/money/${transaction.id}` },
+      summary: summaryOf(transaction, context.language, context.localDay),
     };
+  },
+
+  async describe({ entityIds, context }, ports) {
+    const rows = await ports.money.byIds(context.userId, entityIds);
+    // Read back in the language they are reading NOW: "Today" is a word, and
+    // a row captured in Arabic and reopened in English should not say النهاردة.
+    return Object.fromEntries(rows.map((row) => [row.id, summaryOf(row, context.language, context.localDay)]));
   },
 
   async exportFor(userId, ports): Promise<ExportSlice[]> {

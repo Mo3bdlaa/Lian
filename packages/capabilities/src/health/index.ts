@@ -14,6 +14,22 @@ type HealthPayload = { kind?: unknown; description?: unknown; at?: unknown; minu
 
 const KINDS = ['meal', 'workout', 'medication'] as const;
 
+type HealthLike = { id: string; kind: string; description: string; durationMinutes: number | null };
+
+/** No calories, no score, no grade — a duration and what it was. */
+function summaryOf(entry: HealthLike, language: 'en' | 'ar') {
+  const minutes = entry.durationMinutes;
+  const label = minutes === null
+    ? entry.description
+    : `${minutes} ${line(language, 'min', 'دقيقة')} · ${entry.description}`;
+  return {
+    capability: 'health',
+    icon: entry.kind === 'workout' ? 'i-workout' : entry.kind === 'medication' ? 'i-medication' : 'i-meal',
+    line: label.length > 52 ? `${label.slice(0, 51)}…` : label,
+    correctionRoute: `/health/${entry.id}`,
+  };
+}
+
 /** Local evening: a noticed pattern is conversation, not a morning alert. */
 const PATTERN_HOUR = 18;
 
@@ -95,15 +111,12 @@ export const healthCapability: Capability<CapabilityPorts> = {
       originMessageId: messageId, originAssistantId: context.assistantId,
     });
 
-    const label = minutes === null ? description : `${minutes} min · ${description}`;
-    return {
-      ok: true, entityTable: 'health_entries', entityId: entry.id,
-      summary: {
-        capability: 'health', icon: kind === 'workout' ? 'i-workout' : kind === 'medication' ? 'i-medication' : 'i-meal',
-        line: label.length > 52 ? `${label.slice(0, 51)}…` : label,
-        correctionRoute: `/health/${entry.id}`,
-      },
-    };
+    return { ok: true, entityTable: 'health_entries', entityId: entry.id, summary: summaryOf(entry, context.language) };
+  },
+
+  async describe({ entityIds, context }, ports) {
+    const rows = await ports.health.byIds(context.userId, entityIds);
+    return Object.fromEntries(rows.map((entry) => [entry.id, summaryOf(entry, context.language)]));
   },
 
   async proposeOutreach(context, ports): Promise<OutreachCandidate[]> {

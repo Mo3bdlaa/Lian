@@ -1,0 +1,562 @@
+/* ==========================================================================
+   The application stylesheet.
+   Load order:  lian-tokens.css → lian-type-roles.css → app.css
+
+   Every value here is a token. No hex, no px type, no raw radius, no raw
+   duration — tools/gates/tokens-raw.ts fails the build on any of them, and it
+   scans this file exactly as it scans the design system.
+
+   The reference screens (design-system/screens) build the same layouts with
+   inline styles on 390×844 frames. This file is those layouts as classes, at
+   real viewport sizes.
+   ========================================================================== */
+
+/* --- app frame ----------------------------------------------------------- */
+/* border-box everywhere: a control with padding and width:100% overflows its
+   parent otherwise, which is exactly what the first render of the entry
+   screen did. */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--text);
+  font-size: var(--t-body-fs);
+  line-height: var(--t-body-lh);
+  font-weight: var(--t-body-fw);
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: var(--frame-w);
+  margin: 0 auto;
+  background: var(--canvas);
+  position: relative;
+  overflow: hidden;
+}
+/* At tablet width and up the frame stops growing and centres; the desktop
+   rail (design.md §11) is a later screen, not a stretched phone. */
+@media (min-width: 900px) {
+  .app { max-width: var(--frame-w); border-inline: var(--bw-1) solid var(--border); }
+}
+
+/* --- header (UI-UX §3) --------------------------------------------------- */
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  padding: var(--s-4) var(--s-16) var(--s-12);
+  padding-top: max(var(--s-12), env(safe-area-inset-top));
+  flex: 0 0 auto;
+  color: var(--text);
+}
+.head__button {
+  width: var(--tap-min);
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 var(--tap-min);
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--r-chip);
+}
+.head__avatar {
+  width: var(--i-40);
+  height: var(--i-40);
+  flex: 0 0 var(--i-40);
+  border-radius: var(--r-round);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.head__names { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.head__name { font-size: var(--t-h3-fs); line-height: var(--t-h3-lh); font-weight: var(--t-h3-fw); }
+/* The mood PHRASE. Never a dot, a score or a percentage (UI-UX §3). */
+.head__mood {
+  font-size: var(--t-body-sm-fs);
+  line-height: var(--t-body-sm-lh);
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --- screen region ------------------------------------------------------- */
+.screen {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-inline: var(--s-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-14);
+}
+.screen--chat { justify-content: flex-end; }
+.screen__title {
+  font-size: var(--t-h1-fs);
+  line-height: var(--t-h1-lh);
+  font-weight: var(--t-h1-fw);
+  margin: var(--s-8) 0 var(--s-4);
+}
+.screen__lede { color: var(--muted); margin-bottom: var(--s-8); }
+.section {
+  font-size: var(--t-label-fs);
+  line-height: var(--t-label-lh);
+  font-weight: var(--t-label-fw);
+  letter-spacing: var(--t-label-tracking);
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: var(--s-16);
+}
+
+/* --- bottom navigation (design.md §11) ----------------------------------- */
+.nav {
+  margin: var(--s-4) var(--s-12) var(--s-12);
+  margin-bottom: max(var(--s-12), env(safe-area-inset-bottom));
+  background: var(--raised);
+  border: var(--bw-1) solid var(--border);
+  border-radius: var(--r-nav);
+  display: flex;
+  padding: var(--s-6);
+  gap: var(--s-2);
+  flex: 0 0 auto;
+}
+.nav__item {
+  flex: 1;
+  min-height: var(--h-52);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-4);
+  border-radius: var(--r-card);
+  font-size: var(--t-nav-fs);
+  line-height: var(--t-nav-lh);
+  font-weight: var(--t-nav-fw);
+  text-align: center;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.nav__item[aria-current='page'] {
+  background: var(--nav-active);
+  color: var(--text);
+  font-weight: var(--t-label-fw);
+}
+
+/* --- icons --------------------------------------------------------------- */
+.icon { width: var(--i-22); height: var(--i-22); stroke-width: var(--icon-stroke); flex: 0 0 auto; }
+.icon--sm { width: var(--i-16); height: var(--i-16); }
+.icon--lg { width: var(--i-28); height: var(--i-28); }
+.icon--muted { color: var(--muted); }
+[dir='rtl'] .icon--flip { transform: scaleX(-1); }
+
+/* --- buttons ------------------------------------------------------------- */
+.button {
+  min-height: var(--tap-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-8);
+  text-align: center;
+  padding: var(--s-12) var(--s-20);
+  border-radius: var(--r-pill);
+  border: var(--bw-1) solid transparent;
+  background: var(--button-fill);
+  color: var(--button-ink);
+  font: inherit;
+  font-weight: var(--t-body-strong-fw);
+  cursor: pointer;
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+.button:hover { opacity: .92; }
+.button--quiet { background: none; color: var(--text); border-color: var(--border); }
+.button--plain { background: none; color: var(--muted); border-color: transparent; }
+.button--destructive { background: none; color: var(--destructive); border-color: var(--destructive); }
+.button:disabled { opacity: .5; cursor: default; }
+.button--block { width: 100%; }
+
+/* --- cards and rows ------------------------------------------------------ */
+.card {
+  background: var(--raised);
+  border: var(--bw-1) solid var(--border);
+  border-radius: var(--r-card);
+  padding: var(--s-14) var(--s-16);
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  min-height: var(--tap-min);
+  padding: var(--s-10) var(--s-14);
+  border: var(--bw-1) solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--canvas);
+  color: inherit;
+  width: 100%;
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
+}
+.row__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row__value { color: var(--muted); font-size: var(--t-body-sm-fs); }
+
+/* --- empty states (design.md §9) ----------------------------------------- */
+.empty {
+  margin: auto;
+  text-align: center;
+  color: var(--muted);
+  max-width: 32ch;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  padding: var(--s-40) 0;
+}
+.empty__line { color: var(--text); }
+
+/* --- drawer (PRD §13) ---------------------------------------------------- */
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--os-black);
+  opacity: .32;
+  border: 0;
+  z-index: 2;
+}
+.drawer {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 84%;
+  max-width: 320px;
+  background: var(--canvas);
+  border-inline-end: var(--bw-1) solid var(--border);
+  box-shadow: var(--elev-2);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding: var(--s-16);
+  padding-top: max(var(--s-16), env(safe-area-inset-top));
+  overflow-y: auto;
+}
+.drawer__group { margin-top: var(--s-16); }
+.drawer__item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  min-height: var(--tap-min);
+  padding: var(--s-8) var(--s-10);
+  border-radius: var(--r-chip);
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  width: 100%;
+  text-align: start;
+  cursor: pointer;
+}
+.drawer__item:hover { background: var(--nav-active); }
+
+/* --- sheets (UI-UX §35) -------------------------------------------------- */
+.sheet {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: 4;
+  background: var(--raised);
+  border-start-start-radius: var(--r-sheet);
+  border-start-end-radius: var(--r-sheet);
+  box-shadow: var(--elev-2);
+  padding: var(--s-16);
+  padding-bottom: max(var(--s-16), env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+}
+.sheet__title { font-size: var(--t-h3-fs); line-height: var(--t-h3-lh); font-weight: var(--t-h3-fw); }
+.sheet__body { color: var(--muted); }
+.sheet__action {
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  padding: var(--s-10) var(--s-12);
+  border-radius: var(--r-chip);
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  width: 100%;
+  text-align: start;
+  cursor: pointer;
+}
+.sheet__action:hover { background: var(--nav-active); }
+.sheet__action--destructive { color: var(--destructive); }
+
+/* --- forms --------------------------------------------------------------- */
+.field { display: flex; flex-direction: column; gap: var(--s-6); }
+.field__label { font-size: var(--t-body-sm-fs); color: var(--muted); }
+.field__input {
+  min-height: var(--tap-min);
+  padding: var(--s-12) var(--s-14);
+  border-radius: var(--r-card);
+  border: var(--bw-1) solid var(--border);
+  background: var(--raised);
+  color: var(--text);
+  font: inherit;
+}
+.field__input:focus-visible { outline: var(--bw-2) solid var(--accent-alt); outline-offset: var(--s-1); }
+.field__error { color: var(--destructive); font-size: var(--t-body-sm-fs); }
+
+/* --- focus --------------------------------------------------------------- */
+:focus-visible { outline: var(--bw-2) solid var(--accent-alt); outline-offset: var(--s-2); }
+
+/* --- motion -------------------------------------------------------------- */
+/* Not a token: the reduced-motion floor is "as close to instant as the
+   platform allows", which is a different kind of value from a duration
+   somebody chose. */
+/* tokens-raw:allow-duration — the reduced-motion floor is not a design duration */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --- entry (UI-UX §1) ---------------------------------------------------- */
+.entry {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding: var(--s-28);
+  padding-top: max(var(--s-28), env(safe-area-inset-top));
+  box-sizing: border-box;
+  gap: var(--s-22);
+}
+.entry__body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: var(--s-16); }
+.entry__form { justify-content: center; gap: var(--s-14); }
+.entry__lockup { width: var(--i-88); height: var(--i-32); color: var(--text); }
+/* RECONCILIATION: the reference screen sets this at --fs-30/--lh-40. The
+   role tier has no 30 — application code chooses a ROLE, and the nearest is
+   h1 (28/36). Logged in docs/RECONCILIATIONS.md. */
+.entry__promise {
+  font-size: var(--t-h1-fs);
+  line-height: var(--t-h1-lh);
+  font-weight: var(--t-h1-fw);
+  margin: 0;
+  text-wrap: pretty;
+}
+.entry__detail { color: var(--muted); margin: 0; text-wrap: pretty; }
+.entry__footnote { color: var(--muted); font-size: var(--t-body-sm-fs); margin: 0; text-align: center; }
+.entry__actions { display: flex; flex-direction: column; gap: var(--s-10); padding-bottom: max(0px, env(safe-area-inset-bottom)); }
+
+/* --- chat ---------------------------------------------------------------- */
+.chat__day {
+  text-align: center;
+  font-size: var(--t-caption-fs);
+  line-height: var(--t-caption-lh);
+  font-weight: var(--t-caption-fw);
+  color: var(--muted);
+  padding-top: var(--s-4);
+}
+.chat__earlier {
+  align-self: center;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--t-body-sm-fs);
+  min-height: var(--tap-min);
+  cursor: pointer;
+}
+.chat__group { display: flex; flex-direction: column; gap: var(--s-4); align-items: flex-start; }
+.chat__group--mine { align-items: flex-end; }
+.chat__meta { font-size: var(--t-caption-fs); line-height: var(--t-caption-lh); color: var(--muted); padding-inline: var(--s-6); }
+.chat__failed { color: var(--destructive); }
+.chat__retry { min-height: auto; padding: 0 var(--s-6); }
+
+.bubble {
+  max-width: 78%;
+  background: var(--bubble-hers);
+  border: 0;
+  border-radius: var(--r-panel);
+  padding: var(--s-13) var(--s-16);
+  font-size: var(--t-message-fs);
+  line-height: var(--t-message-lh);
+  font-weight: var(--t-message-fw);
+  color: var(--text);
+  text-align: start;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  font-family: inherit;
+}
+.bubble--mine { background: var(--bubble-mine); }
+.bubble--thinking { display: flex; gap: var(--s-4); align-items: center; min-height: var(--h-44); }
+.bubble--limit { background: var(--surface); }
+.bubble__quote {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding-inline-start: var(--s-10);
+  border-inline-start: var(--bw-2) solid var(--accent-alt);
+  max-width: 78%;
+  color: var(--muted);
+  font-size: var(--t-body-sm-fs);
+}
+.bubble__quote-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.reaction {
+  margin-top: calc(-1 * var(--s-8));
+  margin-inline-start: var(--s-18);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  background: var(--canvas);
+  border: var(--bw-1) solid var(--border);
+  border-radius: var(--r-chip);
+  padding: var(--s-3) var(--s-9);
+  color: var(--destructive);
+  position: relative;
+  z-index: 1;
+  cursor: pointer;
+}
+.reactions { flex-direction: row; justify-content: space-around; }
+.reactions__item {
+  min-height: var(--tap-min);
+  min-width: var(--tap-min);
+  border: 0;
+  background: none;
+  border-radius: var(--r-round);
+  color: var(--text);
+  cursor: pointer;
+}
+.reactions__item--on { background: var(--nav-active); }
+
+.capture { background: var(--canvas); }
+
+.dot { width: var(--s-6); height: var(--s-6); border-radius: var(--r-round); background: var(--muted); animation: lianDots var(--dur-dots) infinite; }
+.dot:nth-child(2) { animation-delay: .15s; }
+.dot:nth-child(3) { animation-delay: .3s; }
+.dot--live { background: var(--destructive); animation: none; }
+.caret {
+  display: inline-block;
+  width: var(--s-2);
+  height: var(--s-16);
+  margin-inline-start: var(--s-2);
+  background: var(--text);
+  vertical-align: text-bottom;
+  animation: lianCaret var(--dur-caret) step-end infinite;
+}
+
+/* --- composer (UI-UX §3) ------------------------------------------------- */
+.composer { flex: 0 0 auto; padding: var(--s-8) var(--s-12) 0; }
+.composer__reply {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  padding: var(--s-6) var(--s-10);
+  border-inline-start: var(--bw-2) solid var(--accent-alt);
+  color: var(--muted);
+  font-size: var(--t-body-sm-fs);
+}
+.composer__reply-line { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.composer__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-6);
+  background: var(--raised);
+  border: var(--bw-1) solid var(--border);
+  border-radius: var(--r-nav);
+  padding: var(--s-4) var(--s-6);
+}
+.composer__input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap-min);
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  padding-inline: var(--s-10);
+}
+.composer__input:focus { outline: none; }
+.composer__icon {
+  width: var(--tap-min);
+  min-height: var(--tap-min);
+  border: 0;
+  background: none;
+  border-radius: var(--r-round);
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.composer__send { color: var(--text); }
+.composer__bar--recording { justify-content: space-between; padding-inline: var(--s-12); }
+.composer__recording { display: flex; align-items: center; gap: var(--s-8); color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* --- chips (filters, choices) -------------------------------------------- */
+.chips { display: flex; flex-wrap: wrap; gap: var(--s-8); }
+.chip {
+  min-height: var(--tap-min);
+  padding: var(--s-8) var(--s-14);
+  border-radius: var(--r-pill);
+  border: var(--bw-1) solid var(--border);
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--t-body-sm-fs);
+  cursor: pointer;
+}
+.chip--on { background: var(--nav-active); color: var(--text); border-color: transparent; font-weight: var(--t-body-strong-fw); }
+
+/* --- rows ---------------------------------------------------------------- */
+.row--static { cursor: default; }
+.row__label--done { color: var(--muted); text-decoration: line-through; }
+.row__sub { display: block; color: var(--muted); font-size: var(--t-caption-fs); line-height: var(--t-caption-lh); white-space: normal; }
+
+/* --- memory (UI-UX §5) --------------------------------------------------- */
+.memory { display: flex; flex-direction: column; gap: var(--s-6); }
+.memory--pending { border-style: dashed; }
+.memory__type {
+  font-size: var(--t-label-fs);
+  line-height: var(--t-label-lh);
+  font-weight: var(--t-label-fw);
+  letter-spacing: var(--t-label-tracking);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.memory__statement { margin: 0; }
+.memory__foot { display: flex; align-items: center; gap: var(--s-8); }
+.memory__source { flex: 1; color: var(--muted); font-size: var(--t-caption-fs); line-height: var(--t-caption-lh); }
+.memory__actions { display: flex; gap: var(--s-4); }
+.memory__field { min-height: var(--h-84); resize: vertical; font: inherit; }
+
+/* --- money (PRD §6.5) ---------------------------------------------------- */
+.money__headline { display: flex; flex-direction: column; gap: var(--s-4); }
+.money__label { color: var(--muted); font-size: var(--t-body-sm-fs); }
+.money__figure { font-size: var(--t-numeric-fs); line-height: var(--t-numeric-lh); font-weight: var(--t-numeric-fw); font-variant-numeric: tabular-nums; }
+.money__flow { display: flex; gap: var(--s-16); color: var(--muted); font-size: var(--t-body-sm-fs); }
+
+/* --- our story (PRD §10) ------------------------------------------------- */
+.stage { display: flex; flex-direction: column; gap: var(--s-4); opacity: .72; }
+.stage--now { opacity: 1; border-color: var(--accent-alt); }
+.stage__name { font-weight: var(--t-body-strong-fw); }
+.stage__prose { margin: 0; color: var(--muted); }
+
+/* --- sheets ------------------------------------------------------------- */
+.sheet__row { display: flex; gap: var(--s-8); justify-content: flex-end; }

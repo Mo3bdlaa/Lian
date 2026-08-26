@@ -16,6 +16,7 @@ export type AssistantScope = UserScope & { readonly assistantId: string };
 
 /** Tables keyed to a single user. */
 export const USER_SCOPED_TABLES = [
+  'message_reactions',
   // an assistant row belongs to a user; the assistant scope starts below it
   'assistants',
   'attachments', 'profile_notes', 'tasks', 'task_completions', 'notes', 'transactions',

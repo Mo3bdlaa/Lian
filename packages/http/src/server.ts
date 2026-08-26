@@ -13,6 +13,13 @@ export type ServerOptions = {
   readonly routes: readonly Route[];
   /** Static files: the PWA shell, the manifest, the service worker. */
   readonly staticFiles?: Readonly<Record<string, { contentType: string; body: string }>>;
+  /**
+   * What to serve for a path that is neither an API route nor a file — a deep
+   * link into a screen. The client routes it once it loads; without this the
+   * first load of /memory is a 404 and the app looks broken to anyone who
+   * bookmarks anything.
+   */
+  readonly appShell?: string;
   readonly onError?: (error: unknown, path: string) => void;
 };
 
@@ -27,14 +34,23 @@ export function createLianServer(options: ServerOptions): Server {
         response.writeHead(200, {
           'content-type': staticFile.contentType,
           // The service worker must not be cached, or a broken one is
-          // permanent. Everything else is fine to hold briefly.
-          'cache-control': url.pathname === '/sw.js' ? 'no-cache' : 'public, max-age=300',
+          // permanent. A module or stylesheet asked for with ?v= is
+          // content-addressed by the deployment's newest mtime, so it can be
+          // held for a year; everything else briefly.
+          'cache-control': url.pathname === '/sw.js' || url.pathname === '/'
+            ? 'no-cache'
+            : url.searchParams.has('v') ? 'public, max-age=31536000, immutable' : 'public, max-age=300',
         });
         response.end(staticFile.body);
         return;
       }
 
       const match = findRoute(options.routes, request.method ?? 'GET', url.pathname);
+      if (match === null && options.appShell !== undefined && request.method === 'GET' && !url.pathname.startsWith('/api/')) {
+        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' });
+        response.end(options.appShell);
+        return;
+      }
       if (match === null) {
         // UI-UX §42: no status code language in her voice — but this is the
         // API, and a client needs the code. The COPY for a 404 screen lives

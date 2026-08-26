@@ -145,6 +145,11 @@ export function capabilityPorts(userId: string): CapabilityPorts {
           id: t.id, kind: t.kind, title: t.title, dueOn: t.dueOn, recurrence: t.recurrence, completedAt: t.completedAt, originMessageId: t.originMessageId,
         }));
       },
+      async byIds(userId, ids) {
+        return (await db.life.tasksByIds({ userId }, ids)).map((t) => ({
+          id: t.id, kind: t.kind, title: t.title, dueOn: t.dueOn, recurrence: t.recurrence, completedAt: t.completedAt, originMessageId: t.originMessageId,
+        }));
+      },
       async completionsOn(userId, day) { return db.life.completionsOn({ userId }, day); },
       async all(userId) {
         return (await db.life.allTasks({ userId })).map((t) => ({
@@ -173,6 +178,9 @@ export function capabilityPorts(userId: string): CapabilityPorts {
       async recent(userId, limit) {
         return (await db.life.recentNotes({ userId }, limit)).map((n) => ({ id: n.id, title: n.title, body: n.body, topic: n.topic, createdAt: n.createdAt }));
       },
+      async byIds(userId, ids) {
+        return (await db.life.notesByIds({ userId }, ids)).map((n) => ({ id: n.id, title: n.title, body: n.body, topic: n.topic, createdAt: n.createdAt }));
+      },
       async all(userId) {
         return (await db.life.allNotes({ userId })).map((n) => ({ id: n.id, title: n.title, body: n.body, topic: n.topic, createdAt: n.createdAt }));
       },
@@ -186,6 +194,9 @@ export function capabilityPorts(userId: string): CapabilityPorts {
       async week(userId, from, to) {
         return (await db.life.healthWeek({ userId }, from, to)).map((e) => ({ id: e.id, kind: e.kind, description: e.description, occurredAt: e.occurredAt, durationMinutes: e.durationMinutes }));
       },
+      async byIds(userId, ids) {
+        return (await db.life.healthByIds({ userId }, ids)).map((e) => ({ id: e.id, kind: e.kind, description: e.description, occurredAt: e.occurredAt, durationMinutes: e.durationMinutes }));
+      },
       async all(userId) {
         return (await db.life.allHealth({ userId })).map((e) => ({ id: e.id, kind: e.kind, description: e.description, occurredAt: e.occurredAt, durationMinutes: e.durationMinutes }));
       },
@@ -194,6 +205,7 @@ export function capabilityPorts(userId: string): CapabilityPorts {
     money: {
       async create(userId, input) { return db.life.createTransaction({ userId }, input); },
       async monthSummary(userId, month) { return db.life.monthSummary({ userId }, month); },
+      async byIds(userId, ids) { return db.life.transactionsByIds({ userId }, ids); },
       async all(userId) { return db.life.allTransactions({ userId }); },
       async purge(userId) { await db.life.purgeTransactions({ userId }); },
     },
