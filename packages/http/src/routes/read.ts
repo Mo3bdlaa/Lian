@@ -81,6 +81,46 @@ export type AlbumView = {
   hasOlder: boolean;
 };
 
+/**
+ * Search (UI-UX §11): results grouped by conversation, with a snippet.
+ *
+ * Incognito never appears. Nothing in it is kept, so a thread that turned up
+ * in search would be a thread that was kept (Q12).
+ */
+export type SearchView = {
+  query: string;
+  conversations: {
+    id: string; title: string | null;
+    hits: { messageId: string; role: 'user' | 'assistant'; snippet: string; at: string }[];
+  }[];
+  memories: { id: string; statement: string; typeLabel: string }[];
+};
+
+/**
+ * The morning briefing, on its own screen (UI-UX §10).
+ *
+ * `line` is the message SHE wrote — the same one that went to the lock
+ * screen — rather than a second composition of the same facts. If she has not
+ * written one today it is null, and the screen shows the blocks alone rather
+ * than inventing her voice for them.
+ */
+export type BriefingView = {
+  day: string;
+  line: string | null;
+  today: { id: string; title: string; done: boolean }[];
+  carriedOver: { id: string; title: string; dueOn: string | null }[];
+  habits: { id: string; title: string; doneToday: boolean }[];
+  pattern: string | null;
+  /** §10: money only if something stands out. The AMOUNT, not a sentence —
+   *  formatting for the language being read belongs to the client, which
+   *  already owns it, and a currency rendered server-side would be rendered
+   *  in a second place. */
+  money: { outMinor: number; currency: string } | null;
+};
+
+/** UI-UX §12: what the USER says about themselves, in their own words. */
+export type ProfileView = { sections: { section: string; body: string }[] };
+
 export type StoryView = { now: string; footer: string; stages: { key: string; name: string; prose: string; current: boolean }[] };
 export type SecurityView = {
   devices: { id: string; label: string; lastSeen: string | null; current: boolean }[];
@@ -102,6 +142,10 @@ export type ReadPorts = MiddlewarePorts & {
   money(input: { userId: string; month: string | null }): Promise<MoneyView>;
   story(userId: string): Promise<StoryView>;
   health(userId: string): Promise<HealthView>;
+  search(input: { userId: string; query: string }): Promise<SearchView>;
+  briefing(userId: string): Promise<BriefingView>;
+  profile(userId: string): Promise<ProfileView>;
+  saveProfile(input: { userId: string; section: string; body: string }): Promise<{ ok: boolean; reason?: string }>;
   album(input: { userId: string; before: string | null }): Promise<AlbumView>;
   security(input: { userId: string; deviceId: string | null }): Promise<SecurityView>;
   revokeDevice(input: { userId: string; deviceId: string }): Promise<boolean>;
@@ -197,6 +241,50 @@ export function readRoutes(ports: ReadPorts): { method: 'GET' | 'POST' | 'PATCH'
         const session = await requireSession(context, ports, ports.now());
         await enforceRate({ bucket: `read:${session.userId}`, rule: RATE_RULES.read, now: ports.now() }, ports);
         return { status: 200, json: await ports.story(session.userId) };
+      },
+    },
+    {
+      method: 'GET',
+      pattern: '/api/search',
+      handler: async (context) => {
+        const session = await requireSession(context, ports, ports.now());
+        await enforceRate({ bucket: `read:${session.userId}`, rule: RATE_RULES.read, now: ports.now() }, ports);
+        return { status: 200, json: await ports.search({ userId: session.userId, query: context.query.get('q') ?? '' }) };
+      },
+    },
+    {
+      method: 'GET',
+      pattern: '/api/briefing',
+      handler: async (context) => {
+        const session = await requireSession(context, ports, ports.now());
+        await enforceRate({ bucket: `read:${session.userId}`, rule: RATE_RULES.read, now: ports.now() }, ports);
+        return { status: 200, json: await ports.briefing(session.userId) };
+      },
+    },
+    {
+      method: 'GET',
+      pattern: '/api/profile',
+      handler: async (context) => {
+        const session = await requireSession(context, ports, ports.now());
+        await enforceRate({ bucket: `read:${session.userId}`, rule: RATE_RULES.read, now: ports.now() }, ports);
+        return { status: 200, json: await ports.profile(session.userId) };
+      },
+    },
+    {
+      method: 'PATCH',
+      pattern: '/api/profile',
+      handler: async (context) => {
+        const session = await requireSession(context, ports, ports.now());
+        await enforceRate({ bucket: `write:${session.userId}`, rule: RATE_RULES.write, now: ports.now() }, ports);
+        const body = context.body<{ section?: string; body?: string }>();
+        const result = await withIdempotency({ context, userId: session.userId, route: 'profile' }, ports, async () => {
+          const saved = await ports.saveProfile({
+            userId: session.userId, section: body.section ?? '', body: body.body ?? '',
+          });
+          if (!saved.ok) throw new HttpError(400, 'bad_profile', saved.reason ?? 'I cannot save that');
+          return { status: 200, json: { ok: true } };
+        });
+        return { status: result.status, json: result.json };
       },
     },
     {

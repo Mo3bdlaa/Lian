@@ -180,6 +180,73 @@ export async function since(
   return rows.map(toMessage);
 }
 
+/**
+ * Search across conversations (UI-UX §11).
+ *
+ * Incognito is excluded — Q12: nothing in it is kept, and a thread that is
+ * searchable is a thread that was kept. Deleted messages and deleted threads
+ * are excluded for the same reason.
+ *
+ * Ordered by recency rather than by relevance: a trigram index answers
+ * containment, not ranking (see migration 0010 for why it is trigrams), and
+ * "the most recent time I said this" is how someone actually looks for
+ * something they said.
+ */
+export async function search(
+  scope: AssistantScope,
+  input: { query: string; limit: number },
+  sql: Sql = db(),
+): Promise<{ messageId: string; conversationId: string; conversationTitle: string | null; conversationKind: ConversationKind; role: MessageRole; body: string; createdAt: Date }[]> {
+  const needle = input.query.trim();
+  if (needle.length < 2) return [];
+  const { rows } = await sql.query<{
+    id: string; conversation_id: string; title: string | null; kind: ConversationKind;
+    role: MessageRole; body: string; created_at: Date;
+  }>(
+    `SELECT m.id, m.conversation_id, c.title, c.kind, m.role, m.body, m.created_at
+     FROM messages m
+     JOIN conversations c ON c.id = m.conversation_id
+     WHERE m.assistant_id = $1
+       AND c.assistant_id = $1
+       AND m.deleted_at IS NULL AND c.deleted_at IS NULL
+       AND c.kind <> 'incognito'
+       AND m.body ILIKE '%' || $2 || '%'
+     ORDER BY m.created_at DESC, m.id DESC
+     LIMIT $3`,
+    [scope.assistantId, needle, input.limit],
+  );
+  return rows.map((row) => ({
+    messageId: row.id, conversationId: row.conversation_id, conversationTitle: row.title,
+    conversationKind: row.kind, role: row.role, body: row.body, createdAt: row.created_at,
+  }));
+}
+
+/**
+ * The briefing she sent on a given local day, if she sent one.
+ *
+ * The briefing SCREEN reads this back rather than composing the same facts a
+ * second time in her voice. `surface` is what makes that possible: the turn
+ * records which surface produced a message, so "her briefing" is a query
+ * rather than a guess about which message looks like one.
+ *
+ * The day is bounded by the caller's UTC instants because a local day is a
+ * different range per time zone, and this table stores instants.
+ */
+export async function briefingOn(
+  scope: AssistantScope,
+  input: { from: Date; to: Date },
+  sql: Sql = db(),
+): Promise<string | null> {
+  const { rows } = await sql.query<{ body: string }>(
+    `SELECT body FROM messages
+     WHERE assistant_id = $1 AND surface = 'briefing' AND deleted_at IS NULL
+       AND created_at >= $2 AND created_at < $3
+     ORDER BY created_at DESC LIMIT 1`,
+    [scope.assistantId, input.from, input.to],
+  );
+  return rows[0]?.body ?? null;
+}
+
 export async function softDeleteMessage(scope: AssistantScope, messageId: string, sql: Sql = db()): Promise<boolean> {
   const { rowCount } = await sql.query(
     `UPDATE messages SET deleted_at = now() WHERE assistant_id = $1 AND id = $2 AND deleted_at IS NULL`,

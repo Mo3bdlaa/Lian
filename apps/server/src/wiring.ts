@@ -21,7 +21,7 @@ import {
 import { DEFAULT_MODEL, turnCostMicros, type Provider } from '@lian/llm';
 import { verifyTick } from '@lian/jobs';
 import { transcribeVoiceNote, hashText, type SpeechProvider } from '@lian/voice';
-import { localDayKey, localHour, limitsFor, messageBudget, nextStep, DEFAULT_CURRENCY } from '@lian/domain';
+import { localDayKey, localHour, atLocalHour, limitsFor, messageBudget, nextStep, DEFAULT_CURRENCY } from '@lian/domain';
 import { moodPhrase, t } from '@lian/i18n';
 import { describeCaptures, observe, LANGUAGE_STYLES } from '@lian/capabilities';
 import { resolveTheme, timeBand } from '@lian/design';
@@ -753,6 +753,108 @@ export function readPorts(deps: Deps): ReadPorts {
       return { items, hasOlder: page.length > ALBUM_PAGE };
     },
 
+    /**
+     * Search (UI-UX §11).
+     *
+     * Two scopes in one answer, because they are two different questions and
+     * the screen shows them apart: what was SAID (messages, grouped by
+     * conversation) and what she REMEMBERS (memories, which have their own
+     * type filters). Incognito is in neither — the repository excludes it.
+     */
+    async search({ userId, query }) {
+      const assistant = await assistantOf(userId);
+      const user = await db.accounts.getUser({ userId });
+      if (assistant === null || user === null) return { query, conversations: [], memories: [] };
+      const scope = { userId, assistantId: assistant.id };
+      const language = languageOf(user.languageStyle);
+      const needle = query.trim();
+      if (needle.length < 2) return { query, conversations: [], memories: [] };
+
+      const hits = await db.conversations.search(scope, { query: needle, limit: SEARCH_LIMIT });
+      const grouped = new Map<string, { id: string; title: string | null; hits: { messageId: string; role: 'user' | 'assistant'; snippet: string; at: string }[] }>();
+      for (const hit of hits) {
+        const group = grouped.get(hit.conversationId)
+          ?? { id: hit.conversationId, title: hit.conversationTitle, hits: [] };
+        group.hits.push({ messageId: hit.messageId, role: hit.role, snippet: snippetOf(hit.body, needle), at: hit.createdAt.toISOString() });
+        grouped.set(hit.conversationId, group);
+      }
+
+      const memories = (await db.memories.list(scope, 'active'))
+        .filter((row) => row.statement.toLowerCase().includes(needle.toLowerCase()))
+        .slice(0, SEARCH_LIMIT)
+        .map((row) => ({ id: row.id, statement: row.statement, typeLabel: t(`memory.type_${row.type}` as 'memory.type_fact', language, assistant.gender) }));
+
+      return { query, conversations: [...grouped.values()], memories };
+    },
+
+    /**
+     * The briefing screen (UI-UX §10).
+     *
+     * `line` is the message SHE actually sent this morning, read back — not a
+     * second composition of the same facts. Two things saying the same thing
+     * in her voice is exactly the shape LESSONS §1 is about, and the screen
+     * having no line is more honest than the screen inventing one.
+     */
+    async briefing(userId) {
+      const user = await db.accounts.getUser({ userId });
+      const assistant = await assistantOf(userId);
+      const empty = { day: '', line: null, today: [], carriedOver: [], habits: [], pattern: null, money: null };
+      if (user === null || assistant === null) return empty;
+      const scope = { userId, assistantId: assistant.id };
+      const language = languageOf(user.languageStyle);
+      const localDay = dayKeyFor(user.timeZone, deps.now());
+
+      const tasks = await db.life.allTasks({ userId });
+      const doneToday = new Set(await db.life.completionsOn({ userId }, localDay));
+      const open = tasks.filter((task) => task.completedAt === null);
+
+      // The local day as instants: midnight to midnight WHERE THEY ARE. The
+      // same wall-clock day is a different twenty-four hours in Dubai than in
+      // London, and this table stores instants.
+      const line = await db.conversations.briefingOn(scope, {
+        from: atLocalHour(localDay, 0, user.timeZone),
+        to: atLocalHour(nextDay(localDay), 0, user.timeZone),
+      });
+      const entries = await db.life.healthWeek(
+        { userId },
+        new Date(`${startOfWeekDay(localDay)}T00:00:00Z`),
+        new Date(`${localDay}T23:59:59Z`),
+      );
+      const summary = await db.life.monthSummary({ userId }, localDay.slice(0, 7));
+
+      return {
+        day: localDay,
+        line,
+        today: open
+          .filter((task) => task.kind === 'task' && task.dueOn === localDay)
+          .map((task) => ({ id: task.id, title: task.title, done: doneToday.has(task.id) })),
+        // "Carried over" is a date that has passed, not a judgement about it.
+        carriedOver: open
+          .filter((task) => task.kind === 'task' && task.dueOn !== null && task.dueOn < localDay)
+          .map((task) => ({ id: task.id, title: task.title, dueOn: task.dueOn })),
+        habits: open
+          .filter((task) => task.kind === 'habit')
+          .map((habit) => ({ id: habit.id, title: habit.title, doneToday: doneToday.has(habit.id) })),
+        pattern: observe(entries, language),
+        // §10: money only if something stands out. Nothing spent is not a
+        // thing that stands out, and neither is an ordinary month.
+        money: summary.outMinor === 0 ? null : { outMinor: summary.outMinor, currency: DEFAULT_CURRENCY },
+      };
+    },
+
+    async profile(userId) {
+      return { sections: (await db.profile.list({ userId })).map((row) => ({ section: row.section, body: row.body })) };
+    },
+
+    async saveProfile({ userId, section, body }) {
+      if (section !== 'about' && section !== 'should_know' && section !== 'notes') {
+        return { ok: false, reason: 'I do not have a section by that name' };
+      }
+      if (body.length > PROFILE_LIMIT) return { ok: false, reason: 'that is longer than I can keep here' };
+      await db.profile.upsert({ userId }, section, body.trim());
+      return { ok: true };
+    },
+
     async memories({ userId, query }) {
       const assistant = await assistantOf(userId);
       const user = await db.accounts.getUser({ userId });
@@ -1108,6 +1210,31 @@ export const STORAGE_PERIOD = 'held';
 
 /** One screen of album, before it asks for more. */
 const ALBUM_PAGE = 60;
+
+/** Results per scope. A search that returns everything is a list, not a
+ *  search — and the screen shows them grouped, so the cap is per answer. */
+const SEARCH_LIMIT = 40;
+
+/** How much of a profile section is kept. It renders into her system prompt,
+ *  so it is bounded there as well; this is the bound at the door. */
+const PROFILE_LIMIT = 2_000;
+
+/** Enough of the line around the match to recognise it, and no more —
+ *  a whole message in a result list is the list disappearing. */
+function snippetOf(body: string, needle: string): string {
+  const at = body.toLowerCase().indexOf(needle.toLowerCase());
+  if (at === -1) return body.slice(0, SNIPPET_LENGTH);
+  const from = Math.max(0, at - SNIPPET_CONTEXT);
+  const to = Math.min(body.length, at + needle.length + SNIPPET_CONTEXT);
+  return `${from > 0 ? '…' : ''}${body.slice(from, to)}${to < body.length ? '…' : ''}`;
+}
+const SNIPPET_LENGTH = 120;
+const SNIPPET_CONTEXT = 48;
+
+/** The local day after this one. */
+function nextDay(localDay: string): string {
+  return new Date(Date.parse(`${localDay}T00:00:00Z`) + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
 
 /** The Monday of a local day's ISO week. The health capability computes the
  *  same boundary; both are here rather than one guessing at the other. */

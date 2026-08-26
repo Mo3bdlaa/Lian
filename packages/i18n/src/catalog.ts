@@ -303,6 +303,33 @@ export const CATALOG = {
   'album.more': { en: 'Older', ar: 'أقدم', addressee: 'none' },
   'album.close': { en: 'Close', ar: 'إغلاق', addressee: 'none' },
 
+  // ── search (UI-UX §11) ──────────────────────────────────────────────────
+  'search.title': { en: 'Search', ar: 'بحث', addressee: 'none' },
+  'search.placeholder': { en: 'Search what we said', ar: 'دوّر في كلامنا', addressee: 'none' },
+  'search.in_conversations': { en: 'Conversations', ar: 'المحادثات', addressee: 'none' },
+  'search.in_memories': { en: 'What she remembers', ar: 'اللي فاكراه', arMale: 'اللي فاكره', addressee: 'none' },
+  'search.nothing': { en: 'Nothing matched that.', ar: 'مفيش نتيجة مطابقة.', addressee: 'none' },
+  'search.start': { en: 'Type to look through everything we have said.', ar: 'الكتابة هنا بتدوّر في كل اللي اتقال.', addressee: 'none' },
+  'search.untitled': { en: 'This conversation', ar: 'المحادثة دي', addressee: 'none' },
+
+  // ── the briefing screen (UI-UX §10) ─────────────────────────────────────
+  'briefing.title': { en: 'This morning', ar: 'الصبح ده', addressee: 'none' },
+  'briefing.today': { en: 'Today', ar: 'النهاردة', addressee: 'none' },
+  'briefing.carried_over': { en: 'Carried over', ar: 'من قبل كده', addressee: 'none' },
+  'briefing.habits': { en: 'Habits', ar: 'العادات', addressee: 'none' },
+  'briefing.pattern': { en: 'Something I noticed', ar: 'حاجة لاحظتها', addressee: 'none' },
+  'briefing.money': { en: 'Spent this month', ar: 'المصروف الشهر ده', addressee: 'none' },
+  'briefing.nothing': { en: 'Nothing is waiting on you today.', ar: 'مفيش حاجة مستنية النهاردة.', addressee: 'user' },
+  'briefing.ask': { en: 'Ask her about today', ar: 'اسأليها عن النهاردة', addressee: 'none' },
+
+  // ── about you (UI-UX §12) ───────────────────────────────────────────────
+  'profile.title': { en: 'About you', ar: 'عنك', addressee: 'none' },
+  'profile.lede': { en: 'Your words, not hers. She reads this, and never edits it.', ar: 'كلامك إنت، مش كلامها. بتقراه، وما بتغيرهوش أبدًا.', arMale: 'كلامك إنت، مش كلامه. بيقراه، وما بيغيرهوش أبدًا.', addressee: 'none' },
+  'profile.about': { en: 'About me', ar: 'عني', addressee: 'none' },
+  'profile.should_know': { en: 'What she should know', ar: 'اللي المفروض تعرفه', arMale: 'اللي المفروض يعرفه', addressee: 'none' },
+  'profile.notes': { en: 'Personal notes', ar: 'ملاحظات شخصية', addressee: 'none' },
+  'profile.saved': { en: 'Saved', ar: 'اتحفظ', addressee: 'none' },
+
   // ── free limits (UI-UX §19, §50) ────────────────────────────────────────
   'limit.approaching': { en: "We've only got a few messages left today.", ar: 'فاضل كام رسالة بس النهاردة.', addressee: 'user' },
   'limit.reached': { en: "That's my limit for today. I'll still be here tomorrow, and I'll keep what we talked about.", ar: 'ده حدي النهاردة. هفضل هنا بكرة، واللي اتكلمنا فيه محفوظ.', addressee: 'user' },

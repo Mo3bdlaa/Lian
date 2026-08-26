@@ -24,6 +24,7 @@ import { welcome, signUp, signIn, heldDevice } from './screens/entry.ts';
 import { memoryScreen, memoryEditor, memoryDeleteSheet, type Memory, type MemoryState } from './screens/memory.ts';
 import { tasksScreen, moneyScreen, storyScreen, type Task, type Note, type Money, type Story } from './screens/life.ts';
 import { healthScreen, albumScreen, type Health, type Album } from './screens/album.ts';
+import { searchScreen, briefingScreen, profileScreen, type Search, type Briefing, type Profile } from './screens/find.ts';
 import { settingsScreen, securityScreen, dataScreen, notBuilt, type Security, type DataState } from './screens/trust.ts';
 import { correctionSheet, type Correcting, type CorrectKind } from './screens/correct.ts';
 
@@ -142,11 +143,13 @@ const screenData: {
   tasks: { tasks: Task[]; notes: Note[] }; money: Money | null; story: Story | null;
   security: Security | null; data: DataState; correcting: Correcting | null;
   health: Health | null; album: Album | null; viewing: string | null;
+  search: Search | null; briefing: Briefing | null; profile: Profile | null; savedSection: string | null;
 } = {
   memories: [], query: '', filter: 'all', editing: null, deleting: null,
   tasks: { tasks: [], notes: [] }, money: null, story: null, security: null,
   data: { export: null, confirming: false, typed: '', busy: false }, correcting: null,
   health: null, album: null, viewing: null,
+  search: null, briefing: null, profile: null, savedSection: null,
 };
 
 const memoryState = (state: State, me: Snapshot): MemoryState => ({
@@ -164,6 +167,9 @@ function screenFor(screen: string, state: State, me: Snapshot): Html {
     case 'security': return screenData.security === null ? html`` : securityScreen(me, screenData.security);
     case 'data': return dataScreen(me, screenData.data);
     case 'health': return screenData.health === null ? html`` : healthScreen(me, screenData.health);
+    case 'search': return searchScreen(me, screenData.search);
+    case 'briefing': return screenData.briefing === null ? html`` : briefingScreen(me, screenData.briefing);
+    case 'profile': return screenData.profile === null ? html`` : profileScreen(me, screenData.profile, screenData.savedSection);
     case 'album': return screenData.album === null ? html`` : albumScreen(me, screenData.album, screenData.viewing);
     case 'soon': return notBuilt(me);
     default: return chatScreen(state);
@@ -212,6 +218,9 @@ async function load(path: string): Promise<void> {
     else if (screen === 'security') screenData.security = await get('/api/security');
     else if (screen === 'health') screenData.health = await get('/api/health');
     else if (screen === 'album') { screenData.album = await get('/api/album'); screenData.viewing = null; }
+    else if (screen === 'briefing') screenData.briefing = await get('/api/briefing');
+    else if (screen === 'profile') { screenData.profile = await get('/api/profile'); screenData.savedSection = null; }
+    else if (screen === 'search' && screenData.search === null) screenData.search = { query: '', conversations: [], memories: [] };
   } finally {
     set({ busy: false });
   }
@@ -236,6 +245,13 @@ async function loadOlder(): Promise<void> {
   set({ messages: [...page.messages, ...state.messages], hasOlder: page.hasOlder });
   // UI-UX §38: preserve the exact position, never jump to the top.
   where.scrollTop = where.scrollHeight - before;
+}
+
+async function saveProfileSection(section: string, body: string): Promise<void> {
+  await patch_('/api/profile', { section, body });
+  screenData.profile = await get<Profile>('/api/profile');
+  screenData.savedSection = section;
+  set({});
 }
 
 /** The next page of the album, appended rather than replacing — scrolling
@@ -506,16 +522,23 @@ document.addEventListener('click', (event) => {
   }
 });
 
+// Both search fields, debounced: every keystroke is a scan over everything
+// this account has said or she has remembered, and someone typing one word
+// would otherwise run six of them.
 document.addEventListener('input', (event) => {
-  const search = (event.target as HTMLElement).closest('[data-action="memory-search"]') as HTMLInputElement | null;
-  if (search === null) return;
-  screenData.query = search.value;
+  const field = (event.target as HTMLElement).closest('[data-action="memory-search"], [data-action="search"]') as HTMLInputElement | null;
+  if (field === null) return;
+  const scoped = field.dataset['action'] === 'memory-search';
+  if (scoped) screenData.query = field.value;
   clearTimeout(searchTimer);
-  // Debounced, because every keystroke is a query against everything she
-  // remembers.
-  searchTimer = setTimeout(() => { void load('/memory'); }, 200) as unknown as number;
+  const value = field.value;
+  searchTimer = setTimeout(
+    () => { void (scoped ? load('/memory') : runSearch(value)); },
+    SEARCH_DEBOUNCE_MS,
+  ) as unknown as number;
 });
 let searchTimer = 0;
+const SEARCH_DEBOUNCE_MS = 220;
 
 document.addEventListener('submit', (event) => {
   const target = event.target as HTMLElement;
@@ -545,6 +568,14 @@ document.addEventListener('submit', (event) => {
     void post('/api/data/delete', { confirm }).then(() => { location.href = '/welcome'; });
     return;
   }
+  const profileForm = target.closest('[data-action="save-profile"]') as HTMLFormElement | null;
+  if (profileForm !== null) {
+    event.preventDefault();
+    const section = profileForm.dataset['section']!;
+    const body = String(new FormData(profileForm).get('body') ?? '');
+    void saveProfileSection(section, body);
+    return;
+  }
   const form = target.closest('[data-action="send"]') as HTMLFormElement | null;
   if (form === null) return;
   event.preventDefault();
@@ -553,6 +584,16 @@ document.addEventListener('submit', (event) => {
   input.value = '';
   void send(text);
 });
+
+async function runSearch(query: string): Promise<void> {
+  if (query.trim().length < 2) {
+    screenData.search = { query, conversations: [], memories: [] };
+    set({});
+    return;
+  }
+  screenData.search = await get<Search>(`/api/search?q=${encodeURIComponent(query)}`);
+  set({});
+}
 
 // The photo control is a file input, so it reports through 'change' rather
 // than the click listener above.

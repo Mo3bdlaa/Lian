@@ -193,6 +193,27 @@ describe('LESSONS, enforced by the database', { skip: HAS_DB ? false : 'DATABASE
     assert.equal(searchable.length, 1);
     assert.equal(searchable[0]!.kind, 'main', 'incognito never appears in search');
 
+    // And the search itself, not just the listing: the same sentence said in
+    // both threads must come back once. A thread that turns up in search is a
+    // thread that was kept, which is the one thing incognito promises it is
+    // not.
+    const said = `spinach and ${Date.now()}`;
+    const main = searchable[0]!;
+    await conversations.appendMessage(scope, { conversationId: main.id, role: 'user', body: said });
+    await conversations.appendMessage(scope, { conversationId: incognito.id, role: 'user', body: said });
+    const hits = await conversations.search(scope, { query: said, limit: 10 });
+    assert.equal(hits.length, 1, 'the incognito copy must not be searchable');
+    assert.equal(hits[0]!.conversationId, main.id);
+
+    // Arabic is searched the same way English is (migration 0010): a match
+    // inside a word, not a match on a whitespace-delimited token.
+    await conversations.appendMessage(scope, { conversationId: main.id, role: 'user', body: 'رحت للشغل بدري' });
+    const arabic = await conversations.search(scope, { query: 'شغل', limit: 10 });
+    assert.ok(
+      arabic.some((hit) => hit.body.includes('للشغل')),
+      'شغل must match للشغل — a tokeniser that splits on whitespace would miss it',
+    );
+
     // The database refuses a memory-writing incognito thread outright.
     await assert.rejects(
       () => db().query(
