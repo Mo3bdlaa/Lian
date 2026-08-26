@@ -89,7 +89,7 @@ export function tickPorts(deps: JobDeps): TickPorts {
         },
         {
           prompt: promptPorts(outreach.userId, deps.embedder),
-          capabilities: capabilityPorts(),
+          capabilities: capabilityPorts(outreach.userId),
           turn: turnPorts(outreach.userId),
           provider: deps.provider,
           absorb: async () => ({ kept: 0, queued: 0, refused: 0 }),
@@ -142,7 +142,7 @@ export function candidatePorts(): CandidatePorts {
     async fromCapabilities(input) {
       return outreachCandidates(
         { ...input, surface: 'proactive' },
-        capabilityPorts(),
+        capabilityPorts(input.userId),
       );
     },
     async unsurfacedReflection(assistantId) {
@@ -195,7 +195,7 @@ export function reflectPorts(deps: JobDeps): ReflectPorts {
         },
         {
           prompt: promptPorts(input.userId, deps.embedder),
-          capabilities: capabilityPorts(),
+          capabilities: capabilityPorts(input.userId),
           turn: turnPorts(input.userId),
           provider: deps.provider,
           absorb: async () => ({ kept: 0, queued: 0, refused: 0 }),

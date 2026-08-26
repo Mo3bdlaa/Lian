@@ -1,7 +1,8 @@
 import type { CapabilityPorts, TaskRecord, TransactionRecord, NoteRecord, HealthRecord } from './ports.ts';
 
 export function fakePorts(): CapabilityPorts & {
-  taskRows: TaskRecord[]; txRows: TransactionRecord[]; noteRows: NoteRecord[]; healthRows: HealthRecord[];
+  taskRows: TaskRecord[]; txRows: TransactionRecord[]; noteRows: NoteRecord[];
+  healthRows: HealthRecord[]; identityRows: Record<string, unknown>;
 } {
   const taskRows: TaskRecord[] = [];
   const txRows: TransactionRecord[] = [];
@@ -9,8 +10,9 @@ export function fakePorts(): CapabilityPorts & {
   const healthRows: HealthRecord[] = [];
   const completions = new Map<string, Set<string>>();
   let n = 0;
+  const identityRows: Record<string, unknown> = {};
   return {
-    taskRows, txRows, noteRows, healthRows,
+    taskRows, txRows, noteRows, healthRows, identityRows,
     tasks: {
       async create(_userId, input) {
         const row: TaskRecord = { id: `t${++n}`, kind: input.kind, title: input.title, dueOn: input.dueOn, completedAt: null, originMessageId: input.originMessageId };
@@ -21,6 +23,15 @@ export function fakePorts(): CapabilityPorts & {
       async completionsOn(_userId, day) { return [...(completions.get(day) ?? [])]; },
       async all() { return taskRows; },
       async purge() { taskRows.length = 0; },
+    },
+    identity: {
+      async setUserName(userId, name) { identityRows[`user:${userId}:name`] = name; },
+      async setLanguage(userId, style) { identityRows[`user:${userId}:language`] = style; },
+      async setAssistantName(assistantId, name, chosenByThem) {
+        identityRows[`assistant:${assistantId}:name`] = name;
+        identityRows[`assistant:${assistantId}:chosenByThem`] = chosenByThem;
+      },
+      async exportFor() { return [identityRows]; },
     },
     notes: {
       async create(_userId, input) {

@@ -26,6 +26,7 @@ export const BLOCK_IDS = [
   'memory',        // what she remembers about them
   'standing',      // where things stand right now — capability state
   'environment',   // time, mood, language, plan
+  'onboarding',    // what the first conversation still has to learn (PRD §8)
   // ── override ────────────────────────────────────────────────────────────
   'scenario',      // replaces the role above (LESSONS §2)
   // ── trailing ────────────────────────────────────────────────────────────
@@ -44,6 +45,7 @@ export const BLOCK_ZONE: Readonly<Record<BlockId, Zone>> = {
   capabilities: 'foundation',
   standing: 'foundation',
   environment: 'foundation',
+  onboarding: 'foundation',
   conversation: 'foundation',
   earlier: 'foundation',
   scenario: 'override',
@@ -102,6 +104,7 @@ export const BLOCK_CHANNEL: Readonly<Record<BlockId, Channel>> = {
   memory: 'turn',
   standing: 'turn',
   environment: 'turn',
+  onboarding: 'turn',
   scenario: 'turn',
 };
 
@@ -142,6 +145,7 @@ export const BLOCK_VOLATILITY: Readonly<Record<BlockId, Volatility>> = {
   standing: 'per-turn',
   memory: 'per-turn',
   environment: 'per-turn',
+  onboarding: 'per-turn',
   conversation: 'stable',
   earlier: 'per-turn',
   scenario: 'stable',

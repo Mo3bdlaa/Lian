@@ -111,7 +111,10 @@ for (const file of files) {
 // A scope built from a placeholder is not a scope.  `{ userId: '' } as
 // AssistantScope` compiles, and quietly makes an assistant id sufficient to
 // read a row — the inherited access path LESSONS §11 warns about.
-const FAKE_SCOPE = /(userId|user_id)\s*:\s*(''|""|`\s*`|'placeholder')/;
+// Both spellings: a placeholder value, and a DEFAULT that makes the argument
+// optional.  The second was written by me and slipped past the first version
+// of this rule, which is the argument for the rule existing.
+const FAKE_SCOPE = /(userId|user_id|assistantId)\s*(:|=)\s*(''|""|`\s*`|'placeholder')/;
 for (const file of files) {
   const path = rel(file);
   const code = stripComments(read(file));

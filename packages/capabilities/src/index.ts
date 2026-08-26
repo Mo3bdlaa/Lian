@@ -7,3 +7,4 @@ export { tasksCapability } from './tasks/index.ts';
 export { moneyCapability } from './money/index.ts';
 export { notesCapability } from './notes/index.ts';
 export { healthCapability, observe } from './health/index.ts';
+export { identityCapability, LANGUAGE_STYLES } from './identity/index.ts';

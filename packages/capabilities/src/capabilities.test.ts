@@ -17,11 +17,13 @@ const handle = (name: string, payload: unknown, ports: ReturnType<typeof fakePor
   ownerOfTag(name)!.handle({ context: CONTEXT, tag: { name, payload, index: 0 }, messageId: 'm-1' }, ports);
 
 describe('adding a capability stayed cheap (§13)', () => {
-  test('four capabilities, five tags, no name collisions', () => {
-    assert.equal(REGISTRY.length, 4);
+  test('every capability owns at least one tag, and no two share a name', () => {
+    // Counted off the registry rather than written down, so adding a
+    // capability does not edit this test — which is the §13 promise.
     const names = tagSpecs().map((s) => s.name);
-    assert.deepEqual(names.sort(), ['habit', 'health', 'note', 'spend', 'todo']);
-    assert.equal(new Set(names).size, names.length);
+    assert.equal(new Set(names).size, names.length, 'two capabilities claiming one tag makes dispatch ambiguous');
+    assert.ok(names.length >= REGISTRY.length);
+    for (const capability of REGISTRY) assert.ok(capability.tags.length > 0, `${capability.id} owns no tag`);
   });
 });
 

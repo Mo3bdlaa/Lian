@@ -151,6 +151,13 @@ export const BLOCKS: Readonly<Record<BlockId, BlockRenderer>> = {
       ? null
       : `EARLIER IN THIS CONVERSATION\nYou have the most recent messages in full. This is what came before them, in short:\n${ctx.earlier.summary}`,
 
+  // PRD §8.  One instruction, for the one thing still unknown: a message
+  // that asks three questions reads like a form with a friendlier font.
+  onboarding: (ctx) =>
+    ctx.onboarding === null
+      ? null
+      : `THE FIRST CONVERSATION\n${ctx.onboarding.instruction}${ctx.onboarding.userName === null ? '' : `\nThey are called ${ctx.onboarding.userName}.`}`,
+
   // ── override zone ───────────────────────────────────────────────────────
   scenario: (ctx) => {
     const text = ctx.conversation?.scenarioText;

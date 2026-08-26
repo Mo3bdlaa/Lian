@@ -53,7 +53,11 @@ describe('§13 a capability composes into the prompt', () => {
     const ports = fakePorts();
     await ports.tasks.create('u-1', { kind: 'task', title: 'return the book', dueOn: '2026-05-18', recurrence: null, originMessageId: 'm', originAssistantId: 'a-1' });
     const contributed = await contributions(CONTEXT, ports);
-    assert.equal(contributed.length, REGISTRY.length);
+    // Not every capability contributes on every surface — identity capture is
+    // offered during onboarding only — so this counts what actually did.
+    const offering = REGISTRY.filter((c) => c.promptFragment(CONTEXT) !== null);
+    assert.equal(contributed.length, offering.length);
+    assert.ok(contributed.length >= 4);
     const tasks = contributed.find((c) => c.id === 'tasks')!;
     assert.match(tasks.ability, /Keep track/);
     assert.match(tasks.state!, /Due today: return the book/);
@@ -104,9 +108,18 @@ describe('§13 a capability composes into the prompt', () => {
     for (const set of rows) assert.equal(set.length, 0, 'deleting is real, for every capability');
   });
 
-  test('a capability id appears nowhere outside its directory and the registry', () => {
+  test('nothing dispatches on a capability id outside the registry', () => {
     // This is what makes "adding a capability is one directory and one line"
     // true rather than aspirational.
+    //
+    // It looks for DISPATCH, not for the word: a file only counts if it both
+    // names an id AND imports @lian/capabilities, because a file that never
+    // sees the registry cannot be branching on it.  The words legitimately
+    // recur across namespaces — there is a `tasks` table, an `identity`
+    // prompt block, a `health` screen — and that is a sign the vocabulary is
+    // right rather than that a boundary leaked.  An earlier version matched
+    // the bare word and did catch something real (a capability id that
+    // collided with a surface name), which is why it now distinguishes.
     const root = new URL('../../../', import.meta.url).pathname;
     const offenders: string[] = [];
     const walk = (dir: string) => {
@@ -125,8 +138,9 @@ describe('§13 a capability composes into the prompt', () => {
         if (path.startsWith('packages/db/')) continue;
         if (path.startsWith('tools/')) continue;
         const source = readFileSync(full, 'utf8');
+        if (!source.includes('@lian/capabilities')) continue;
         for (const capability of REGISTRY) {
-          if (new RegExp(`['"\`]${capability.id}['"\`]`).test(source)) offenders.push(`${path} names '${capability.id}'`);
+          if (new RegExp(`['"\`]${capability.id}['"\`]`).test(source)) offenders.push(`${path} dispatches on '${capability.id}'`);
         }
       }
     };

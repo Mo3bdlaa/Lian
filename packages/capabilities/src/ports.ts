@@ -20,6 +20,12 @@ export type HealthRecord = {
 };
 
 export type CapabilityPorts = {
+  identity: {
+    setUserName(userId: string, name: string): Promise<void>;
+    setLanguage(userId: string, style: string): Promise<void>;
+    setAssistantName(assistantId: string, name: string, chosenByThem: boolean): Promise<void>;
+    exportFor(userId: string): Promise<unknown[]>;
+  };
   tasks: {
     create(userId: string, input: { kind: 'task' | 'habit'; title: string; dueOn: string | null; recurrence: unknown; originMessageId: string; originAssistantId: string }): Promise<TaskRecord>;
     dueOn(userId: string, day: string): Promise<TaskRecord[]>;

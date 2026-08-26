@@ -73,6 +73,9 @@ export type CapabilityContribution = {
   tags: { name: string; usage: string }[];
 };
 
+/** PRD §8, when it is still running.  null once onboarding is done. */
+export type OnboardingContext = { step: string; instruction: string; userName: string | null };
+
 export type AssemblyContext = {
   surface: Surface;
   assistant: AssistantContext;
@@ -85,4 +88,5 @@ export type AssemblyContext = {
   memories: MemoryContext[];
   profile: ProfileContext[];
   capabilities: CapabilityContribution[];
+  onboarding: OnboardingContext | null;
 };

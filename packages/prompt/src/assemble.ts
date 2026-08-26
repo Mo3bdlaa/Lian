@@ -111,12 +111,13 @@ export async function loadContext(request: AssemblyRequest, ports: PromptPorts):
     new Intl.DateTimeFormat('en-US', { timeZone: resolvedUser.timeZone, hour: 'numeric', hourCycle: 'h23' }).format(request.now),
   );
 
-  const [canon, memories, profile, capabilities, messagesRemaining, earlier] = await Promise.all([
+  const [canon, memories, profile, capabilities, messagesRemaining, onboarding, earlier] = await Promise.all([
     ports.loadCanon(request.assistantId),
     ports.loadMemories(request.assistantId, request.retrievalQuery, request.memoryLimit),
     ports.loadProfile(request.userId),
     ports.contributeCapabilities({ userId: request.userId, assistantId: request.assistantId, surface, localDay }),
     ports.messagesRemaining(request.userId, localDay),
+    ports.loadOnboarding(request.assistantId, request.userId),
     request.conversationId === null ? Promise.resolve(null) : ports.loadEarlier(request.assistantId, request.conversationId),
   ]);
 
@@ -131,6 +132,7 @@ export async function loadContext(request: AssemblyRequest, ports: PromptPorts):
     memories,
     profile,
     capabilities,
+    onboarding,
     environment: {
       now: request.now.toISOString(),
       localHour,

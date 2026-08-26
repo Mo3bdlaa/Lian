@@ -34,6 +34,7 @@ export function fakePorts(overrides: FakeOverrides = {}): PromptPorts {
     loadMood: async () => 'warm',
     loadConversation: async (_a, id) => (id === 'c-2' ? INCOGNITO_CONVERSATION : MAIN_CONVERSATION),
     loadEarlier: async () => null,
+    loadOnboarding: async () => null,
     loadCanon: async () => [
       { statement: 'You do not drink coffee — you said tea, and only in the morning.' },
       { statement: 'You told them you find late nights easier for thinking.' },

@@ -25,7 +25,7 @@ describe('block order is data, protected by a test', () => {
     // you meant, then update the list.
     assert.deepEqual([...BLOCK_IDS], [
       'identity', 'canon', 'relationship', 'profile', 'capabilities',
-      'conversation', 'earlier', 'memory', 'standing', 'environment',
+      'conversation', 'earlier', 'memory', 'standing', 'environment', 'onboarding',
       'scenario',
       'contract', 'directive',
     ]);
@@ -135,6 +135,17 @@ describe('one path, all surfaces', () => {
   test('a conversation that still fits the window carries no summary block', async () => {
     const result = await assemblePrompt(request('chat'), fakePorts());
     assert.ok(!result.blocks.some((b) => b.id === 'earlier'));
+  });
+
+  test('PRD §8 the onboarding block carries one instruction, and disappears when done', async () => {
+    const during = await assemblePrompt(request('onboarding'), fakePorts({
+      loadOnboarding: async () => ({ step: 'learn_something', instruction: 'Ask one open question about them.', userName: 'Adam' }),
+    }));
+    assert.match(during.turnPrefix, /THE FIRST CONVERSATION/);
+    assert.match(during.turnPrefix, /They are called Adam\./);
+
+    const after = await assemblePrompt(request('chat'), fakePorts());
+    assert.ok(!after.blocks.some((b) => b.id === 'onboarding'), 'nothing left to ask, nothing in the prompt');
   });
 
   test('a surface that omits a block omits only that block', async () => {

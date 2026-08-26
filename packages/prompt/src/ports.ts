@@ -10,7 +10,7 @@
 // MissingContextError.  It never produces a default.
 import type {
   AssistantContext, CanonContext, CapabilityContribution, ConversationContext,
-  EarlierContext, MemoryContext, ProfileContext, RelationshipContext, UserContext,
+  EarlierContext, MemoryContext, OnboardingContext, ProfileContext, RelationshipContext, UserContext,
 } from './context.ts';
 import type { Surface } from './surfaces.ts';
 
@@ -28,4 +28,6 @@ export type PromptPorts = {
   /** The capability registry, contributing to the prompt (LESSONS §13). */
   contributeCapabilities(input: { userId: string; assistantId: string; surface: Surface; localDay: string }): Promise<CapabilityContribution[]>;
   messagesRemaining(userId: string, localDay: string): Promise<number>;
+  /** null once the four things PRD §8 has to learn are known. */
+  loadOnboarding(assistantId: string, userId: string): Promise<OnboardingContext | null>;
 };

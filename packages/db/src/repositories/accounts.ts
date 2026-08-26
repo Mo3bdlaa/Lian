@@ -117,6 +117,68 @@ export async function getState(scope: AssistantScope, sql: Sql = db()): Promise<
   return rows[0] === undefined ? null : { mood: rows[0].mood, updatedAt: rows[0].updated_at };
 }
 
+// ── onboarding (PRD §8) ───────────────────────────────────────────────────
+export async function setUserName(scope: UserScope, name: string, sql: Sql = db()): Promise<void> {
+  await sql.query(`UPDATE users SET display_name = $2 WHERE id = $1`, [scope.userId, name]);
+}
+
+export async function setLanguage(scope: UserScope, style: string, sql: Sql = db()): Promise<void> {
+  await sql.query(`UPDATE users SET language_style = $2 WHERE id = $1`, [scope.userId, style]);
+}
+
+export async function setAssistantName(
+  scope: AssistantScope,
+  name: string,
+  chosenByThem: boolean,
+  sql: Sql = db(),
+): Promise<void> {
+  await sql.query(
+    `UPDATE assistants SET name = $3, named_by_user = $4 WHERE user_id = $1 AND id = $2`,
+    [scope.userId, scope.assistantId, name, chosenByThem],
+  );
+}
+
+export async function markNotificationPrompted(scope: UserScope, sql: Sql = db()): Promise<void> {
+  await sql.query(
+    `UPDATE users SET notification_prompted_at = coalesce(notification_prompted_at, now()) WHERE id = $1`,
+    [scope.userId],
+  );
+}
+
+export async function markOnboarded(scope: UserScope, sql: Sql = db()): Promise<void> {
+  await sql.query(`UPDATE users SET onboarded_at = coalesce(onboarded_at, now()) WHERE id = $1`, [scope.userId]);
+}
+
+/** The four facts PRD §8 has to establish, read as state rather than as a
+ *  step counter — someone who answers two at once is not asked twice. */
+export async function onboardingFacts(scope: AssistantScope, sql: Sql = db()): Promise<{
+  userName: string | null; languageChosen: boolean; firstMemory: boolean;
+  assistantNamed: boolean; notificationPrompted: boolean;
+}> {
+  const { rows } = await sql.query<{
+    display_name: string | null; language_style: string; notification_prompted_at: Date | null;
+  }>(
+    `SELECT display_name, language_style, notification_prompted_at FROM users WHERE id = $1`,
+    [scope.userId],
+  );
+  const user = rows[0];
+  const { rows: assistantRows } = await sql.query<{ named_by_user: boolean }>(
+    `SELECT named_by_user FROM assistants WHERE user_id = $1 AND id = $2`,
+    [scope.userId, scope.assistantId],
+  );
+  const { rows: memoryRows } = await sql.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM memories WHERE assistant_id = $1 AND deleted_at IS NULL`,
+    [scope.assistantId],
+  );
+  return {
+    userName: user?.display_name ?? null,
+    languageChosen: (user?.language_style ?? 'auto') !== 'auto',
+    firstMemory: (memoryRows[0]?.n ?? 0) > 0,
+    assistantNamed: assistantRows[0]?.named_by_user ?? false,
+    notificationPrompted: (user?.notification_prompted_at ?? null) !== null,
+  };
+}
+
 export async function setMood(scope: AssistantScope, mood: 'warm' | 'quiet' | 'neutral', signals: unknown, sql: Sql = db()): Promise<void> {
   await sql.query(
     `UPDATE assistant_state SET mood = $2, mood_signals = $3, updated_at = now() WHERE assistant_id = $1`,

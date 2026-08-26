@@ -7,7 +7,7 @@ import * as db from '@lian/db';
 import type { PromptPorts } from '@lian/prompt';
 import type { CapabilityPorts } from '@lian/capabilities';
 import { contributions } from '@lian/capabilities';
-import { limitsFor, messageBudget, nextStage, stageKey, type Plan } from '@lian/domain';
+import { limitsFor, messageBudget, nextStage, nextStep, stageKey, STEP_INSTRUCTION, type Plan } from '@lian/domain';
 import { toVectorLiteral, type Embedder, type AnalysisModel } from '@lian/analysis';
 import { absorbExchange, type MemoryPorts, type AbsorbInput } from './memory.ts';
 import type { SummaryPorts } from './summary.ts';
@@ -63,6 +63,11 @@ export function promptPorts(userId: string, embedder: Embedder | null = null): P
       const summary = await db.summaries.get(scopeFor(assistantId), conversationId);
       return summary === null ? null : { summary: summary.summary, messageCount: summary.messageCount };
     },
+    async loadOnboarding(assistantId, forUserId) {
+      const facts = await db.accounts.onboardingFacts({ userId: forUserId, assistantId });
+      const step = nextStep(facts);
+      return step === 'done' ? null : { step, instruction: STEP_INSTRUCTION[step], userName: facts.userName };
+    },
     async loadCanon(assistantId) {
       const rows = await db.canon.all(scopeFor(assistantId));
       return rows.map((row) => ({ statement: row.statement }));
@@ -99,7 +104,7 @@ export function promptPorts(userId: string, embedder: Embedder | null = null): P
           userId: forUserId, assistantId, surface, localDay, timeZone: user.timeZone,
           plan: user.plan, language: user.languageStyle.startsWith('ar') ? 'ar' : 'en',
         },
-        capabilityPorts(),
+        capabilityPorts(forUserId),
       );
     },
     async messagesRemaining(forUserId, localDay) {
@@ -111,7 +116,7 @@ export function promptPorts(userId: string, embedder: Embedder | null = null): P
   };
 }
 
-export function capabilityPorts(): CapabilityPorts {
+export function capabilityPorts(userId: string): CapabilityPorts {
   return {
     tasks: {
       async create(userId, input) {
@@ -133,6 +138,18 @@ export function capabilityPorts(): CapabilityPorts {
         }));
       },
       async purge(userId) { await db.life.purgeTasks({ userId }); },
+    },
+    identity: {
+      async setUserName(forUserId, name) { await db.accounts.setUserName({ userId: forUserId }, name); },
+      async setLanguage(forUserId, style) { await db.accounts.setLanguage({ userId: forUserId }, style); },
+      async setAssistantName(assistantId, name, chosenByThem) {
+        await db.accounts.setAssistantName({ userId, assistantId }, name, chosenByThem);
+      },
+      async exportFor(forUserId) {
+        const user = await db.accounts.getUser({ userId: forUserId });
+        const assistants = await db.accounts.listAssistants({ userId: forUserId });
+        return user === null ? [] : [{ user, assistants }];
+      },
     },
     notes: {
       async create(userId, input) {
