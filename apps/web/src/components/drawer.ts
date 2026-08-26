@@ -6,7 +6,7 @@ import { html, icon, type Html } from '../dom.ts';
 import { t } from '../copy.ts';
 import type { Snapshot } from '../state.ts';
 
-const GROUPS = [
+export const GROUPS = [
   {
     label: 'drawer.remember',
     items: [

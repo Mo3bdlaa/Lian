@@ -456,6 +456,71 @@ describe('the app, in a browser', { skip: SKIP }, () => {
     assert.deepEqual(await page.errors(), []);
   });
 
+  // ── desktop (design.md §11, §17, §19) ──────────────────────────────────
+  //
+  // Driven at a real width rather than asserted from the stylesheet: a media
+  // query that never matches looks exactly like one that does, and the whole
+  // point of this file is that the four gates cannot tell the difference.
+  test('at 900px the bottom nav becomes a left rail, and the drawer button goes with it', async () => {
+    const page = browser!;
+    await page.setViewport(1280, 900, 1, false);
+    await page.goto(`${base}/chat`);
+    await page.waitFor('document.querySelectorAll(".bubble").length > 0', 15_000);
+
+    const rail = await page.evaluate<{ left: number; width: number; height: number }>(
+      'JSON.parse(JSON.stringify(document.getElementById("r-nav").getBoundingClientRect()))',
+    );
+    // A rail is tall and at the edge; a bottom nav is wide and at the bottom.
+    assert.ok(rail.height > 400, `the nav is ${rail.height}px tall — that is still a bottom bar`);
+    assert.ok(rail.width < 400, `the nav is ${rail.width}px wide — that is still a bottom bar`);
+    assert.ok(rail.left <= 2, `the rail starts at ${rail.left}px — it is not against the edge`);
+
+    // The drawer's groups are IN the rail now, from the same array the drawer
+    // renders — so the drawer button has nothing left to open.
+    assert.ok(await page.evaluate<boolean>('getComputedStyle(document.querySelector(".rail__groups")).display !== "none"'));
+    assert.ok(
+      await page.evaluate<boolean>(
+        'getComputedStyle(document.querySelector(\'[data-action="drawer"]\')).display === "none"',
+      ),
+      'a drawer button beside a rail that already shows its contents',
+    );
+  });
+
+  test('the fallback rule: every other screen is a centred column, not a stretched phone', async () => {
+    const page = browser!;
+    await page.setViewport(1280, 900, 1, false);
+    for (const path of ['/tasks', '/story', '/settings', '/health', '/subscription']) {
+      await page.goto(`${base}${path}`);
+      await page.waitFor('document.querySelector(".screen__title") !== null', 10_000);
+      const width = await page.evaluate<number>('document.querySelector(".screen__title").getBoundingClientRect().width');
+      // design.md §19: 720px. Not the full 1280 minus the rail.
+      assert.ok(width <= 760, `${path} is ${Math.round(width)}px wide — the fallback column is 720`);
+      assert.ok(width > 400, `${path} is ${Math.round(width)}px wide — that is a phone column on a desktop`);
+    }
+  });
+
+  test('purpose-built: memory is two columns at desktop width and one on a phone', async () => {
+    // Memory rather than money only because this account has no transactions
+    // and money's empty state has no list to put beside anything. The rule
+    // under test is the same one, from the same two class names.
+    const page = browser!;
+    await page.setViewport(1280, 900, 1, false);
+    await page.goto(`${base}/memory`);
+    await page.waitFor('document.querySelector(".split") !== null', 10_000);
+    const columns = await page.evaluate<string>('getComputedStyle(document.querySelector(".split")).gridTemplateColumns');
+    assert.equal(columns.split(' ').length, 2, `expected two columns, got '${columns}'`);
+
+    // And the SAME markup on a phone is a single stacked flow: the wrappers
+    // are display:contents, so nothing about the phone layout depends on the
+    // desktop one existing.
+    await page.setViewport(390, 844);
+    await page.goto(`${base}/memory`);
+    await page.waitFor('document.querySelector(".split") !== null', 10_000);
+    assert.equal(await page.evaluate<string>('getComputedStyle(document.querySelector(".split__main")).display'), 'contents');
+    assert.deepEqual(await page.errors(), []);
+    await page.setViewport(390, 844);
+  });
+
   test('the PWA is installable: manifest, icons, worker', async () => {
     const page = browser!;
     const manifest = await page.evaluate<{ ok: boolean; icons: number }>(

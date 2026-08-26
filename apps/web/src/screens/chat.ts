@@ -67,7 +67,37 @@ export function chatScreen(state: State): Html {
       <div class="bubble bubble--hers bubble--limit">${state.limitLine}</div>
     </div>`);
   }
-  return html`${rows}`;
+  return html`${rows}${aside(me)}`;
+}
+
+/**
+ * The desktop contextual panel (design.md §11).
+ *
+ * "Right optional contextual panel: memory or current topic" — and optional
+ * is doing real work here. It renders from the snapshot the app already has,
+ * so it costs no request; it is hidden below 1200px by CSS rather than
+ * switched on a measured width; and nothing about the conversation depends on
+ * it existing. What it shows is what she is holding, not a dashboard: where
+ * the relationship stands, and how much she is keeping.
+ */
+function aside(me: Snapshot): Html {
+  const language = me.user.language;
+  const gender = me.assistant.gender;
+  return html`<aside class="chat__aside" aria-label="${t('memory.title', language, gender)}">
+    <div class="rail__label">${t('story.title', language, gender)}</div>
+    <p class="chat__aside-line">${me.relationship.prose}</p>
+    <div class="rail__label">${t('memory.title', language, gender)}</div>
+    <a class="row" href="/memory" data-link>
+      ${icon('i-memory', 'sm', 'icon--muted')}
+      <span class="row__label">${t('memory.kept_so_far', language, gender).replace('{n}', String(me.limits.memoriesKept))}</span>
+      ${icon('i-chevron', 'sm', 'icon--muted icon--flip')}
+    </a>
+    ${me.limits.memoriesPending === 0 ? '' : html`<a class="row" href="/memory" data-link>
+      ${icon('i-clock', 'sm', 'icon--muted')}
+      <span class="row__label">${t('memory.pending_title', language, gender)}</span>
+      <span class="row__value">${String(me.limits.memoriesPending)}</span>
+    </a>`}
+  </aside>`;
 }
 
 const todayIn = (me: Snapshot): string =>

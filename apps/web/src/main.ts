@@ -17,7 +17,7 @@ import { html, render, type Html } from './dom.ts';
 import { t } from './copy.ts';
 import { applyTheme as writeTheme, THEME_COOKIE, DIRECTION_COOKIE, type ThemeName } from '@lian/design';
 import { head } from './components/head.ts';
-import { nav } from './components/nav.ts';
+import { nav, railGroups } from './components/nav.ts';
 import { drawer } from './components/drawer.ts';
 import { chatScreen, composer, recorder, actionSheet, deleteSheet, thinking, permissionCard, installCard } from './screens/chat.ts';
 import { welcome, signUp, signIn, heldDevice, consent, notFound, outage } from './screens/entry.ts';
@@ -126,7 +126,10 @@ function draw(state: State): void {
     if (input !== null && value !== '') input.value = value;
   }
 
-  paint(where.nav, nav(me, state.path));
+  // The bottom nav on a phone; at 900px+ the same element is the left rail,
+  // with the drawer's groups inside it. One DOM, one stylesheet, no width
+  // measured in JavaScript.
+  paint(where.nav, html`${nav(me, state.path)}${railGroups(me, state.path)}`);
 
   const overlays: string[] = [];
   if (state.drawerOpen) overlays.push(render(drawer(me)));

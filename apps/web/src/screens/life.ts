@@ -62,8 +62,14 @@ export function moneyScreen(me: Snapshot, data: Money): Html {
       <div class="empty"><div class="empty__line">${t('money.empty', language, gender)}</div></div>`;
   }
 
+  // .split / .split__main / .split__side are display:contents below 900px, so
+  // this is exactly the phone layout — and at desktop width it is design.md
+  // §11's "summary and observation left, recent transactions right" without a
+  // second component tree to keep in step.
   return html`
     <h1 class="screen__title">${t('money.title', language, gender)}</h1>
+    <div class="split">
+    <div class="split__main">
     <div class="card money__headline">
       <div class="money__label">${t('money.left', language, gender)}</div>
       <div class="money__figure">${amount(data.leftMinor)}</div>
@@ -80,6 +86,8 @@ export function moneyScreen(me: Snapshot, data: Money): Html {
         <span class="row__value">${amount(category.totalMinor)}</span>
       </div>`)}`}
 
+    </div>
+    <div class="split__side">
     <div class="section">${t('money.recent', language, gender)}</div>
     ${data.recent.map((transaction) => html`<button class="row" data-action="open-money" data-id="${transaction.id}">
       ${icon(transaction.fromReceipt ? 'i-receipt' : 'i-money', 'sm', 'icon--muted')}
@@ -89,6 +97,8 @@ export function moneyScreen(me: Snapshot, data: Money): Html {
       </span>
       <span class="row__value">${amount(transaction.amountMinor)}</span>
     </button>`)}
+    </div>
+    </div>
   `;
 }
 

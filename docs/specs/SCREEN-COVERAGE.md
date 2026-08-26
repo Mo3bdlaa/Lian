@@ -32,3 +32,21 @@ Status: ✅ purpose-built · ◐ standard desktop fallback
 ## Desktop fallback rule
 
 Every `◐` row uses persistent left rail + centered 720px main column at 900px+ (800px for legal/long-form), no bottom navigation, desktop dialogs/side sheets, and RTL mirroring. Only Chat, Money, Memory require purpose-built wide layouts for v1.
+
+**Built as stated (2026-08-26).** One breakpoint at 900px, in one block at the
+end of `apps/web/styles/app.css`, and one rule for everything not
+purpose-built — so a screen added tomorrow gets the desktop layout by
+existing. There is no second component tree: the same markup a phone renders
+is laid out differently, and the two-column wrappers are `display: contents`
+below 900px, so a phone renders exactly what it rendered before they existed.
+
+The rail is the bottom nav element, restyled, with the drawer's groups
+rendered from the same array the drawer uses — two copies of that list is how
+one of them quietly loses an entry. The chat's right-hand contextual panel is
+genuinely optional: it appears at 1200px, renders from the snapshot the app
+already has, and nothing about the conversation depends on it.
+
+`apps/server/src/browser.test.ts` drives all of it at 1280px in real
+Chromium — the rail's shape and position, the 720px fallback column across
+five screens, and the two-column split collapsing back to one on a phone. A
+media query that never matches looks exactly like one that does.

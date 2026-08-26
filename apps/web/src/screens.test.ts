@@ -149,6 +149,11 @@ describe('every screen speaks both languages', () => {
     // The capacity line is resolved server-side, so an Arabic reader gets the
     // Arabic one; the fixture carries what the server would send.
     limits: { messagesRemaining: 18, memoriesKept: 3, memoriesPending: 0, memoryCapacity: 100, capacityLine: 'أقدر أحتفظ بـ ١٠٠ ذكرى دايمة في الخطة المجانية.' },
+    // The stage prose is resolved server-side too — relationshipView() picks
+    // the language — and the desktop contextual panel renders it. The fixture
+    // carries what the server would send, or this test would be asserting
+    // that the fixture is in English.
+    relationship: { stageName: 'التعارف', prose: 'لسه بنتعرف على بعض.' },
   });
 
   const screens: [string, string][] = [

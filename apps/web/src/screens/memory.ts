@@ -44,24 +44,33 @@ export function memoryScreen(state: MemoryState): Html {
   const shown = state.memories.filter((memory) => state.filter === 'all' || memory.type === state.filter);
   const kept = state.me.limits.memoriesKept;
 
+  // design.md §11: search and the list side by side at desktop width. The
+  // wrappers are display:contents below 900px, so a phone renders exactly
+  // what it rendered before they existed.
   return html`
     <h1 class="screen__title">${t('memory.title', language, gender)}</h1>
     ${me.user.plan === 'free' ? html`<p class="screen__lede"
       >${state.me.limits.capacityLine} ${t('memory.kept_so_far', language, gender).replace('{n}', count(kept, language))}</p>` : ''}
 
-    <input class="field__input" data-action="memory-search" value="${state.query}"
-      placeholder="${t('memory.search', language, gender)}" aria-label="${t('memory.search', language, gender)}">
+    <div class="split">
+      <div class="split__main">
+        <input class="field__input" data-action="memory-search" value="${state.query}"
+          placeholder="${t('memory.search', language, gender)}" aria-label="${t('memory.search', language, gender)}">
 
-    <div class="chips">
-      ${FILTERS.map((filter) => html`<button class="chip ${filter.key === state.filter ? 'chip--on' : ''}"
-          data-action="memory-filter" data-key="${filter.key}">
-        ${t(filter.copy, language, gender)}
-      </button>`)}
+        <div class="chips">
+          ${FILTERS.map((filter) => html`<button class="chip ${filter.key === state.filter ? 'chip--on' : ''}"
+              data-action="memory-filter" data-key="${filter.key}">
+            ${t(filter.copy, language, gender)}
+          </button>`)}
+        </div>
+      </div>
+
+      <div class="split__side">
+        ${shown.length === 0
+          ? html`<div class="empty"><div class="empty__line">${t('memory.empty', language, gender)}</div></div>`
+          : shown.map((memory) => memoryCard(memory, state))}
+      </div>
     </div>
-
-    ${shown.length === 0
-      ? html`<div class="empty"><div class="empty__line">${t('memory.empty', language, gender)}</div></div>`
-      : shown.map((memory) => memoryCard(memory, state))}
   `;
 }
 

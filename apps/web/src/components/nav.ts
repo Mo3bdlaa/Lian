@@ -2,6 +2,7 @@
 import { html, icon, type Html } from '../dom.ts';
 import { t } from '../copy.ts';
 import { tabFor } from '../router.ts';
+import { GROUPS } from './drawer.ts';
 import type { Snapshot } from '../state.ts';
 
 const TABS = [
@@ -21,4 +22,29 @@ export function nav(me: Snapshot, path: string): Html {
       <span>${t(tab.copy, me.user.language, me.assistant.gender)}</span>
     </a>`)}
   </nav>`;
+}
+
+/**
+ * The desktop rail's second half (design.md §17, §19).
+ *
+ * The SAME groups the drawer shows, from the same array — at 900px+ the
+ * drawer stops being a drawer and becomes part of a persistent rail, and two
+ * copies of that list is how one of them quietly loses an entry.
+ *
+ * Rendered always and hidden below 900px by CSS rather than switched on a
+ * measured width: a layout that depends on JavaScript knowing the viewport is
+ * a layout that flickers on first paint and is wrong in a resized window.
+ */
+export function railGroups(me: Snapshot, path: string): Html {
+  const language = me.user.language;
+  const gender = me.assistant.gender;
+  return html`<div class="rail__groups">
+    ${GROUPS.map((group) => html`
+      <div class="rail__label">${t(group.label, language, gender)}</div>
+      ${group.items.map((item) => html`<a class="rail__item" href="${item.href}" data-link
+          ${path.startsWith(item.href) ? html`aria-current="page"` : ''}>
+        ${icon(item.icon, 'sm', 'icon--muted')}
+        <span>${t(item.copy, language, gender)}</span>
+      </a>`)}`)}
+  </div>`;
 }

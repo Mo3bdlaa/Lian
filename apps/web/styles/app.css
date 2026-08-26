@@ -37,11 +37,7 @@ body {
   position: relative;
   overflow: hidden;
 }
-/* At tablet width and up the frame stops growing and centres; the desktop
-   rail (design.md §11) is a later screen, not a stretched phone. */
-@media (min-width: 900px) {
-  .app { max-width: var(--frame-w); border-inline: var(--bw-1) solid var(--border); }
-}
+/* Desktop is at the end of this file, in one block (design.md §19). */
 
 /* --- header (UI-UX §3) --------------------------------------------------- */
 .head {
@@ -786,4 +782,168 @@ body {
   flex-direction: column;
   gap: var(--s-8);
   padding: var(--s-16);
+}
+
+/* ==========================================================================
+   DESKTOP (design.md §11, §17, §19)
+   ==========================================================================
+
+   ONE breakpoint, at 900px, and one rule for everything that is not Chat,
+   Money or Memory: persistent left rail, no bottom nav, and a centred 720px
+   column (800px for long-form). That is the spec's fallback rule written as
+   CSS rather than as a habit — a screen added tomorrow gets the desktop
+   layout by existing, and only the three purpose-built ones need anything.
+
+   Nothing here is a second component tree. The same markup a phone renders is
+   laid out differently, so a screen cannot look right on one and be missing
+   on the other.
+   ========================================================================== */
+@media (min-width: 900px) {
+  .app {
+    max-width: var(--frame-desktop-w);
+    display: grid;
+    /* The rail spans every row; head, screen and composer stack beside it. */
+    grid-template-columns: var(--rail-w) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "rail head"
+      "rail screen"
+      "rail composer";
+    border-inline: var(--bw-1) solid var(--border);
+  }
+  #r-head { grid-area: head; }
+  #r-screen { grid-area: screen; }
+  #r-composer { grid-area: composer; }
+
+  /* The bottom nav becomes the rail. */
+  #r-nav {
+    grid-area: rail;
+    border-inline-end: var(--bw-1) solid var(--border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-8);
+    padding: var(--s-12) var(--s-8);
+    padding-top: max(var(--s-12), env(safe-area-inset-top));
+  }
+  .nav {
+    position: static;
+    flex-direction: column;
+    align-items: stretch;
+    border-block-start: 0;
+    padding: 0;
+    background: none;
+    gap: var(--s-2);
+  }
+  .nav__item {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: var(--s-12);
+    padding: var(--s-8) var(--s-12);
+    border-radius: var(--r-nav);
+    min-height: var(--tap-min);
+  }
+  .nav__item[aria-current="page"] { background: var(--nav-active); }
+
+  /* The drawer's groups, in the rail. Below this width they are not rendered
+     at all — see .rail__groups outside the query. */
+  .rail__groups { display: flex; flex-direction: column; gap: var(--s-2); }
+  .rail__label {
+    padding: var(--s-12) var(--s-12) var(--s-4);
+    color: var(--muted);
+    font-size: var(--t-label-fs);
+    line-height: var(--t-label-lh);
+    font-weight: var(--t-label-fw);
+  }
+  .rail__item {
+    display: flex;
+    align-items: center;
+    gap: var(--s-12);
+    min-height: var(--tap-min);
+    padding: var(--s-8) var(--s-12);
+    border-radius: var(--r-nav);
+    color: var(--text);
+    text-decoration: none;
+    font-size: var(--t-body-sm-fs);
+    line-height: var(--t-body-sm-lh);
+    font-weight: var(--t-body-sm-fw);
+  }
+  .rail__item[aria-current="page"] { background: var(--nav-active); }
+
+  /* The drawer button has nothing left to open. */
+  .head__button[data-action="drawer"] { display: none; }
+
+  /* ── the fallback rule ────────────────────────────────────────────────
+     Everything that is not one of the three purpose-built screens. */
+  /* `width: 100%` matters: an auto inline margin on a flex child cancels
+     `align-items: stretch`, so max-width alone shrinks every block to the
+     width of its text. */
+  #r-screen > * { width: 100%; max-width: var(--column-w); margin-inline: auto; }
+  /* Long-form: consent and the legal text it carries. */
+  .entry--long .entry__body { max-width: var(--column-long-w); }
+
+  /* ── purpose-built: Chat ──────────────────────────────────────────────
+     Left rail (above) + centre column + an optional contextual panel. The
+     panel appears only when there is room for it AND something to put in it. */
+  .screen--chat > * { max-width: var(--column-chat-w); }
+  .composer { width: 100%; max-width: var(--column-chat-w); margin-inline: auto; }
+
+  /* ── purpose-built: Money and Memory ──────────────────────────────────
+     Both are "list beside detail". The markup is the same one a phone
+     renders: .split__main and .split__side are display:contents below this
+     width, so the phone layout is untouched by their existence. */
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: var(--s-24);
+    align-items: start;
+    max-width: var(--column-wide-w);
+    margin-inline: auto;
+  }
+  .split__main, .split__side { display: block; min-width: 0; }
+}
+
+.chat__aside-line {
+  padding-inline: var(--s-16);
+  color: var(--muted);
+  font-size: var(--t-body-sm-fs);
+  line-height: var(--t-body-sm-lh);
+  font-weight: var(--t-body-sm-fw);
+}
+
+/* Below 900px the rail's groups are the drawer's job, and the two-column
+   splits are ordinary stacked blocks. `display: contents` means the wrappers
+   have no effect at all on a phone — the markup is identical either way. */
+@media (max-width: 899px) {
+  .rail__groups { display: none; }
+  .split__main, .split__side { display: contents; }
+}
+
+/* Wide enough for a third column: the chat's contextual panel (design.md
+   §11 "right optional contextual panel"). Optional is doing real work — at
+   1200px it appears, below that the same markup is simply not shown, and
+   nothing about the conversation depends on it. */
+@media (max-width: 1199px) {
+  .chat__aside { display: none; }
+}
+@media (min-width: 1200px) {
+  #r-screen.screen--chat {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--rail-detail-w);
+    gap: var(--s-24);
+    align-items: start;
+  }
+  .screen--chat > *:not(.chat__aside) { grid-column: 1; }
+  .chat__aside {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    position: sticky;
+    top: 0;
+    align-self: start;
+    max-width: var(--rail-detail-w);
+    padding: var(--s-16) var(--s-16) var(--s-16) 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-8);
+  }
 }

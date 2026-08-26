@@ -158,6 +158,12 @@
   --h-58:58px; --h-60:60px; --h-62:62px; --h-64:64px; --h-68:68px; --h-76:76px; --h-78:78px; --h-84:84px; --h-110:110px; --h-120:120px;
   --tap-min:44px; --h-screen:100vh;
   --frame-w:390px; --frame-h:844px;
+  /* desktop layout, from design.md §11 — every number below is quoted there:
+     chat centre 720–820, detail rails 280–360, overall max 1440. The rail
+     width is the one choice not in the spec: 260px fits the longest drawer
+     label in both languages at the label type role. */
+  --frame-desktop-w:1440px; --rail-w:260px; --rail-detail-w:320px;
+  --column-w:720px; --column-long-w:800px; --column-chat-w:820px; --column-wide-w:1080px;
   /* the curves that carry the product's shape, by role */
   --r-card:var(--r-16); --r-bubble:var(--r-18); --r-panel:var(--r-20);
   --r-sheet:var(--r-30); --r-chip:var(--r-14); --r-nav:var(--r-22);
