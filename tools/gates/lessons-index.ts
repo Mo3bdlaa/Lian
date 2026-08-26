@@ -32,6 +32,7 @@ const COVERAGE: Record<number, Coverage[]> = {
   ],
   4: [
     { where: 'packages/db/src/repositories/outreach.ts', marker: /unansweredStreak/ },
+    { where: 'packages/jobs/src/deliver.test.ts', marker: /a real push with the real message in it/ },
     { where: 'packages/db/src/repositories/lessons.test.ts', marker: /backoff counts only her own unanswered messages/ },
     { where: 'packages/jobs/src/tick.test.ts', marker: /never silenced by backoff/ },
   ],
@@ -82,6 +83,7 @@ const COVERAGE: Record<number, Coverage[]> = {
     { where: 'packages/runtime/src/turn.test.ts', marker: /per-user model cost ceiling/ },
     { where: 'packages/jobs/src/signature.ts', marker: /HMAC/ },
     { where: 'packages/domain/src/plan.test.ts', marker: /voice is metered in both directions/ },
+    { where: 'packages/runtime/src/turn.test.ts', marker: /the saving is a measured number, not a claim/ },
   ],
   13: [
     { where: 'packages/domain/src/capability.ts', marker: /COMPOSES INTO THE PROMPT/ },

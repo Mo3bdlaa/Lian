@@ -10,6 +10,8 @@ import { contributions, outreachCandidates } from '@lian/capabilities';
 import { DEFAULT_MODEL, type Provider } from '@lian/llm';
 import type { Embedder, AnalysisModel } from '@lian/analysis';
 import type { AssistantScope } from '@lian/db';
+import type { SendConfig } from '@lian/push';
+import { deliver, notificationFor, type DeliverPorts } from './deliver.ts';
 import type { TickPorts, DueOutreach } from './tick.ts';
 import type { CandidatePorts } from './candidates.ts';
 import type { ReflectPorts, ReflectionKind } from './reflect.ts';
@@ -18,9 +20,10 @@ export type JobDeps = {
   provider: Provider;
   analysisModel: AnalysisModel;
   embedder: Embedder | null;
-  /** Delivery.  Null while push is unimplemented: the turn still runs and the
-   *  message is stored, it simply is not pushed anywhere yet. */
-  deliver: ((input: { userId: string; assistantId: string; body: string }) => Promise<void>) | null;
+  /** VAPID keys and contact.  Null only in a deployment that has not
+   *  generated them yet — and a proactive turn then reports nowhereToSend
+   *  rather than pretending it delivered. */
+  push: SendConfig | null;
   now: () => Date;
 };
 
@@ -35,6 +38,18 @@ function collectingSink(): TurnSink & { text_: () => string } {
     capture: () => {},
     captureFailed: () => {},
     text_: () => collected,
+  };
+}
+
+export function deliverPorts(userId: string): DeliverPorts {
+  return {
+    async subscriptions(forUserId) {
+      return (await db.push.active({ userId: forUserId })).map((row) => ({
+        id: row.id, endpoint: row.endpoint, p256dh: row.p256dh, auth: row.auth,
+      }));
+    },
+    async revoke(forUserId, subscriptionId) { await db.push.revoke({ userId: forUserId }, subscriptionId); },
+    async touch(forUserId, subscriptionId) { await db.push.touch({ userId: forUserId }, subscriptionId); },
   };
 }
 
@@ -84,8 +99,31 @@ export function tickPorts(deps: JobDeps): TickPorts {
 
       if (result.status !== 'done') return 'skipped';
       await db.outreach.markSent(scope, outreach.id, result.messageId);
-      if (deps.deliver !== null) {
-        await deps.deliver({ userId: outreach.userId, assistantId: outreach.assistantId, body: result.text });
+
+      // The message exists either way — it is in the conversation, and she
+      // will not repeat it.  Delivery is separate, and its failure is
+      // reported rather than swallowed: "she texts you first" is the product,
+      // so a message nobody could receive is worth seeing in a log.
+      if (deps.push === null) return 'sent';
+      const report = await deliver(
+        {
+          userId: outreach.userId,
+          message: notificationFor({
+            assistantName: assistant.name,
+            text: result.text,
+            url: `/chat/${outreach.conversationId}`,
+            tag: outreach.kind,
+          }),
+        },
+        deps.push,
+        deliverPorts(outreach.userId),
+      );
+      if (report.nowhereToSend) {
+        await db.events.record({
+          name: 'proactive_sent', userId: outreach.userId, assistantId: outreach.assistantId,
+          dayKey: new Intl.DateTimeFormat('en-CA', { timeZone: outreach.timeZone }).format(deps.now()),
+          properties: { delivered: false, expired: report.expired, retry: report.retry },
+        });
       }
       return 'sent';
     },

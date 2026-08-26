@@ -30,9 +30,10 @@ const ALLOWED: Record<string, string[]> = {
   capabilities: ['domain', 'i18n'],
   auth: ['domain', 'i18n'],
   voice: ['domain'],
+  push: ['domain'],
   // composition roots: they wire ports to implementations.
   runtime: ['domain', 'i18n', 'design', 'prompt', 'llm', 'capabilities', 'auth', 'voice', 'db', 'analysis'],
-  jobs: ['domain', 'i18n', 'prompt', 'llm', 'capabilities', 'voice', 'db', 'runtime', 'analysis'],
+  jobs: ['domain', 'i18n', 'prompt', 'llm', 'capabilities', 'voice', 'db', 'runtime', 'analysis', 'push'],
 };
 
 const SQL_KEYWORDS = /\b(SELECT\s+[\s\S]{0,200}?\bFROM\b|INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM|CREATE\s+(TABLE|INDEX|TYPE)|ALTER\s+TABLE)\b/i;

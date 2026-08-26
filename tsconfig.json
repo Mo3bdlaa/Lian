@@ -49,6 +49,9 @@
       ],
       "@lian/analysis/test-fakes": [
         "./packages/analysis/src/test-fakes.ts"
+      ],
+      "@lian/push": [
+        "./packages/push/src/index.ts"
       ]
     },
     "baseUrl": "."
