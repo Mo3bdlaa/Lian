@@ -24,7 +24,11 @@ describe('§1 the non-voice path carries no persona', () => {
   });
 
   test('every non-voice prompt is declared, so the set stays countable', () => {
-    assert.deepEqual([...ANALYSIS_PROMPTS], ['memory_extraction', 'canon_extraction', 'conversation_title']);
+    // Adding one is deliberate: it is the whole condition §1 allows this
+    // path under, so the list is asserted exactly rather than by count.
+    assert.deepEqual([...ANALYSIS_PROMPTS], [
+      'memory_extraction', 'canon_extraction', 'conversation_title', 'conversation_summary',
+    ]);
   });
 
   test('the prompts ask for JSON only — no tool-calling is assumed (Q17)', () => {
