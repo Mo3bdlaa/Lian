@@ -9,8 +9,8 @@ import assert from 'node:assert/strict';
 import { runTurn, type TurnInput, type TurnPorts, type TurnSink } from './turn.ts';
 import { fakePorts as fakePromptPorts } from '@lian/prompt/test-fakes';
 import { fakePorts as fakeCapabilityPorts } from '@lian/capabilities/test-fakes';
-import type { Provider } from '@lian/llm';
-import type { CaptureSummary } from '@lian/domain';
+import { costMicros, typicalTurnMicros, DEFAULT_MODEL, type Provider } from '@lian/llm';
+import { limitsFor, monthlyMessageAllowance, type CaptureSummary } from '@lian/domain';
 
 const NOW = new Date('2026-05-18T06:30:00.000Z');
 
@@ -87,7 +87,7 @@ function collectingSink() {
 function input(overrides: Partial<TurnInput> = {}): TurnInput {
   return {
     userId: 'u-1', assistantId: 'a-1', conversationId: 'c-1', surface: 'chat', plan: 'free',
-    timeZone: 'Asia/Dubai', language: 'en', model: 'claude-opus-5', now: NOW,
+    timeZone: 'Asia/Dubai', language: 'en', model: DEFAULT_MODEL, now: NOW,
     userMessage: 'I paid the gym 400 for the month.', clientId: null, replacingMessageId: null,
     ...overrides,
   };
@@ -108,8 +108,7 @@ describe('the turn', () => {
     assert.ok(!collected.text.includes('<spend'), 'a control tag must never reach the sink (LESSONS §3)');
     assert.equal(collected.captures.length, 1);
     assert.equal(collected.captures[0]!.line, 'AED 400 · gym · Today');
-    // 1000 in + 100 out on Opus 5 = 5,000 + 2,500 micros
-    assert.equal(result.costMicros, 7_500);
+    assert.equal(result.costMicros, costMicros(DEFAULT_MODEL, { inputTokens: 1_000, outputTokens: 100 }));
     assert.deepEqual(store.events, ['capture_created', 'message_sent']);
     assert.equal(store.answered, 1, 'a reply answers everything she was waiting on');
   });
@@ -150,10 +149,11 @@ describe('the turn', () => {
       prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), turn: store.turn,
       provider: fakeProvider('hello', 7, { inputTokens: 0, outputTokens: 0 }),
     };
-    for (let i = 0; i < 30; i++) await runTurn(input(), ports, collectingSink().sink);
+    const limit = limitsFor('free').messagesPerDay;
+    for (let i = 0; i < limit; i++) await runTurn(input(), ports, collectingSink().sink);
     const result = await runTurn(input(), ports, collectingSink().sink);
     assert.equal(result.status, 'message_limit_reached');
-    assert.equal(store.messages.filter((m) => m.role === 'user').length, 30, 'the refused message was never stored');
+    assert.equal(store.messages.filter((m) => m.role === 'user').length, limit, 'the refused message was never stored');
   });
 
   test('her daily reach-out has its own budget — PRD §11: she is not gone', async () => {
@@ -163,7 +163,7 @@ describe('the turn', () => {
       provider: fakeProvider('thinking of you', 7, { inputTokens: 0, outputTokens: 0 }),
     };
     // Spend the whole message allowance…
-    for (let i = 0; i < 30; i++) await runTurn(input(), ports, collectingSink().sink);
+    for (let i = 0; i < limitsFor('free').messagesPerDay; i++) await runTurn(input(), ports, collectingSink().sink);
     // …and she can still reach out once, because the budgets are separate.
     const reach = await runTurn(input({ surface: 'proactive', userMessage: null }), ports, collectingSink().sink);
     assert.equal(reach.status, 'done');
@@ -173,27 +173,46 @@ describe('the turn', () => {
 
   test('§12 the per-user model cost ceiling stops the turn', async () => {
     const store = fakeTurnPorts();
-    store.counters.set('model_cost_micros:2026-05', 150_000); // the free ceiling
+    store.counters.set('model_cost_micros:2026-05', limitsFor('free').modelCostPerMonth);
     const ports: TurnPorts = { prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), provider: fakeProvider('hello'), turn: store.turn };
     const result = await runTurn(input(), ports, collectingSink().sink);
     assert.equal(result.status, 'cost_ceiling_reached');
   });
 
-  test('at list price the COST ceiling binds long before the message limit', async () => {
-    // Not a bug in the code — a fact about the numbers, asserted so it cannot
-    // be discovered from an invoice.  Free allows 30 messages/day and $0.15 of
-    // model spend a month; one turn at the catalogue price is 7,500 micros, so
-    // the money runs out after 20 messages — on the first day.
+  test('the message limit and the cost ceiling agree — a free user meets only the named one', async () => {
+    // Last night this test recorded a collision: the money ran out after 20
+    // messages while the copy promised 30, so the user would have met a limit
+    // the product never named.  The ruling was to move the message limit to
+    // 20 rather than downgrade the first session's model.
+    //
+    // This asserts they still agree.  If either number moves — a model swap,
+    // a price change, a new limit — this fails, and the fix is to move the
+    // other one, never to delete the test.
+    const limits = limitsFor('free');
     const store = fakeTurnPorts();
     const ports: TurnPorts = { prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), provider: fakeProvider('hello'), turn: store.turn };
-    let turns = 0;
-    for (let i = 0; i < 30; i++) {
+
+    let delivered = 0;
+    let lastStatus = '';
+    for (let i = 0; i < limits.messagesPerDay + 5; i++) {
       const result = await runTurn(input(), ports, collectingSink().sink);
+      lastStatus = result.status;
       if (result.status !== 'done') break;
-      turns++;
+      delivered++;
     }
-    assert.equal(turns, 20, 'if this number changes, the plan economics changed with it');
-    assert.equal((await runTurn(input(), ports, collectingSink().sink)).status, 'cost_ceiling_reached');
+
+    assert.equal(delivered, limits.messagesPerDay, 'the money must last as long as the messages do');
+    assert.equal(lastStatus, 'message_limit_reached', 'the limit a free user meets is the one the copy names');
+
+    // The same fact as arithmetic, over a MONTH — which is the period the
+    // ceiling is denominated in.  Getting that wrong is how the collision
+    // was mis-stated the first time.
+    const perTurn = typicalTurnMicros(DEFAULT_MODEL, true);
+    const monthly = perTurn * monthlyMessageAllowance('free');
+    assert.ok(
+      monthly <= limits.modelCostPerMonth,
+      `a month of free messages (${monthly} micros) must fit the ceiling (${limits.modelCostPerMonth})`,
+    );
   });
 
   test('Q7 a regeneration voids the previous captures before writing new ones', async () => {

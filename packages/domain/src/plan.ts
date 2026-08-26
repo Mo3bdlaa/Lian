@@ -31,24 +31,48 @@ export type PlanLimits = {
  * daily use so a runaway loop or a scripted client cannot bill the company,
  * and a user who reaches one is a conversation, not an error message.
  */
+/** Billing months are ragged; the ceiling is sized against a full one. */
+export const DAYS_PER_MONTH = 30;
+
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   free: {
-    messagesPerDay: 30,
+    // 20 messages a day is the named limit, so the ceiling must fund it.
+    // 20 × 30 days × ~4,000 micros a cached turn ≈ 2.4M micros, so the
+    // ceiling is 2.5M ($2.50) and the limit a free user meets is the one the
+    // copy names.  runtime/turn.test.ts fails if these two stop agreeing.
+    //
+    // Two things to know about that number.  It assumes prompt caching, which
+    // is NOT implemented yet — uncached, a free user costs about $4.80/month
+    // and will hit the ceiling around day 15.  And $2.50 of model spend per
+    // free user is an acquisition cost, not a rounding error: it is a
+    // business decision, recorded here so it is visible rather than inferred
+    // from an invoice.
+    messagesPerDay: 20,
     proactivePerDay: 1,
     activeMemoriesPerAssistant: 100,
-    modelCostPerMonth: 150_000, // $0.15
+    modelCostPerMonth: 2_500_000, // $2.50
     ttsCharsPerMonth: 0,
     voice: false,
   },
   paid: {
-    messagesPerDay: 2_000,
+    // "Unlimited in practice" (PRD §10): the daily number is a runaway guard,
+    // not the binding constraint.  For paid the COST ceiling is what binds,
+    // and it is sized so a heavy-but-human user — around 40 turns a day —
+    // fits inside a $9 price with room for voice.
+    messagesPerDay: 400,
     proactivePerDay: 12,
     activeMemoriesPerAssistant: Number.MAX_SAFE_INTEGER,
-    modelCostPerMonth: 3_000_000, // $3.00 against a $9 price
+    modelCostPerMonth: 5_000_000, // $5.00 against a $9 price
     ttsCharsPerMonth: 200_000,
     voice: true,
   },
 };
+
+/** Turns a plan's daily message allowance into the monthly one the ceiling
+ *  has to fund.  Used by the test that keeps the two numbers in agreement. */
+export function monthlyMessageAllowance(plan: Plan): number {
+  return PLAN_LIMITS[plan].messagesPerDay * DAYS_PER_MONTH;
+}
 
 export function limitsFor(plan: Plan): PlanLimits {
   return PLAN_LIMITS[plan];

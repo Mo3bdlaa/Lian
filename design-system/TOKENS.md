@@ -202,8 +202,22 @@ is what keeps them free.
   Arabic headings crowd.
 - `--tap-min` — never below 44px.
 
-**Re-measure after changing.** Every pair below was computed from the token
-values in this file, all five themes, not carried over from the earlier notes:
+**Re-measure after changing.** The table below is a readable excerpt, not the
+measurement: `npm run gate:tokens:contrast` prints all 175 cells and fails on
+any that is missing or below its floor. Two AA failures were found that way,
+neither of which appears in this excerpt — which is the point:
+
+| pair | was | now |
+|---|---:|---|
+| `--muted` on `--quiet-nav-active` | 4.35 | 4.55 — `--quiet-nav-active` lifted `#EAE4E8` → `#EFE9ED` |
+| `--muted` on `--quiet-board` | 4.29 | recorded, not floored — `--board` is never in-product |
+
+`--nav-active` was the value to move rather than `--quiet-muted`: it is a
+decorative tint this system introduced and §6 documents as safe to change on
+its own, where `--quiet-muted #6E6774` is specified in design.md §15.1 with a
+published table of its own.
+
+The excerpt:
 
 | pair | day | quiet | night | night-warm | night-quiet |
 |---|---|---|---|---|---|
@@ -288,9 +302,9 @@ and the floor is not negotiable within the class.
 
 | Ink | Against |
 |---|---|
-| `--text` | `--canvas` `--surface` `--raised` `--bubble-mine` `--nav-active` `--board` |
-| `--muted` | `--canvas` `--surface` `--raised` `--bubble-mine` `--nav-active` `--board` |
-| `--destructive` | `--canvas` `--surface` `--raised` `--bubble-mine` `--nav-active` `--board` |
+| `--text` | `--canvas` `--surface` `--raised` `--bubble-mine` `--nav-active` |
+| `--muted` | `--canvas` `--surface` `--raised` `--bubble-mine` `--nav-active` |
+| `--destructive` | `--canvas` `--surface` `--raised` `--bubble-mine` `--nav-active` |
 | `--on-text` | `--text` |
 | `--button-ink` | `--button-fill` |
 
@@ -298,8 +312,16 @@ and the floor is not negotiable within the class.
 
 | Ink | Against |
 |---|---|
-| `--edge` | `--canvas` `--surface` `--raised` `--bubble-mine` `--nav-active` `--board` |
-| `--border` | `--canvas` `--surface` `--raised` — hairlines and dividers only; anything that is the sole outline of a control belongs on `--edge` |
+| `--edge` | `--canvas` `--surface` `--raised` `--bubble-mine` `--nav-active` |
+
+`--border` is **not** in this class, and an earlier version of this table said
+it was. Three things say otherwise: the required count below has always been
+26, which excludes it; the note beside it has always said "hairlines and
+dividers only"; and the shipped value measures **1.16:1** on the day canvas,
+which no amount of intent makes a 3:1 boundary. It is a hairline. Anything
+that is the sole outline of a control belongs on `--edge`, and
+`tools/gates/boundaries.ts` is what keeps it there. `--border` is measured and
+printed as a recorded pair, with no floor.
 
 **Decoration — exempt, measure anyway and record the number**
 
@@ -307,8 +329,26 @@ and the floor is not negotiable within the class.
 measurement: print the ratios so the exemption is a visible decision. `--decor`
 sits near 1.7:1 on the light themes by design.
 
-That is 26 required pairs per palette plus 6 recorded exempt ones. Write all 32
-down; a palette with any cell blank has not been measured.
+That is **22 required pairs per palette plus 13 recorded ones**, and the count
+is now arithmetic rather than assertion:
+
+| | pairs | why |
+|---|---:|---|
+| text, 4.5:1 | 15 | `--text` `--muted` `--destructive` × five in-product backgrounds |
+| text, 4.5:1 | 2 | `--on-text` on `--text`, `--button-ink` on `--button-fill` |
+| boundary, 3:1 | 5 | `--edge` × the same five backgrounds |
+| recorded | 6 | `--decor` `--accent` `--accent-alt` × `--canvas` `--surface` |
+| recorded | 3 | `--border` × `--canvas` `--surface` `--raised` — a hairline |
+| recorded | 4 | `--text` `--muted` `--destructive` `--edge` × `--board` |
+
+`--board` is a recorded background, not a required one: §4 defines it as the
+workspace behind the phone frames, never in-product, and holding product text
+to a floor against a colour no user sees is arithmetic theatre.
+
+35 cells per palette, 175 across the five. A palette with any cell blank has
+not been measured, and `npm run gate:tokens:contrast` computes all of them
+from this file on every commit — the table is no longer written by hand, which
+is how the sampling error below happened in the first place.
 
 ### Why `--decor` and `--edge` are two roles
 

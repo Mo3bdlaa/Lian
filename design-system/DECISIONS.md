@@ -239,7 +239,7 @@ so coverage is visible without toggling.
     because it was drawn as a pushed screen.
 32. **Messages are bottom-anchored** in every chat frame, as a real conversation
     is, rather than top-aligned.
-33. **Free plan quoted as 30 messages/day, one reach-out/day, text only, 100
+33. **Free plan quoted as 20 messages/day, one reach-out/day, text only, 100
     memories per assistant.** From PRD §34 / §35. The memory limit is a quiet
     text line near the header and a `Not kept yet` queue at capacity — no meter,
     no eviction, no countdown.

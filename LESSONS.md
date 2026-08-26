@@ -25,13 +25,30 @@ with a different personality depending on which code path woke her.
 The bug was invisible in chat and only showed up in background
 messages.
 
-- One function assembles the prompt. Everything — chat, regeneration,
-  scheduled tasks, proactive outreach, dreams, diary — calls it.
+- One function assembles the prompt. Everything that speaks in her
+  voice — chat, regeneration, scheduled tasks, proactive outreach,
+  dreams, diary — calls it.
 - No caller may construct persona context inline or fall back to
   defaults. If required context is missing, that is an error, not a
   default.
 - Block order is deliberate and must be protected by tests, not by
   discipline.
+
+**The constraint is not "one path". It is "no second path can
+construct a persona".**
+
+Prompts that do not speak in her voice — extraction, summarisation,
+titling, classification — take a separate path, because routing them
+through the voice assembler would inject persona, canon and
+relationship into a prompt that uses none of them, make the golden
+snapshots meaningless, and pay tokens for nothing. That path is
+allowed under two conditions, and only two:
+
+- It lives in one clearly named place.
+- It is lint-banned from importing anything from the persona package.
+
+A non-voice prompt returns data. The moment one is written to produce
+something a user reads as her, it belongs on the voice path.
 
 **Recency wins.** Any instruction that overrides another must appear
 *after* it, and the most important instruction is repeated last.

@@ -325,7 +325,7 @@ Primary onboarding emotional goal:
 
 Free:
 
-- 30 messages/day.
+- 20 messages/day.
 - Text only.
 - Reaches out once/day.
 - Limited memory.
@@ -678,12 +678,23 @@ When only one assistant exists, do not show `Switch assistant`. Show an `Assista
 
 ### Free-plan limits
 
-- Messages: **30 messages/day**.
+- Messages: **20 messages/day**.
 - Modality: **text only**.
 - Proactive outreach: **once per day**.
 - Persistent memory: **100 memories per assistant**.
 
 Why 100: it is large enough for normal early use to deliver the onboarding promise of feeling remembered for the first couple of weeks without exposing the queue, while still binding for long-term free use.
+
+Why 20 messages and not 30: 30 was set before the model cost of a turn
+was known. At the shipped model's price, 30 messages a day costs more
+than the free plan's monthly model-spend ceiling allows — the ceiling
+would have bitten on the first day, and the user would have met a limit
+the product never told them about. 20 is the number both limits agree
+on, so the only limit a free user meets is the one the copy names.
+Revisit when retention is measured; it is a data decision, not a
+product-feel one. The alternative — running the first session on a
+cheaper model — was rejected: the first session is where the product is
+won or lost, and we do not save there.
 
 ## 35. Free-plan memory limit
 

@@ -275,7 +275,7 @@ Never say:
 
 Free:
 
-- 30 messages/day.
+- 20 messages/day.
 - Text only.
 - One proactive reach-out/day.
 - Limited memory.
