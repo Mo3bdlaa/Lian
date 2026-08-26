@@ -348,6 +348,30 @@ export const CATALOG = {
   'app.outage_title': { en: 'I cannot reach everything', ar: 'مش قادرة أوصل لكل حاجة', arMale: 'مش قادر أوصل لكل حاجة', addressee: 'none' },
   'app.retry': { en: 'Try again', ar: 'إعادة المحاولة', addressee: 'none' },
 
+  // ── subscription (UI-UX §18) ────────────────────────────────────────────
+  //
+  // One plan, and the price is stated once. The upgrade action is SECONDARY
+  // everywhere it appears (§19): nothing in this product interrupts a
+  // conversation to sell.
+  'plan.title': { en: 'Your plan', ar: 'خطتك', addressee: 'none' },
+  'plan.free': { en: 'Free', ar: 'المجانية', addressee: 'none' },
+  'plan.paid': { en: 'Full', ar: 'الكاملة', addressee: 'none' },
+  'plan.price': { en: '$9 a month', ar: '٩ دولار في الشهر', addressee: 'none' },
+  'plan.what_changes': { en: 'What changes', ar: 'اللي بيتغير', addressee: 'none' },
+  'plan.voice': { en: 'Her voice — voice notes in both directions.', ar: 'صوتها — رسايل صوتية في الاتجاهين.', addressee: 'none' },
+  'plan.proactive': { en: 'She reaches out when there is a reason to, not once a day.', ar: 'بتتواصل لما يكون فيه سبب، مش مرة في اليوم.', arMale: 'بيتواصل لما يكون فيه سبب، مش مرة في اليوم.', addressee: 'none' },
+  'plan.memory': { en: 'She keeps everything worth keeping, with no queue waiting for room.', ar: 'بتحتفظ بكل اللي يستاهل، من غير طابور مستني مكان.', arMale: 'بيحتفظ بكل اللي يستاهل، من غير طابور مستني مكان.', addressee: 'none' },
+  'plan.messages': { en: 'No daily message limit.', ar: 'من غير حد يومي للرسايل.', addressee: 'none' },
+  'plan.upgrade': { en: 'Subscribe', ar: 'اشتراك', addressee: 'none' },
+  'plan.manage': { en: 'Manage or cancel', ar: 'إدارة أو إلغاء', addressee: 'none' },
+  'plan.card_note': { en: 'The card is handled by Stripe. It never reaches this app.', ar: 'الكارت بيتعامل معاه Stripe. مش بيوصل للتطبيق ده أبدًا.', addressee: 'none' },
+  'plan.renews_on': { en: 'Renews on {date}', ar: 'بيتجدد في {date}', addressee: 'none' },
+  'plan.ends_on': { en: 'Ends on {date}', ar: 'بينتهي في {date}', addressee: 'none' },
+  'plan.after_cancel': { en: 'Everything stays as it is until then. After that it goes back to the free plan — nothing is deleted, and she keeps what she already remembers.', ar: 'كل حاجة زي ما هي لحد ساعتها. بعد كده بترجع للخطة المجانية — مفيش حاجة بتتمسح، واللي متسجل بيفضل موجود.', addressee: 'none' },
+  'plan.resubscribe': { en: 'You can subscribe again at any time.', ar: 'الاشتراك تاني متاح في أي وقت.', addressee: 'none' },
+  'plan.success': { en: 'I can stay with you more fully now.', ar: 'أقدر أكون معاك بشكل أكمل دلوقتي.', addressee: 'user' },
+  'plan.unavailable': { en: 'Payments are not set up on this deployment yet.', ar: 'الدفع لسه مش مفعّل في النسخة دي.', addressee: 'none' },
+
   // ── search (UI-UX §11) ──────────────────────────────────────────────────
   'search.title': { en: 'Search', ar: 'بحث', addressee: 'none' },
   'search.placeholder': { en: 'Search what we said', ar: 'دوّر في كلامنا', addressee: 'none' },

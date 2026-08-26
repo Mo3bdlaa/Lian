@@ -25,6 +25,7 @@ import { memoryScreen, memoryEditor, memoryDeleteSheet, type Memory, type Memory
 import { tasksScreen, moneyScreen, storyScreen, type Task, type Note, type Money, type Story } from './screens/life.ts';
 import { healthScreen, albumScreen, type Health, type Album } from './screens/album.ts';
 import { searchScreen, briefingScreen, profileScreen, type Search, type Briefing, type Profile } from './screens/find.ts';
+import { planScreen, type Plan } from './screens/plan.ts';
 import { settingsScreen, securityScreen, dataScreen, notBuilt, type Security, type DataState } from './screens/trust.ts';
 import { correctionSheet, type Correcting, type CorrectKind } from './screens/correct.ts';
 
@@ -153,12 +154,13 @@ const screenData: {
   security: Security | null; data: DataState; correcting: Correcting | null;
   health: Health | null; album: Album | null; viewing: string | null;
   search: Search | null; briefing: Briefing | null; profile: Profile | null; savedSection: string | null;
+  plan: Plan | null;
 } = {
   memories: [], query: '', filter: 'all', editing: null, deleting: null,
   tasks: { tasks: [], notes: [] }, money: null, story: null, security: null,
   data: { export: null, confirming: false, typed: '', busy: false }, correcting: null,
   health: null, album: null, viewing: null,
-  search: null, briefing: null, profile: null, savedSection: null,
+  search: null, briefing: null, profile: null, savedSection: null, plan: null,
 };
 
 const memoryState = (state: State, me: Snapshot): MemoryState => ({
@@ -179,6 +181,7 @@ function screenFor(screen: string, state: State, me: Snapshot): Html {
     case 'search': return searchScreen(me, screenData.search);
     case 'briefing': return screenData.briefing === null ? html`` : briefingScreen(me, screenData.briefing);
     case 'profile': return screenData.profile === null ? html`` : profileScreen(me, screenData.profile, screenData.savedSection);
+    case 'subscription': return screenData.plan === null ? html`` : planScreen(me, screenData.plan, new URLSearchParams(location.search).get('checkout') === 'done');
     case 'album': return screenData.album === null ? html`` : albumScreen(me, screenData.album, screenData.viewing);
     case 'soon': return notBuilt(me);
     default: return chatScreen(state);
@@ -228,6 +231,7 @@ async function load(path: string): Promise<void> {
     else if (screen === 'health') screenData.health = await get('/api/health');
     else if (screen === 'album') { screenData.album = await get('/api/album'); screenData.viewing = null; }
     else if (screen === 'briefing') screenData.briefing = await get('/api/briefing');
+    else if (screen === 'subscription') screenData.plan = await get('/api/subscription');
     else if (screen === 'profile') { screenData.profile = await get('/api/profile'); screenData.savedSection = null; }
     else if (screen === 'search' && screenData.search === null) screenData.search = { query: '', conversations: [], memories: [] };
   } finally {
@@ -254,6 +258,31 @@ async function loadOlder(): Promise<void> {
   set({ messages: [...page.messages, ...state.messages], hasOlder: page.hasOlder });
   // UI-UX §38: preserve the exact position, never jump to the top.
   where.scrollTop = where.scrollHeight - before;
+}
+
+/**
+ * Hand the browser to Stripe.
+ *
+ * A full navigation rather than an iframe or a popup: the hosted page has to
+ * be able to run 3-D Secure, which means it has to be a top-level document,
+ * and a card form inside somebody else's frame is the shape a person should
+ * be suspicious of anyway.
+ */
+async function goToStripe(route: string): Promise<void> {
+  const me = current().me;
+  if (me === null) return;
+  set({ busy: true });
+  try {
+    const { url } = await post<{ url: string }>(route);
+    location.href = url;
+  } catch (error) {
+    set({
+      busy: false,
+      error: error instanceof ApiError && error.code === 'billing_unconfigured'
+        ? t('plan.unavailable', me.user.language, me.assistant.gender)
+        : t('error.send_failed', me.user.language, me.assistant.gender),
+    });
+  }
 }
 
 async function saveProfileSection(section: string, body: string): Promise<void> {
@@ -439,6 +468,10 @@ document.addEventListener('click', (event) => {
   } else if (action === 'consent-agree') {
     consentState.agreed = !consentState.agreed;
     set({});
+  } else if (action === 'upgrade') {
+    void goToStripe('/api/subscription/checkout');
+  } else if (action === 'manage-plan') {
+    void goToStripe('/api/subscription/portal');
   } else if (action === 'retry') {
     void boot();
   } else if (action === 'open-photo') {
@@ -530,6 +563,10 @@ document.addEventListener('click', (event) => {
     draw(current());
   } else if (action === 'notifications') {
     void enableNotifications();
+  } else if (action === 'upgrade') {
+    void goToStripe('/api/subscription/checkout');
+  } else if (action === 'manage-plan') {
+    void goToStripe('/api/subscription/portal');
   } else if (action === 'retry') {
     const message = current().messages.find((candidate) => candidate.id === id);
     if (message !== undefined) {

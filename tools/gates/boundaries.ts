@@ -34,6 +34,10 @@ const ALLOWED: Record<string, string[]> = {
   // Storage speaks one protocol and knows nothing about the product: it
   // takes a key and bytes.
   storage: [],
+  // Billing speaks one protocol and knows nothing about the product either:
+  // it verifies a signature and parses a subscription. What that MEANS for a
+  // user is decided in the composition root.
+  billing: [],
   // The HTTP layer is transport only: it knows about sessions and rate
   // limits, and reaches everything else through ports the app wires up.
   http: ['domain'],

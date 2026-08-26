@@ -24,6 +24,9 @@ const PRODUCTION: Env = {
   LIAN_STORAGE_ENDPOINT: 'https://storage.example',
   LIAN_STORAGE_ACCESS_KEY_ID: 'k',
   LIAN_STORAGE_SECRET_ACCESS_KEY: 's',
+  LIAN_STRIPE_SECRET_KEY: 'sk',
+  LIAN_STRIPE_PRICE_ID: 'price',
+  LIAN_STRIPE_WEBHOOK_SECRET: 'whsec',
 };
 
 function problemsOf(env: Env): string[] {
@@ -45,8 +48,9 @@ describe('the environment contract', () => {
 
   test('every problem is reported at once, not one deploy at a time', () => {
     const problems = problemsOf({ NODE_ENV: 'production', LIAN_PUBLIC_URL: 'https://lian.example' });
-    // Database, model key, tick secret, VAPID pair, embedder, storage: six.
-    assert.ok(problems.length >= 6, `expected every problem at once, got ${problems.length}`);
+    // Database, model key, tick secret, VAPID pair, embedder, storage,
+    // Stripe: seven.
+    assert.ok(problems.length >= 7, `expected every problem at once, got ${problems.length}`);
     assert.ok(problems.some((line) => line.includes('ANTHROPIC_API_KEY')));
     assert.ok(problems.some((line) => line.includes('LIAN_TICK_SECRET')));
     assert.ok(problems.some((line) => line.includes('VAPID')));
@@ -62,11 +66,27 @@ describe('the environment contract', () => {
   test('development degrades loudly instead of failing', () => {
     const { config, degraded } = loadConfig(MINIMUM);
     assert.equal(config.nodeEnv, 'development');
-    assert.ok(degraded.length >= 5, 'a fallback nobody can see becomes the production configuration by accident');
+    assert.ok(degraded.length >= 6, 'a fallback nobody can see becomes the production configuration by accident');
     assert.ok(degraded.some((line) => line.includes('LIAN_EMBEDDER')));
     assert.equal(config.vapid, null, 'no keys means no keys, not an empty string pretending to be one');
     assert.equal(config.tickSecret, null);
     assert.equal(config.storage, null, 'a half-configured bucket is no bucket');
+    assert.equal(config.stripe, null, 'and a half-configured Stripe takes payments it cannot confirm');
+  });
+
+  test('billing needs all three values or it is not configured', () => {
+    // The shape that half-works: checkout succeeds and nothing ever marks the
+    // account paid, so somebody is charged and stays on the free plan.
+    const problems = problemsOf({ ...PRODUCTION, LIAN_STRIPE_WEBHOOK_SECRET: '' });
+    assert.ok(problems.some((line) => line.includes('LIAN_STRIPE_SECRET_KEY')), problems.join(' | '));
+
+    // And it is a PROBLEM rather than a degraded mode even in development:
+    // none of the three set is "billing is off", which is fine; some of them
+    // set is a deployment that will take a payment it cannot confirm, and
+    // that is worth refusing to start over.
+    const partial = problemsOf({ ...MINIMUM, LIAN_STRIPE_SECRET_KEY: 'sk' });
+    assert.ok(partial.some((line) => line.includes('billing needs all three')), partial.join(' | '));
+    assert.equal(loadConfig(MINIMUM).config.stripe, null, 'none of the three is billing off, not billing broken');
   });
 
   test('production over http is refused', () => {

@@ -26,6 +26,12 @@ export type Config = {
   readonly vapid: { readonly publicKey: string; readonly privateKey: string; readonly subject: string } | null;
   readonly embedder: { readonly model: string; readonly apiKey: string; readonly url: string | undefined };
   readonly speechApiKey: string | null;
+  /** Null when Stripe is not configured: checkout says so plainly rather
+   *  than failing halfway through a payment. */
+  readonly stripe: {
+    readonly secretKey: string; readonly priceId: string; readonly webhookSecret: string;
+    readonly successUrl: string; readonly cancelUrl: string; readonly returnUrl: string;
+  } | null;
   /**
    * Object storage. Null means the deployment has nowhere to put a
    * photograph or a voice note, and says so at boot rather than at the first
@@ -111,6 +117,23 @@ export function loadConfig(env: Env): { config: Config; degraded: string[] } {
     );
   }
 
+  const stripeSecret = env['LIAN_STRIPE_SECRET_KEY'] ?? '';
+  const stripePrice = env['LIAN_STRIPE_PRICE_ID'] ?? '';
+  const stripeWebhook = env['LIAN_STRIPE_WEBHOOK_SECRET'] ?? '';
+  const hasStripe = stripeSecret !== '' && stripePrice !== '' && stripeWebhook !== '';
+  if (!hasStripe) {
+    require(
+      'LIAN_STRIPE_SECRET_KEY / _PRICE_ID / _WEBHOOK_SECRET',
+      undefined,
+      'nobody can subscribe: checkout answers 503 and every account stays on the free plan',
+    );
+  }
+  // A webhook secret with no signing key, or the reverse, is the shape that
+  // half-works: checkout succeeds and nothing ever marks the account paid.
+  if (!hasStripe && (stripeSecret !== '' || stripePrice !== '' || stripeWebhook !== '')) {
+    problems.push('billing needs all three of LIAN_STRIPE_SECRET_KEY, LIAN_STRIPE_PRICE_ID and LIAN_STRIPE_WEBHOOK_SECRET — with some of them set, checkout succeeds and nothing ever marks the account paid');
+  }
+
   const logConfirmationLinks = truthy(env['LIAN_LOG_CONFIRMATION_LINKS']);
   if (logConfirmationLinks && production) {
     problems.push('LIAN_LOG_CONFIRMATION_LINKS is set in production — it prints a link that grants a session, and it exists for local development only');
@@ -141,6 +164,16 @@ export function loadConfig(env: Env): { config: Config; degraded: string[] } {
       },
       embedder: { model: embedderModel, apiKey: embedderKey, url: env['LIAN_EMBEDDER_URL'] },
       speechApiKey: speechApiKey === '' ? null : speechApiKey,
+      stripe: hasStripe
+        ? {
+            secretKey: stripeSecret, priceId: stripePrice, webhookSecret: stripeWebhook,
+            // Stripe sends the browser back to these; they are the app's own
+            // URLs rather than anything Stripe hosts.
+            successUrl: `${publicUrl}/subscription?checkout=done`,
+            cancelUrl: `${publicUrl}/subscription?checkout=cancelled`,
+            returnUrl: `${publicUrl}/subscription`,
+          }
+        : null,
       storage: hasStorage
         ? {
             endpoint: storageEndpoint, bucket: storageBucket,

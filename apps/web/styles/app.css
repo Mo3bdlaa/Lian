@@ -758,3 +758,30 @@ body {
   font-weight: var(--t-body-sm-fw);
 }
 .button--disabled { opacity: .5; pointer-events: none; }
+
+/* --- subscription (UI-UX §18) -------------------------------------------- */
+.plan__current { display: flex; flex-direction: column; gap: var(--s-4); }
+.plan__name {
+  color: var(--text);
+  font-size: var(--t-h2-fs);
+  line-height: var(--t-h2-lh);
+  font-weight: var(--t-h2-fw);
+}
+.plan__price {
+  color: var(--text);
+  font-size: var(--t-body-fs);
+  line-height: var(--t-body-lh);
+  font-weight: var(--t-body-fw);
+}
+.plan__renewal {
+  color: var(--muted);
+  font-size: var(--t-body-sm-fs);
+  line-height: var(--t-body-sm-lh);
+  font-weight: var(--t-body-sm-fw);
+}
+.plan__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  padding: var(--s-16);
+}

@@ -27,7 +27,7 @@ export const ROUTES: readonly Route[] = [
   { pattern: '/briefing', screen: 'briefing' },
   { pattern: '/health', screen: 'health' },
   { pattern: '/assistants', screen: 'soon' },
-  { pattern: '/subscription', screen: 'soon' },
+  { pattern: '/subscription', screen: 'subscription' },
   { pattern: '/settings/identity', screen: 'soon' },
   { pattern: '/settings/personality', screen: 'soon' },
   { pattern: '/settings/quiet-hours', screen: 'soon' },

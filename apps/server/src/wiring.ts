@@ -32,12 +32,14 @@ import {
   type MiddlewarePorts, type AuthRoutePorts, type ChatRoutePorts,
   type CorrectionPorts, type PlatformPorts, type ReadPorts, type Route,
   readRoutes, attachmentRoutes, type AttachmentPorts, type HealthView,
+  billingRoutes, type BillingPorts,
 } from '@lian/http';
 import {
   attachmentKey, voiceKey, kindOf, ACCEPTED, MAX_ATTACHMENT_BYTES,
   UPLOAD_URL_SECONDS, DOWNLOAD_URL_SECONDS, type ObjectStore,
 } from '@lian/storage';
 import { VISION_MODEL } from './analysis.ts';
+import { verifyWebhook, parseSubscription, isHandled, type StripeClient } from '@lian/billing';
 import type { Config } from './config.ts';
 
 export type Deps = {
@@ -56,6 +58,9 @@ export type Deps = {
   /** Null when no bucket is configured: an upload reports that plainly
    *  rather than failing halfway through. */
   readonly store: ObjectStore | null;
+  /** Null when Stripe is not configured: checkout answers 503 and every
+   *  account stays free, which is the safe direction. */
+  readonly stripe: StripeClient | null;
   /** Null when no speech key is configured: voice reports that plainly
    *  rather than failing as if something went wrong. Both directions come
    *  from one provider — a voice note in, her sentence out. */
@@ -534,6 +539,7 @@ export function routesFor(deps: Deps): Route[] {
     ...authRoutes(authRoutePorts(deps), { secureCookies: deps.config.secureCookies }),
     ...readRoutes(readPorts(deps)),
     ...attachmentRoutes(attachmentPorts(deps)),
+    ...billingRoutes(billingPorts(deps)),
     ...chatRoutes(chatRoutePorts(deps)),
     ...platformRoutes(platformPorts(deps)),
     // Last: its pattern is `/api/:kind/:id`, which would otherwise shadow a
@@ -1205,6 +1211,122 @@ export function attachmentPorts(deps: Deps): AttachmentPorts {
       if (deps.store !== null && removed.storageKey !== '') await deps.store.remove([removed.storageKey]);
       if (removed.bytes > 0) await db.usage.increment({ userId }, 'storage_bytes', STORAGE_PERIOD, -removed.bytes);
       return true;
+    },
+  };
+}
+
+// ── billing (UI-UX §18) ───────────────────────────────────────────────────
+
+export function billingPorts(deps: Deps): BillingPorts {
+  /**
+   * Apply what Stripe said about one subscription.
+   *
+   * Shared by the webhook and by anything else that reads a subscription
+   * back: whichever way the news arrives, the plan is decided in one place
+   * from one rule, so a webhook and a manual re-read cannot disagree.
+   */
+  const applySubscription = async (userId: string, payload: Record<string, unknown>): Promise<boolean> => {
+    const state = parseSubscription(payload);
+    if (state === null) return false;
+    await db.billing.apply(
+      { userId },
+      {
+        customerId: state.customerId, subscriptionId: state.subscriptionId,
+        status: state.status, active: state.active,
+        currentPeriodEnd: state.currentPeriodEnd, cancelAtPeriodEnd: state.cancelAtPeriodEnd,
+      },
+    );
+    return true;
+  };
+
+  return {
+    ...middlewarePorts(deps),
+    now: deps.now,
+
+    async subscription(userId) {
+      const user = await db.accounts.getUser({ userId });
+      const row = await db.billing.get({ userId });
+      return {
+        plan: user?.plan ?? 'free',
+        status: row?.status ?? null,
+        renewsOn: row?.currentPeriodEnd?.toISOString() ?? null,
+        cancelAtPeriodEnd: row?.cancelAtPeriodEnd ?? false,
+        // A portal session needs a customer. Most people do not have one, and
+        // offering "manage" to them would open a page about nothing.
+        manageable: row !== null && deps.stripe !== null,
+      };
+    },
+
+    async startCheckout(userId) {
+      if (deps.stripe === null) return { unavailable: true as const };
+      const user = await db.accounts.getUser({ userId });
+      if (user === null) return { unavailable: true as const };
+      const existing = await db.billing.get({ userId });
+      const session = await deps.stripe.createCheckout({
+        userId, email: user.email, customerId: existing?.stripeCustomerId ?? null,
+      });
+      return { url: session.url };
+    },
+
+    async openPortal(userId) {
+      if (deps.stripe === null) return { unavailable: true as const };
+      const existing = await db.billing.get({ userId });
+      if (existing === null) return { noCustomer: true as const };
+      return deps.stripe.createPortal({ customerId: existing.stripeCustomerId });
+    },
+
+    async handleWebhook({ body, signature }) {
+      if (deps.config.stripe === null) return { handled: false, reason: 'billing is not configured here' };
+      const verified = verifyWebhook({
+        body, header: signature, secret: deps.config.stripe.webhookSecret, now: deps.now(),
+      });
+      if (!verified.ok) return { handled: false, reason: verified.reason };
+      const { event } = verified;
+
+      // Everything Stripe sends is acknowledged; only four types act.
+      if (!isHandled(event.type)) return { handled: true };
+
+      // Which user this concerns, in the order the answer is most reliable:
+      // the metadata we put on the subscription, then the customer we already
+      // linked. An event about a customer nobody here has is not an error —
+      // it is somebody else's account on the same Stripe account.
+      const metadata = event.object['metadata'] as { user_id?: unknown } | undefined;
+      const fromMetadata = typeof metadata?.user_id === 'string' ? metadata.user_id : null;
+      const rawCustomer = event.object['customer'];
+      const customerId = typeof rawCustomer === 'string' ? rawCustomer : null;
+      const userId = fromMetadata
+        ?? (customerId === null ? null : (await db.billing.userForCustomer(customerId))?.userId ?? null);
+      if (userId === null) return { handled: true };
+
+      // Stripe delivers at least once and retries on any non-2xx, so the same
+      // event arrives again as a matter of course. The event id is the
+      // idempotency key, and a repeat is acknowledged rather than re-applied.
+      const first = await db.billing.claimEvent({ eventId: event.id, userId, type: event.type });
+      if (!first) return { handled: true };
+
+      if (event.type === 'checkout.session.completed') {
+        // A completed checkout carries the customer and the subscription as
+        // IDS, not as objects. The subscription is read back rather than
+        // inferred: what the person is actually subscribed to is Stripe's
+        // answer, not ours.
+        if (customerId !== null) await db.billing.linkCustomer({ userId }, customerId);
+        const subscriptionId = event.object['subscription'];
+        if (typeof subscriptionId !== 'string' || deps.stripe === null) return { handled: true };
+        const state = await deps.stripe.getSubscription(subscriptionId);
+        if (state === null) return { handled: true };
+        await db.billing.apply({ userId }, {
+          customerId: state.customerId, subscriptionId: state.subscriptionId,
+          status: state.status, active: state.active,
+          currentPeriodEnd: state.currentPeriodEnd, cancelAtPeriodEnd: state.cancelAtPeriodEnd,
+        });
+        return { handled: true };
+      }
+
+      // created / updated / deleted all carry the subscription object itself.
+      // 'deleted' included: its status is 'canceled', which is not active, so
+      // the same code path downgrades without a special case.
+      await applySubscription(userId, event.object);
+      return { handled: true };
     },
   };
 }

@@ -21,7 +21,7 @@ export const USER_SCOPED_TABLES = [
   'assistants',
   'attachments', 'profile_notes', 'tasks', 'task_completions', 'notes', 'transactions',
   'health_entries', 'captures', 'push_subscriptions', 'quiet_hours', 'devices', 'sessions',
-  'device_confirmations', 'usage_counters',
+  'device_confirmations', 'usage_counters', 'subscriptions',
 ] as const;
 
 /** Tables keyed to a single assistant. */
@@ -41,4 +41,5 @@ export const UNSCOPED_TABLES = [
   'events',             // user_id is nullable: pre-signup events are real events
   'outreach',           // carries BOTH user_id and assistant_id; see repositories/outreach.ts
   'sign_in_attempts',   // an attempt on an unknown email has no user yet
+  'billing_events',     // an event arrives before the user it concerns is known
 ] as const;
