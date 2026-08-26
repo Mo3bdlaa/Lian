@@ -1,7 +1,7 @@
 # HANDOFF
 
 Third run. Both leading items done, all eight built, committed as they
-were built. `npm run verify` is green: typecheck, twelve gates, 317
+were built. `npm run verify` is green: typecheck, eleven gates, 317
 tests against a real Postgres with pgvector.
 
 Still no UI.
@@ -202,8 +202,8 @@ path.
 ## 6. Where to look
 
 ```sh
-npm run verify                 # typecheck, 12 gates, 317 tests
-npm run gate:lessons           # lesson → test, 56 mapped files
+npm run verify                 # typecheck, 11 gates, 317 tests
+npm run gate:lessons           # lesson → test, 70 mapped files
 npm run gate:analysis          # the non-voice path's two conditions
 npm test 2>&1 | grep micros    # the caching numbers, printed
 ```
