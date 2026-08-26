@@ -87,7 +87,7 @@ const COVERAGE: Record<number, Coverage[]> = {
   ],
   13: [
     { where: 'packages/domain/src/capability.ts', marker: /COMPOSES INTO THE PROMPT/ },
-    { where: 'packages/capabilities/src/registry.test.ts', marker: /appears nowhere outside its directory/ },
+    { where: 'packages/capabilities/src/registry.test.ts', marker: /nothing dispatches on a capability id/ },
     { where: 'tools/gates/boundaries.ts', marker: /composes INTO the prompt/ },
     { where: 'packages/capabilities/src/capabilities.test.ts', marker: /adding a capability stayed cheap/ },
   ],
