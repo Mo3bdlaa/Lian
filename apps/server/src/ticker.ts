@@ -15,7 +15,9 @@
 import { signTick } from '@lian/jobs';
 
 const INTERVAL_SECONDS = Number(process.env['LIAN_TICK_INTERVAL_SECONDS'] ?? '300');
-const target = (process.env['LIAN_PUBLIC_URL'] ?? 'http://localhost:8787').replace(/\/$/, '');
+/** Where the server is. Falls back to PORT so a local run with a non-default
+ *  port does not silently tick nothing. */
+const target = (process.env['LIAN_PUBLIC_URL'] ?? `http://localhost:${process.env['PORT'] ?? '8787'}`).replace(/\/$/, '');
 const secret = process.env['LIAN_TICK_SECRET'] ?? '';
 
 if (secret === '') {
@@ -48,5 +50,9 @@ async function tickOnce(): Promise<void> {
 }
 
 console.log(`ticking ${target}/api/tick every ${INTERVAL_SECONDS}s`);
+// A moment before the first one: started beside the server, the ticker is
+// usually ready first, and a failed tick in the first line of the log reads
+// like a broken deployment rather than a race.
+await new Promise((resolve) => setTimeout(resolve, 2_000));
 await tickOnce();
 setInterval(() => { void tickOnce(); }, INTERVAL_SECONDS * 1000);

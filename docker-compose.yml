@@ -1,0 +1,53 @@
+# Lian, locally, in one command:
+#
+#   docker compose up
+#
+# Three services, which is what a deployment is: a database, the web
+# process, and the ticker that drives the schedule. Running without the
+# ticker is a legitimate way to look at a chat app and conclude the product
+# does nothing.
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: lian
+      POSTGRES_PASSWORD: lian
+      POSTGRES_DB: lian_dev
+    ports: ['5432:5432']
+    volumes: ['lian-db:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U lian -d lian_dev']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  server:
+    build: .
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://lian:lian@db:5432/lian_dev
+      PORT: '8787'
+      LIAN_PUBLIC_URL: http://localhost:8787
+      LIAN_TICK_SECRET: ${LIAN_TICK_SECRET:-local-development-secret}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LIAN_VAPID_PUBLIC_KEY: ${LIAN_VAPID_PUBLIC_KEY:-}
+      LIAN_VAPID_PRIVATE_KEY: ${LIAN_VAPID_PRIVATE_KEY:-}
+      LIAN_EMBEDDER_MODEL: ${LIAN_EMBEDDER_MODEL:-}
+      LIAN_EMBEDDER_API_KEY: ${LIAN_EMBEDDER_API_KEY:-}
+    ports: ['8787:8787']
+    depends_on:
+      db: { condition: service_healthy }
+
+  ticker:
+    build: .
+    command: ['node', 'apps/server/src/ticker.ts']
+    environment:
+      LIAN_PUBLIC_URL: http://server:8787
+      LIAN_TICK_SECRET: ${LIAN_TICK_SECRET:-local-development-secret}
+      # Five minutes in production; a minute locally, so the schedule is
+      # observable while you are watching it.
+      LIAN_TICK_INTERVAL_SECONDS: '60'
+    depends_on: [server]
+
+volumes:
+  lian-db:

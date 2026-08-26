@@ -29,7 +29,8 @@
     "gate:analysis": "node tools/gates/analysis-path.ts",
     "dev": "node apps/server/src/main.ts",
     "tick": "node apps/server/src/ticker.ts",
-    "report:economics": "node tools/report/economics.ts"
+    "report:economics": "node tools/report/economics.ts",
+    "up": "node tools/up.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

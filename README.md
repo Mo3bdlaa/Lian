@@ -19,13 +19,24 @@ cover.
 ## Running it
 
 Requires Node 22.6+ (TypeScript runs directly — there is no build
-step) and Postgres 16.
+step) and Postgres 16 with pgvector.
 
 ```sh
 npm install
-cp .env.example .env          # set DATABASE_URL at least
-npm run db:migrate
+cp .env.example .env          # DATABASE_URL and LIAN_TICK_SECRET are enough
+npm run up                    # migrate, then the server AND the ticker
+```
+
+Or `docker compose up`, which brings its own database.
+
+Both start the ticker beside the server on purpose: the schedule —
+reminders, the morning briefing, dreams, the diary, her reaching out
+first — is most of the product, and without it this looks like a chat
+app. [`docs/DEPLOY.md`](docs/DEPLOY.md) has the environment contract.
+
+```sh
 npm run verify                # typecheck + every gate + every test
+npm run report:economics      # the free tier, with every assumption named
 ```
 
 ## Layout
@@ -47,7 +58,11 @@ packages/
   voice/                  the single TTS write path
   runtime/                the turn — chat and proactive, one function
   jobs/                   the tick behind an HMAC-signed endpoint
-tools/gates/              ten CI gates, one per constraint
+  push/                   VAPID and RFC 8291 payload encryption
+  http/                   routes, session, rate limit, idempotency, the PWA shell
+apps/
+  server/                 the composition root: config, wiring, schedule, entry
+tools/gates/              eleven CI gates, one per constraint
 ```
 
 ## The gates
@@ -64,6 +79,7 @@ tools/gates/              ten CI gates, one per constraint
 | `voice:cache` | one write path for audio (§8) |
 | `arabic:address` | no Arabic string assumes the user's gender (§10) |
 | `lessons:index` | every lesson still has a test |
+| `analysis:path` | the non-voice path cannot construct a persona (§1) |
 
 ## Precedence
 
