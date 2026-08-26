@@ -25,6 +25,18 @@
 // a parser.
 // ==========================================================================
 
+/**
+ * A word beginning with a hamza-carrying alif (أ) is first person present —
+ * أفتح "I open", أقول "I say".  The imperative is a bare alif: افتح "open".
+ * Unvocalised they differ by exactly that hamza, so normalising it away —
+ * which every naive Arabic normaliser does — destroys the one distinction
+ * this checker exists to make, and flags her own voice as address to the
+ * user.  Checked before normalisation, deliberately.
+ */
+export function isFirstPersonVerb(rawWord: string): boolean {
+  return /^[وفبل]?أ/u.test(rawWord);
+}
+
 /** Diacritics, tatweel and the Arabic-Indic digits, removed before matching. */
 export function normaliseArabic(text: string): string {
   return text
@@ -70,14 +82,19 @@ export type AddressViolation = { readonly word: string; readonly why: string };
  */
 export function addressViolations(text: string, addressee: Addressee): AddressViolation[] {
   if (addressee !== 'user') return [];
-  const words = normaliseArabic(text).split(/[^؀-ۿ]+/).filter(Boolean);
+  // Split the RAW text so the initial hamza survives to isFirstPersonVerb,
+  // then normalise each word for matching.
+  const rawWords = text.split(/[^؀-ۿ]+/u).filter(Boolean);
   const violations: AddressViolation[] = [];
   const safe = new Set(SAFE_FORMS.map(normaliseArabic));
   const masculine = new Set(IMPERATIVES_MASCULINE.map(normaliseArabic));
   const feminine = new Set(IMPERATIVES_FEMININE.map(normaliseArabic));
   const present = new Set(PRESENT_AND_PREDICATES.map(normaliseArabic));
 
-  for (const word of words) {
+  for (const rawWord of rawWords) {
+    // Her own voice is never address to the user.
+    if (isFirstPersonVerb(rawWord)) continue;
+    const word = normaliseArabic(rawWord);
     const bare = word.replace(/^(و|ف|ب|ل)/, '');
     if (safe.has(word) || safe.has(bare)) continue;
     if (masculine.has(word) || masculine.has(bare)) {

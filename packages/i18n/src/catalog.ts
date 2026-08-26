@@ -67,6 +67,63 @@ export const CATALOG = {
   'permission.notifications': { en: "If you let me, I can reach you even when you haven't opened the app — to follow up, remind you, or check in when it matters.", ar: 'لو فيه سماح، أقدر أوصل حتى من غير ما التطبيق يتفتح — متابعة، تذكير، أو اطمئنان في وقته.', addressee: 'user' },
   'permission.install': { en: 'Keep me one tap away.', ar: 'خليني على بعد لمسة واحدة.', addressee: 'assistant' },
 
+  // ── relationship stages (DECISIONS §25) ─────────────────────────────────
+  // Prose, never a level.  These are descriptions of a relationship, not
+  // ranks: no numbers, no order badges, no "next stage".  The stage NAME is
+  // shown in the explanatory view; the SENTENCE is what appears on Our story.
+  'stage.getting_acquainted.name': { en: 'Getting acquainted', ar: 'في أول التعارف', addressee: 'none' },
+  'stage.getting_acquainted.prose': {
+    en: "We're still getting to know each other. Tell me things twice if you need to — I'm still learning what matters to you.",
+    ar: 'لسه في أول التعارف. التكرار مش مشكلة — لسه بتعلم إيه اللي يهم.',
+    addressee: 'user',
+  },
+  'stage.finding_a_rhythm.name': { en: 'Finding a rhythm', ar: 'بنلاقي إيقاعنا', addressee: 'none' },
+  'stage.finding_a_rhythm.prose': {
+    en: "We're finding a rhythm. I know a few things about how your weeks go now.",
+    ar: 'بنلاقي إيقاعنا. بقيت أعرف شوية عن شكل الأسابيع.',
+    addressee: 'user',
+  },
+  'stage.shape_of_your_week.name': { en: 'Knowing the shape of your week', ar: 'شكل الأسبوع بقى معروف', addressee: 'none' },
+  'stage.shape_of_your_week.prose': {
+    en: 'I know the shape of your week well enough now that I can bring things up at the right moment instead of asking first.',
+    ar: 'شكل الأسبوع بقى واضح كفاية إني أقدر أفتح الموضوع في وقته من غير سؤال الأول.',
+    addressee: 'user',
+  },
+  'stage.noticing_without_asking.name': { en: 'Noticing without asking', ar: 'ملاحظة من غير سؤال', addressee: 'none' },
+  'stage.noticing_without_asking.prose': {
+    en: 'We know each other well enough now that I can notice patterns without needing you to explain everything again.',
+    ar: 'بقينا نعرف بعض كفاية إني ألاحظ الأنماط من غير شرح من الأول كل مرة.',
+    addressee: 'user',
+  },
+  'stage.long_familiarity.name': { en: 'Long familiarity', ar: 'ألفة طويلة', addressee: 'none' },
+  'stage.long_familiarity.prose': {
+    en: "We've known each other a long time. I can be brief and still be understood.",
+    ar: 'بقى لنا وقت طويل مع بعض. الاختصار بقى مفهوم من غير شرح.',
+    addressee: 'user',
+  },
+  // Our story closes by saying this, so the stages never read as a ladder
+  // someone can fall down (DECISIONS §25).
+  'stage.footer': {
+    en: 'Quiet stretches are fine. This does not go backwards.',
+    ar: 'فترات الهدوء عادية. وده مش بيرجع لورا.',
+    addressee: 'user',
+  },
+
+  // ── mood phrases (chat header) ──────────────────────────────────────────
+  // Q9: mood is rule-derived and the phrase is AUTHORED — never generated.
+  // A generated phrase would be a second surface speaking in her voice with
+  // no golden test over it, which is LESSONS §1 in a different hat.
+  // One per mood × time band, in both languages, with masculine counterparts.
+  'mood.warm.day': { en: 'Feeling warm today', ar: 'اليوم فيه دفء', addressee: 'none' },
+  'mood.warm.night': { en: 'Late-night warmth', ar: 'دفء آخر الليل', addressee: 'none' },
+  'mood.quiet.day': { en: 'A little quiet', ar: 'هدوء شوية', addressee: 'none' },
+  'mood.quiet.night': { en: 'Quiet, late', ar: 'هدوء، ووقت متأخر', addressee: 'none' },
+  'mood.neutral.day': { en: 'Still with you', ar: 'موجودة معك', arMale: 'موجود معك', addressee: 'user' },
+  'mood.neutral.night': { en: 'Late-night thoughts', ar: 'أفكار آخر الليل', addressee: 'none' },
+  // PRD §27: in incognito the mood label is suppressed and the role shows
+  // instead.  The label itself is authored here so nothing generates it.
+  'mood.incognito': { en: 'Incognito', ar: 'وضع خفي', addressee: 'none' },
+
   // ── quiet hours (UI-UX §31) ─────────────────────────────────────────────
   'quiet.explanation': { en: "I'll keep things quiet during these hours unless something important needs your attention.", ar: 'هخلي الدنيا هادية في الساعات دي إلا لو في حاجة مهمة تستاهل.', addressee: 'user' },
 } as const satisfies Record<string, Entry>;

@@ -2,7 +2,7 @@
 // collapses, which are the reason the first pass at this was wrong.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { addressViolations, normaliseArabic, SAFE_FORMS } from './arabic.ts';
+import { addressViolations, normaliseArabic, isFirstPersonVerb, SAFE_FORMS } from './arabic.ts';
 import { CATALOG } from './catalog.ts';
 import { t } from './index.ts';
 
@@ -52,6 +52,17 @@ describe('§10 second-person address to the user', () => {
   test('a predicate describing the user is caught', () => {
     assert.ok(addressViolations('حاسس بتوتر منه', 'user').length > 0);
     assert.deepEqual(addressViolations('توتر منه', 'user'), [], 'said about the thing instead');
+  });
+
+  test('a first-person verb is her voice, not address to the user', () => {
+    // أفتح "I open" vs افتح "open" — unvocalised they differ by one hamza,
+    // and every naive normaliser deletes it.  Deleting it flags her own
+    // sentences as gendered address to the user, which is how a checker
+    // starts producing worse copy than no checker.
+    assert.ok(isFirstPersonVerb('أفتح'));
+    assert.ok(!isFirstPersonVerb('افتح'));
+    assert.deepEqual(addressViolations('أقدر أفتح الموضوع في وقته', 'user'), [], 'she is talking about herself');
+    assert.ok(addressViolations('افتح الموضوع', 'user').length > 0, 'the imperative is still caught');
   });
 
   test('normalisation ignores diacritics and spelling variants', () => {

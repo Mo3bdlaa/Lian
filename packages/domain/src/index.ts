@@ -14,3 +14,4 @@ export type {
   CaptureSummary, OutreachCandidate, ExportSlice,
 } from './capability.ts';
 export { backoffFor, isQuiet, SILENCE_AFTER, type BackoffDecision, type QuietHours } from './outreach.ts';
+export { affectFromMessages, activityFromCount, LEXICON, TYPICAL_MESSAGES_PER_DAY, type AffectLexicon } from './affect.ts';
