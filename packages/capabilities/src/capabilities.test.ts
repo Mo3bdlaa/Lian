@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import { ownerOfTag, REGISTRY, tagSpecs } from './registry.ts';
 import { observe } from './health/index.ts';
 import { fakePorts } from './test-fakes.ts';
-import type { CapabilityContext, HealthRecord } from '../src/index.ts';
+import type { CapabilityContext } from '@lian/domain';
+import type { HealthRecord } from './ports.ts';
 
 const CONTEXT: CapabilityContext = {
   userId: 'u-1', assistantId: 'a-1', surface: 'chat', localDay: '2026-05-18',

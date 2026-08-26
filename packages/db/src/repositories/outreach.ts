@@ -97,3 +97,120 @@ export async function due(scope: AssistantScope, now: Date, sql: Sql = db()): Pr
   );
   return rows.map(toOutreach);
 }
+
+// ── the tick's queries ────────────────────────────────────────────────────
+// These are the cross-assistant reads the scheduler needs.  They are here
+// rather than anywhere else because the tick has no user in hand when it
+// starts — it is looking for work — and LESSONS §11 says an access path that
+// spans users is a deliberate decision.  So each one carries the user_id it
+// found back out, and every read AFTER this point is scoped by it.
+
+export type DueRow = {
+  id: string; userId: string; assistantId: string; conversationId: string;
+  kind: OutreachKind; source: OutreachSource; timeZone: string;
+};
+
+/** Work that is due, across all users.  The scheduler's entry point. */
+export async function dueAcrossAssistants(now: Date, limit: number, sql: Sql = db()): Promise<DueRow[]> {
+  // db-scoping:allow-unscoped — the scheduler is looking for work and has no
+  // user yet; this is where one comes from.  Every read after it is scoped by
+  // the user_id this returns, and the tick is reached only through an
+  // HMAC-signed endpoint.
+  const { rows } = await sql.query<{
+    id: string; user_id: string; assistant_id: string; conversation_id: string;
+    kind: OutreachKind; source: OutreachSource; time_zone: string;
+  }>(
+    `SELECT o.id, o.user_id, o.assistant_id, o.kind, o.source, u.time_zone,
+            (SELECT c.id FROM conversations c
+              WHERE c.assistant_id = o.assistant_id AND c.kind = 'main' AND c.deleted_at IS NULL
+              ORDER BY c.created_at LIMIT 1) AS conversation_id
+     FROM outreach o
+     JOIN users u ON u.id = o.user_id
+     WHERE o.scheduled_for <= $1 AND o.sent_at IS NULL AND o.cancelled_at IS NULL
+       AND u.deleted_at IS NULL
+     ORDER BY o.scheduled_for ASC LIMIT $2`,
+    [now, limit],
+  );
+  return rows
+    .filter((row) => row.conversation_id !== null)
+    .map((row) => ({
+      id: row.id, userId: row.user_id, assistantId: row.assistant_id,
+      conversationId: row.conversation_id, kind: row.kind, source: row.source, timeZone: row.time_zone,
+    }));
+}
+
+/** Who an assistant belongs to.  Used to build a scope before any other read. */
+export async function ownerOf(assistantId: string, sql: Sql = db()): Promise<{ userId: string } | null> {
+  // db-scoping:allow-unscoped — this is the lookup that PRODUCES a scope.
+  // Taking a user_id as an argument here would mean trusting one from the
+  // caller, which is strictly worse.
+  const { rows } = await sql.query<{ user_id: string }>(
+    `SELECT user_id FROM assistants WHERE id = $1 AND archived_at IS NULL`,
+    [assistantId],
+  );
+  return rows[0] === undefined ? null : { userId: rows[0].user_id };
+}
+
+export async function quietHoursFor(userId: string, sql: Sql = db()): Promise<{
+  enabled: boolean; startHour: number; endHour: number; days: number[]; allowSecurity: boolean;
+}> {
+  const { rows } = await sql.query<{ enabled: boolean; start_hour: number; end_hour: number; days: number[]; allow_security: boolean }>(
+    `SELECT enabled, start_hour, end_hour, days, allow_security FROM quiet_hours WHERE user_id = $1`,
+    [userId],
+  );
+  const row = rows[0];
+  // No row means never set, which is not the same as "quiet from 22:00".
+  if (row === undefined) return { enabled: false, startHour: 22, endHour: 8, days: [], allowSecurity: true };
+  return { enabled: row.enabled, startHour: row.start_hour, endHour: row.end_hour, days: row.days, allowSecurity: row.allow_security };
+}
+
+export async function daysSinceLastReachOut(scope: AssistantScope, now: Date, sql: Sql = db()): Promise<number> {
+  const { rows } = await sql.query<{ days: number | null }>(
+    `SELECT EXTRACT(EPOCH FROM ($2 - max(sent_at))) / 86400 AS days FROM outreach
+     WHERE assistant_id = $1 AND source = 'assistant_initiated' AND sent_at IS NOT NULL`,
+    [scope.assistantId, now],
+  );
+  const days = rows[0]?.days;
+  return days === null || days === undefined ? Number.MAX_SAFE_INTEGER : Math.floor(days);
+}
+
+export async function reschedule(outreachId: string, to: Date, sql: Sql = db()): Promise<void> {
+  // db-scoping:allow-unscoped — the row was selected by dueAcrossAssistants,
+  // which is the scoping decision; re-deriving a scope here to write back to
+  // the same primary key would be theatre.
+  await sql.query(`UPDATE outreach SET scheduled_for = $2 WHERE id = $1 AND sent_at IS NULL`, [outreachId, to]);
+}
+
+export async function cancel(outreachId: string, reason: string, sql: Sql = db()): Promise<void> {
+  // db-scoping:allow-unscoped — as above: the row came from the tick's own
+  // scoped selection.
+  await sql.query(
+    `UPDATE outreach SET cancelled_at = now(), dedupe_key = coalesce(dedupe_key, '') || ':cancelled:' || left($2, 40)
+     WHERE id = $1 AND sent_at IS NULL`,
+    [outreachId, reason],
+  );
+}
+
+/** Assistants whose user was active on a given local day — the reflection jobs' input. */
+export async function assistantsActiveOn(localDay: string, limit: number, sql: Sql = db()): Promise<{
+  assistantId: string; userId: string; timeZone: string; conversationId: string;
+}[]> {
+  // db-scoping:allow-unscoped — a batch job over every user by definition.
+  // It returns the user_id for each row so everything downstream is scoped.
+  const { rows } = await sql.query<{ assistant_id: string; user_id: string; time_zone: string; conversation_id: string }>(
+    `SELECT DISTINCT a.id AS assistant_id, a.user_id, u.time_zone,
+            (SELECT c.id FROM conversations c
+              WHERE c.assistant_id = a.id AND c.kind = 'main' AND c.deleted_at IS NULL
+              ORDER BY c.created_at LIMIT 1) AS conversation_id
+     FROM assistants a
+     JOIN users u ON u.id = a.user_id
+     JOIN messages m ON m.assistant_id = a.id
+     WHERE a.archived_at IS NULL AND u.deleted_at IS NULL AND m.deleted_at IS NULL
+       AND m.created_at >= $1::date AND m.created_at < ($1::date + interval '1 day')
+     LIMIT $2`,
+    [localDay, limit],
+  );
+  return rows
+    .filter((row) => row.conversation_id !== null)
+    .map((row) => ({ assistantId: row.assistant_id, userId: row.user_id, timeZone: row.time_zone, conversationId: row.conversation_id }));
+}

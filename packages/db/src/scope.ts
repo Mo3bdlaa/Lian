@@ -26,7 +26,7 @@ export const USER_SCOPED_TABLES = [
 /** Tables keyed to a single assistant. */
 export const ASSISTANT_SCOPED_TABLES = [
   'assistant_state', 'relationship', 'conversations', 'messages',
-  'memories', 'canon', 'story_events', 'conversation_summaries',
+  'memories', 'canon', 'story_events', 'conversation_summaries', 'reflections',
 ] as const;
 
 /** Tables with no scope column, by decision rather than omission. */
