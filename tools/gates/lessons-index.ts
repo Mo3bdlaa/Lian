@@ -75,7 +75,7 @@ const COVERAGE: Record<number, Coverage[]> = {
     { where: 'tools/gates/db-scoping.ts', marker: /without \$\{scopeColumn\}|scope predicate|scopeColumn/ },
     { where: 'packages/db/src/repositories/lessons.test.ts', marker: /one assistant cannot read another assistant memory/ },
     { where: 'packages/capabilities/src/registry.test.ts', marker: /export covers every capability/ },
-    { where: 'packages/runtime/src/ownership.ts', marker: /walk the capability REGISTRY rather than a list/ },
+    { where: 'packages/runtime/src/ownership.ts', marker: /walk the capability REGISTRY/ },
     { where: 'packages/db/src/repositories/ownership.test.ts', marker: /leaves NOTHING, in any table, checked generically/ },
   ],
   12: [
