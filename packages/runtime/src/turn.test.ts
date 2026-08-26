@@ -108,7 +108,7 @@ function collectingSink() {
 function input(overrides: Partial<TurnInput> = {}): TurnInput {
   return {
     userId: 'u-1', assistantId: 'a-1', conversationId: 'c-1', surface: 'chat', plan: 'free',
-    timeZone: 'Asia/Dubai', language: 'en', model: DEFAULT_MODEL, now: NOW,
+    timeZone: 'Asia/Dubai', language: 'en', assistantGender: 'female', model: DEFAULT_MODEL, now: NOW,
     userMessage: 'I paid the gym 400 for the month.', clientId: null, replacingMessageId: null,
     ...overrides,
   };
@@ -363,5 +363,79 @@ describe('the turn', () => {
     assert.equal(reply.body, 'Okay, logged AED 400 for the gym today.');
     assert.equal(reply.tags.length, 1, 'tags are kept so a regenerate can void what they captured');
     assert.equal(reply.surface, 'chat');
+  });
+});
+
+// ── the free limit, end to end ──────────────────────────────────────────────
+import { t } from '@lian/i18n';
+import { messageBudget, APPROACHING_THRESHOLD } from '@lian/domain';
+
+describe('the free limit is hers to explain, in both languages', () => {
+  function spend(language: 'en' | 'ar', gender: 'female' | 'male' = 'female') {
+    const store = fakeTurnPorts();
+    const ports: TurnPorts = {
+      prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), turn: store.turn,
+      provider: fakeProvider('Okay.', 7, { inputTokens: 0, outputTokens: 0 }), absorb: fakeAbsorb().fn,
+    };
+    return { store, ports, input: () => input({ language, assistantGender: gender }) };
+  }
+
+  test('at the limit she says it herself — no modal, no countdown, no upsell', async () => {
+    const run = spend('en');
+    for (let i = 0; i < limitsFor('free').messagesPerDay; i++) await runTurn(run.input(), run.ports, collectingSink().sink);
+    const result = await runTurn(run.input(), run.ports, collectingSink().sink);
+
+    assert.equal(result.status, 'message_limit_reached');
+    assert.ok(result.status === 'message_limit_reached');
+    assert.equal(result.line, t('limit.reached', 'en'));
+    assert.match(result.line, /I'll still be here tomorrow/, 'PRD §11: she is not gone');
+    assert.ok(!/upgrade|subscribe|plan/i.test(result.line), 'the upgrade action is secondary and lives elsewhere');
+  });
+
+  test('the same limit in Arabic, in her authored voice', async () => {
+    const run = spend('ar');
+    for (let i = 0; i < limitsFor('free').messagesPerDay; i++) await runTurn(run.input(), run.ports, collectingSink().sink);
+    const result = await runTurn(run.input(), run.ports, collectingSink().sink);
+    assert.ok(result.status === 'message_limit_reached');
+    assert.equal(result.line, t('limit.reached', 'ar'));
+    assert.ok(/[؀-ۿ]/.test(result.line), 'authored Arabic, not a translated English string');
+  });
+
+  test('the cost ceiling wears the same face to the user, and a different one in the log', async () => {
+    // "Our costs ran over" is true and none of their business.  The statuses
+    // differ so we can tell them apart; the line does not.
+    const store = fakeTurnPorts();
+    store.counters.set('model_cost_micros:2026-05', limitsFor('free').modelCostPerMonth);
+    const result = await runTurn(input(), {
+      prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), turn: store.turn,
+      provider: fakeProvider('hello'), absorb: fakeAbsorb().fn,
+    }, collectingSink().sink);
+    assert.equal(result.status, 'cost_ceiling_reached');
+    assert.ok(result.status === 'cost_ceiling_reached');
+    assert.equal(result.line, t('limit.reached', 'en'));
+  });
+
+  test('the approaching state is quiet, and late', async () => {
+    // PRD §11 bans a countdown, so this is a state the prompt mentions once
+    // rather than a number on screen.
+    const budget = messageBudget('free', limitsFor('free').messagesPerDay - APPROACHING_THRESHOLD);
+    assert.equal(budget.state, 'approaching');
+    assert.equal(messageBudget('free', 0).state, 'ok');
+    assert.match(t('limit.approaching', 'en'), /only got a few messages left/);
+    assert.ok(!/\d/.test(t('limit.approaching', 'en')), 'no number — a count is a countdown');
+    assert.ok(!/\d|[٠-٩]/.test(t('limit.approaching', 'ar')));
+  });
+
+  test('her reach-out survives the message limit, on its own budget', async () => {
+    const run = spend('en');
+    for (let i = 0; i < limitsFor('free').messagesPerDay; i++) await runTurn(run.input(), run.ports, collectingSink().sink);
+    assert.equal((await runTurn(run.input(), run.ports, collectingSink().sink)).status, 'message_limit_reached');
+
+    const reach = await runTurn(
+      { ...run.input(), surface: 'proactive', userMessage: null },
+      run.ports,
+      collectingSink().sink,
+    );
+    assert.equal(reach.status, 'done', 'PRD §11 says she is not gone — a shared budget would make that false');
   });
 });

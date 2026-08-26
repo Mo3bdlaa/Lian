@@ -85,6 +85,7 @@ export function tickPorts(deps: JobDeps): TickPorts {
           userId: outreach.userId, assistantId: outreach.assistantId, conversationId: outreach.conversationId,
           surface: outreach.kind === 'briefing' ? 'briefing' : outreach.kind === 'security' ? 'security' : outreach.kind === 'reminder' ? 'scheduled' : 'proactive',
           plan: user.plan, timeZone: user.timeZone, language: language(user.languageStyle),
+          assistantGender: assistant.gender,
           model: DEFAULT_MODEL, now: deps.now(), userMessage: null, clientId: null, replacingMessageId: null,
         },
         {
@@ -183,14 +184,16 @@ export function reflectPorts(deps: JobDeps): ReflectPorts {
     },
     async reflect(input) {
       const user = await db.accounts.getUser({ userId: input.userId });
-      if (user === null) return null;
+      const assistant = await db.accounts.getAssistant({ userId: input.userId, assistantId: input.assistantId });
+      if (user === null || assistant === null) return null;
       const sink = collectingSink();
       // Her voice, so the voice path — `dream` and `diary` are surfaces on it.
       const result = await runTurn(
         {
           userId: input.userId, assistantId: input.assistantId, conversationId: input.conversationId,
           surface: input.kind, plan: user.plan, timeZone: user.timeZone,
-          language: language(user.languageStyle), model: DEFAULT_MODEL, now: deps.now(),
+          language: language(user.languageStyle), assistantGender: assistant.gender,
+          model: DEFAULT_MODEL, now: deps.now(),
           userMessage: null, clientId: null, replacingMessageId: null,
         },
         {

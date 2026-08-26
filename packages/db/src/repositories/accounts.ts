@@ -185,3 +185,13 @@ export async function setMood(scope: AssistantScope, mood: 'warm' | 'quiet' | 'n
     [scope.assistantId, mood, JSON.stringify(signals ?? {})],
   );
 }
+
+/**
+ * Delete the account row.  Every scoped table cascades from it — which is
+ * why the schema uses ON DELETE CASCADE rather than a deleted_at flag for
+ * account deletion: LESSONS §11 says "deleting is real", and a flag is the
+ * opposite of real.
+ */
+export async function deleteAccount(scope: UserScope, sql: Sql = db()): Promise<void> {
+  await sql.query(`DELETE FROM users WHERE id = $1`, [scope.userId]);
+}

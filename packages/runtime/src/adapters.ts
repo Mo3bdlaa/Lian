@@ -12,6 +12,8 @@ import { toVectorLiteral, type Embedder, type AnalysisModel } from '@lian/analys
 import { absorbExchange, type MemoryPorts, type AbsorbInput } from './memory.ts';
 import type { SummaryPorts } from './summary.ts';
 import type { MoodPorts } from './mood.ts';
+import type { OwnershipPorts } from './ownership.ts';
+import type { ExportSlice } from '@lian/domain';
 import type { AssistantScope, UserScope } from '@lian/db';
 
 /** Prose for each stage.  LESSONS §6: the client is told which stage, never
@@ -314,6 +316,52 @@ export function absorbPort(userId: string, deps: { model: AnalysisModel; embedde
   return async (input: AbsorbInput) => {
     const report = await absorbExchange(input, { model: deps.model, embedder: deps.embedder, ports });
     return { kept: report.kept, queued: report.queued, refused: report.refused };
+  };
+}
+
+/** Export and deletion, backed by the repositories (LESSONS §11). */
+export function ownershipPorts(): OwnershipPorts {
+  return {
+    async accountSlices(userId) {
+      const user = await db.accounts.getUser({ userId });
+      return [
+        { name: 'account', rows: user === null ? [] : [user] },
+        { name: 'profile', rows: await db.profile.list({ userId }) },
+        { name: 'devices', rows: await db.auth.listDevices({ userId }) },
+        { name: 'sign_in_attempts', rows: await db.auth.recentAttempts({ userId }, 500) },
+        { name: 'push_subscriptions', rows: await db.push.active({ userId }) },
+      ];
+    },
+    async assistantSlices(userId) {
+      const assistants = await db.accounts.listAssistants({ userId });
+      const slices: ExportSlice[] = [{ name: 'assistants', rows: assistants }];
+      for (const assistant of assistants) {
+        const scope: AssistantScope = { userId, assistantId: assistant.id };
+        slices.push(
+          { name: `memories:${assistant.name}`, rows: await db.memories.list(scope, 'active') },
+          { name: `memories_pending:${assistant.name}`, rows: await db.memories.list(scope, 'pending') },
+          // Everything, including merged statements — LESSONS §5 says canon
+          // is never dropped, so an export that showed only the active ones
+          // would be showing less than she actually holds.
+          { name: `canon:${assistant.name}`, rows: await db.canon.allIncludingMerged(scope) },
+          { name: `conversations:${assistant.name}`, rows: await db.conversations.listSearchable(scope) },
+          { name: `reflections:${assistant.name}`, rows: await db.reflections.allForExport(scope) },
+        );
+      }
+      return slices;
+    },
+    async deleteAccount(userId) {
+      await db.accounts.deleteAccount({ userId });
+    },
+    async deleteStoredFiles(userId) {
+      // Object storage is not wired yet.  Returning the COUNT of what would
+      // have to go, rather than 0, so the gap is visible in the report
+      // instead of looking like success.
+      return db.life.attachmentCount({ userId });
+    },
+    async recordEvent(input) {
+      await db.events.record({ name: input.name, userId: input.userId, dayKey: input.dayKey });
+    },
   };
 }
 

@@ -259,3 +259,15 @@ export async function allHealth(scope: UserScope, sql: Sql = db()): Promise<Heal
 export async function purgeHealth(scope: UserScope, sql: Sql = db()): Promise<void> {
   await sql.query(`DELETE FROM health_entries WHERE user_id = $1`, [scope.userId]);
 }
+
+// ── attachments ───────────────────────────────────────────────────────────
+/** What object storage still holds for a user.  Counted for the deletion
+ *  report so an unwired storage backend is visible rather than looking like
+ *  a clean sweep. */
+export async function attachmentCount(scope: UserScope, sql: Sql = db()): Promise<number> {
+  const { rows } = await sql.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM attachments WHERE user_id = $1`,
+    [scope.userId],
+  );
+  return rows[0]?.n ?? 0;
+}

@@ -20,6 +20,7 @@ import { assemblePrompt, type PromptPorts, type Surface } from '@lian/prompt';
 import { TagStream, type Provider, type TagSpec, turnCostMicros, modelEntry, budgetFor } from '@lian/llm';
 import { ownerOfTag, tagSpecs, type CapabilityPorts } from '@lian/capabilities';
 import { limitsFor, localDayKey, SUBSTANTIVE_MESSAGES_PER_QUALIFYING_DAY, type CaptureSummary, type Plan } from '@lian/domain';
+import { t } from '@lian/i18n';
 
 export type AbsorbFn = (input: {
   userId: string; assistantId: string; plan: Plan; localDay: string;
@@ -74,6 +75,9 @@ export type TurnInput = {
   readonly plan: Plan;
   readonly timeZone: string;
   readonly language: 'en' | 'ar';
+  /** Copy is selected between two AUTHORED strings, never transformed
+   *  (PRD §45), so the limit line needs to know whose voice it is in. */
+  readonly assistantGender: 'female' | 'male';
   readonly model: string;
   readonly now: Date;
   /** Present for 'chat' and 'regenerate'; absent when she speaks first. */
@@ -92,12 +96,19 @@ export type TurnResult =
        *  rather than assumed. */
       readonly cache: { readonly written: number; readonly read: number };
     }
-  /** PRD §11: she is not gone.  The caller shows her line, not a modal. */
-  | { readonly status: 'message_limit_reached' }
-  /** LESSONS §12: the per-user ceiling.  Distinct from the message limit
-   *  because it is our cost, not their allowance — and it must never be
-   *  presented as her having run out of things to say. */
-  | { readonly status: 'cost_ceiling_reached' }
+  /**
+   * PRD §11: she is not gone.  The caller shows `line` — her words — and
+   * never a modal, a countdown or an upsell.  The line is authored copy in
+   * her voice, so the limit arrives the way everything else does.
+   */
+  | { readonly status: 'message_limit_reached'; readonly line: string }
+  /**
+   * LESSONS §12: the per-user model-spend ceiling.  A SEPARATE status so a
+   * log can tell the two apart, but the same user-facing line: from the
+   * person's side this is their plan's limit, and "our costs ran over" is
+   * both true and none of their business.
+   */
+  | { readonly status: 'cost_ceiling_reached'; readonly line: string }
   | { readonly status: 'quiet'; readonly reason: string };
 
 /** Reserved for her reply; the rest of the window is prompt plus history. */
@@ -114,14 +125,14 @@ export async function runTurn(input: TurnInput, ports: TurnPorts, sink: TurnSink
   // counting is not a limit (LESSONS §12), and a refusal must not increment.
   if (input.surface === 'chat') {
     const granted = await ports.turn.reserve(input.userId, 'messages', localDay, limits.messagesPerDay, 1);
-    if (!granted) return { status: 'message_limit_reached' };
+    if (!granted) return { status: 'message_limit_reached', line: t('limit.reached', input.language, input.assistantGender) };
   }
   if (input.surface === 'proactive') {
     const granted = await ports.turn.reserve(input.userId, 'proactive', localDay, limits.proactivePerDay, 1);
     if (!granted) return { status: 'quiet', reason: 'daily reach-out already sent' };
   }
   const costHeadroom = await ports.turn.hasHeadroom(input.userId, 'model_cost_micros', month, limits.modelCostPerMonth);
-  if (!costHeadroom) return { status: 'cost_ceiling_reached' };
+  if (!costHeadroom) return { status: 'cost_ceiling_reached', line: t('limit.reached', input.language, input.assistantGender) };
 
   // ── 2. the user's message ───────────────────────────────────────────────
   let userMessageId: string | null = null;
