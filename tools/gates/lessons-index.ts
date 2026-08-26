@@ -102,6 +102,12 @@ const COVERAGE: Record<string, Coverage[]> = {
     { where: 'tools/gates/boundaries.ts', marker: /composes INTO the prompt/ },
     { where: 'packages/capabilities/src/capabilities.test.ts', marker: /adding a capability stayed cheap/ },
   ],
+  '15': [
+    // The lesson is the test file, so the marker is the failing case itself.
+    { where: 'tools/gates/gates.test.ts', marker: /PASSED a deliberate violation/ },
+    { where: 'tools/gates/gates.test.ts', marker: /failed on a clean tree, so the case below proves nothing/ },
+    { where: 'tools/gates/lib.ts', marker: /a gate that has never been shown to fail|LIAN_GATE_ROOT/ },
+  ],
   '14': [
     // Scope discipline is mostly a matter of what does NOT exist.  What can
     // be checked is checked: no calendar anywhere, separate memory per

@@ -3,7 +3,16 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
-export const ROOT = new URL('../../', import.meta.url).pathname.replace(/\/$/, '');
+/**
+ * The tree a gate checks.
+ *
+ * Overridable, and only for one purpose: tools/gates/gates.test.ts points
+ * each gate at a fixture tree carrying a deliberate violation and asserts
+ * that the gate objects. A gate that has never been shown to fail is a gate
+ * nobody has shown to run — see LESSONS §15, which exists because a gate's
+ * own pattern was wrong for months while it reported green.
+ */
+export const ROOT = (process.env['LIAN_GATE_ROOT'] ?? new URL('../../', import.meta.url).pathname).replace(/\/$/, '');
 
 const SKIP_DIRS = new Set(['node_modules', '.git', '.pgdata', 'dist', 'screens']);
 

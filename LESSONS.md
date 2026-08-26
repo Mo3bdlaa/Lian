@@ -277,3 +277,26 @@ These were decided and are not open:
   screen reviews and corrects what already exists.
 - Multiple assistants: separate memory, no shared awareness.
 - The relationship is never gamified.
+
+## 15. A gate is not a gate until it has failed
+
+**Every gate ships with a test that plants a deliberate violation of
+its rule and asserts that the gate objects.**
+
+`boundaries.ts` matched `@lian/([a-z]+)`. There is no digit in that
+pattern, so every import of `@lian/i18n` was skipped — silently, on
+every commit, while the gate printed green. It is the same shape as
+the `--bw-1-5` miss in the token layer: a sound rule with the wrong
+scope, and indistinguishable from a working one.
+
+A green gate says one of two things and does not tell you which: the
+code is clean, or the rule never looked at it. The failing case is
+what separates them.
+
+- Point the gate at a fixture tree, twice: clean, then with the
+  violation. The clean run is not optional — without it, the failing
+  run may be failing for an unrelated reason.
+- Assert the MESSAGE, not just the exit code. A gate that objects to
+  something else is a gate that still has not been shown to run.
+- One case per rule, not per gate. A gate with five rules and one test
+  has four rules nobody has checked.
