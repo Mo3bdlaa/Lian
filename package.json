@@ -28,7 +28,8 @@
     "gate:voice": "node tools/gates/voice-cache.ts",
     "gate:analysis": "node tools/gates/analysis-path.ts",
     "dev": "node apps/server/src/main.ts",
-    "tick": "node apps/server/src/ticker.ts"
+    "tick": "node apps/server/src/ticker.ts",
+    "report:economics": "node tools/report/economics.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

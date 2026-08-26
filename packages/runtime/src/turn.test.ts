@@ -9,7 +9,11 @@ import assert from 'node:assert/strict';
 import { runTurn, type TurnInput, type TurnPorts, type TurnSink } from './turn.ts';
 import { fakePorts as fakePromptPorts } from '@lian/prompt/test-fakes';
 import { fakePorts as fakeCapabilityPorts } from '@lian/capabilities/test-fakes';
-import { turnCostMicros, typicalTurnMicros, blendedTurnMicros, DEFAULT_MODEL, type Provider, type CompletionRequest } from '@lian/llm';
+import {
+  turnCostMicros, typicalTurnMicros, blendedTurnMicros, modelEntry, DEFAULT_MODEL,
+  CACHE_WRITE_TURN_SHARE, CACHE_WRITE_MULTIPLIER, CACHE_READ_MULTIPLIER, TYPICAL_CACHED_SHARE, TYPICAL_TURN,
+  type Provider, type CompletionRequest,
+} from '@lian/llm';
 import { limitsFor, monthlyMessageAllowance, type CaptureSummary } from '@lian/domain';
 
 const NOW = new Date('2026-05-18T06:30:00.000Z');
@@ -248,7 +252,14 @@ describe('the turn', () => {
       monthly <= limits.modelCostPerMonth,
       `a month of free messages (${monthly} micros) must fit the ceiling (${limits.modelCostPerMonth})`,
     );
+    // Printed with the assumption attached, because this number has been
+    // read as measured twice and it is not: the blend depends on how many
+    // turns a session has, and nothing has measured that yet.
+    // `node tools/report/economics.ts` prints the same arithmetic against
+    // whatever real sessions exist.
     console.log(`      free tier: ${monthlyMessageAllowance('free')} turns × ${perTurn} micros = ${monthly} of ${limits.modelCostPerMonth} ceiling`);
+    console.log(`      ASSUMED, not measured: ${(CACHE_WRITE_TURN_SHARE * 100).toFixed(0)}% of turns pay a cache write (≈${Math.round(1 / CACHE_WRITE_TURN_SHARE)}-turn sessions),`);
+    console.log(`      a ${TYPICAL_TURN.inputTokens}/${TYPICAL_TURN.outputTokens}-token turn, and prices read on ${modelEntry(DEFAULT_MODEL).pricing.pricedOn}.`);
   });
 
   test('prompt caching: the saving is a measured number, not a claim', async () => {
@@ -278,6 +289,7 @@ describe('the turn', () => {
     // Both figures, printed, because a number in a test is worth more when
     // someone can read it without running a calculator.
     console.log(`      uncached ${uncached} micros/turn · cached ${everyTurnAfter} · first turn ${firstTurn} · saving ${(saving * 100).toFixed(1)}%`);
+    console.log(`      ASSUMED: write ${CACHE_WRITE_MULTIPLIER}× input, read ${CACHE_READ_MULTIPLIER}×, ${(TYPICAL_CACHED_SHARE * 100).toFixed(0)}% of input cacheable — none of it observed in production.`);
   });
 
   test('the cache breakpoint is sent, and only at the end of the stable prefix', async () => {
