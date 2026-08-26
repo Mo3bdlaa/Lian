@@ -242,7 +242,23 @@ describe('LESSONS, enforced by the database', { skip: HAS_DB ? false : 'DATABASE
 
 // ── added in the memory run ─────────────────────────────────────────────────
 import * as memoriesRepo from './memories.ts';
-import { deterministicEmbedder, toVectorLiteral } from '@lian/analysis';
+
+// Vectors, made here rather than imported from @lian/analysis: the database
+// package does not depend on the embedder, and these tests are about the SQL
+// — the index, the ordering, the dimension — not about embedding quality.  A
+// bag-of-words vector is enough to make "the relevant one ranks first" a real
+// assertion about the query.
+const DIMENSIONS = 1024;
+function vec(text: string): string {
+  const values = new Array<number>(DIMENSIONS).fill(0);
+  for (const word of text.toLowerCase().split(/[^a-z]+/).filter(Boolean)) {
+    let hash = 0;
+    for (const character of word) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+    values[hash % DIMENSIONS] = values[hash % DIMENSIONS]! + 1;
+  }
+  const length = Math.sqrt(values.reduce((sum, value) => sum + value * value, 0)) || 1;
+  return `[${values.map((value) => (value / length).toFixed(6)).join(',')}]`;
+}
 
 describe('memory retrieval and canon, against the database', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, () => {
   before(async () => { await ready(); });
@@ -284,21 +300,16 @@ describe('memory retrieval and canon, against the database', { skip: HAS_DB ? fa
   test('semantic retrieval returns the relevant memory, not the most recent', async () => {
     const user = await freshUser();
     const scope = await freshAssistant(user);
-    const embedder = deterministicEmbedder();
-
     const store = async (statement: string, salience: number) => {
-      const [vector] = await embedder.embed([statement]);
       await memoriesRepo.remember(scope, {
-        type: 'fact', statement, salience,
-        embedding: toVectorLiteral(vector!), embeddingModel: embedder.id,
+        type: 'fact', statement, salience, embedding: vec(statement), embeddingModel: 'test-bag-of-words',
       }, 100);
     };
     await store('Their sister Dana lives in Cairo.', 0.5);
     await store('They are allergic to shellfish.', 0.5);
     await store('They renewed the gym membership in May.', 0.5);
 
-    const [query] = await embedder.embed(['tell me about their sister']);
-    const found = await memoriesRepo.retrieve(scope, toVectorLiteral(query!), 3);
+    const found = await memoriesRepo.retrieve(scope, vec('tell me about their sister Dana'), 3);
     assert.match(found[0]!.statement, /sister Dana/, 'the relevant one ranks first, not the newest');
     assert.ok(found[0]!.similarity !== null && found[0]!.similarity > 0);
   });
@@ -308,30 +319,23 @@ describe('memory retrieval and canon, against the database', { skip: HAS_DB ? fa
     const scope = await freshAssistant(user);
     await memoriesRepo.remember(scope, { type: 'fact', statement: 'Stored before any embedder existed.' }, 100);
 
-    const embedder = deterministicEmbedder();
-    const [query] = await embedder.embed(['anything at all']);
-    const found = await memoriesRepo.retrieve(scope, toVectorLiteral(query!), 5);
+    const found = await memoriesRepo.retrieve(scope, vec('anything at all'), 5);
     assert.equal(found.length, 1);
     assert.equal(found[0]!.similarity, null, 'and it is visibly unsearchable rather than silently missing');
 
     const pending = await memoriesRepo.needingEmbedding(scope, 10);
     assert.equal(pending.length, 1, 'the backfill can find it');
-    const [vector] = await embedder.embed([pending[0]!.statement]);
-    await memoriesRepo.setEmbedding(scope, pending[0]!.id, toVectorLiteral(vector!), embedder.id);
+    await memoriesRepo.setEmbedding(scope, pending[0]!.id, vec(pending[0]!.statement), 'test-bag-of-words');
     assert.equal((await memoriesRepo.needingEmbedding(scope, 10)).length, 0);
   });
 
   test('a near-duplicate is findable before it is written', async () => {
     const user = await freshUser();
     const scope = await freshAssistant(user);
-    const embedder = deterministicEmbedder();
     const statement = 'Their sister Dana moved to Cairo.';
-    const [vector] = await embedder.embed([statement]);
-    await memoriesRepo.remember(scope, { type: 'person', statement, embedding: toVectorLiteral(vector!), embeddingModel: embedder.id }, 100);
+    await memoriesRepo.remember(scope, { type: 'person', statement, embedding: vec(statement), embeddingModel: 'test-bag-of-words' }, 100);
 
-    const [again] = await embedder.embed([statement]);
-    assert.ok(await memoriesRepo.findSimilar(scope, toVectorLiteral(again!), 0.94), 'the same statement is a duplicate');
-    const [different] = await embedder.embed(['They renewed the gym membership.']);
-    assert.equal(await memoriesRepo.findSimilar(scope, toVectorLiteral(different!), 0.94), null);
+    assert.ok(await memoriesRepo.findSimilar(scope, vec(statement), 0.94), 'the same statement is a duplicate');
+    assert.equal(await memoriesRepo.findSimilar(scope, vec('They renewed the gym membership.'), 0.94), null);
   });
 });
