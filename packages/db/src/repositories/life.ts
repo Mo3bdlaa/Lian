@@ -160,3 +160,102 @@ export async function allTransactions(scope: UserScope, sql: Sql = db()): Promis
 export async function purgeTransactions(scope: UserScope, sql: Sql = db()): Promise<void> {
   await sql.query(`DELETE FROM transactions WHERE user_id = $1`, [scope.userId]);
 }
+
+// ── notes ─────────────────────────────────────────────────────────────────
+export type Note = {
+  id: string; title: string | null; body: string; topic: string | null;
+  originMessageId: string | null; createdAt: Date;
+};
+type NoteRow = { id: string; title: string | null; body: string; topic: string | null; origin_message_id: string | null; created_at: Date };
+const NOTE_COLUMNS = 'id, title, body, topic, origin_message_id, created_at';
+const toNote = (r: NoteRow): Note => ({
+  id: r.id, title: r.title, body: r.body, topic: r.topic, originMessageId: r.origin_message_id, createdAt: r.created_at,
+});
+
+export async function createNote(
+  scope: UserScope,
+  input: { title?: string | null; body: string; topic?: string | null; originMessageId?: string | null; originAssistantId?: string | null },
+  sql: Sql = db(),
+): Promise<Note> {
+  const { rows } = await sql.query<NoteRow>(
+    `INSERT INTO notes (user_id, title, body, topic, origin_message_id, origin_assistant_id)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${NOTE_COLUMNS}`,
+    [scope.userId, input.title ?? null, input.body, input.topic ?? null, input.originMessageId ?? null, input.originAssistantId ?? null],
+  );
+  return toNote(rows[0]!);
+}
+
+export async function recentNotes(scope: UserScope, limit: number, sql: Sql = db()): Promise<Note[]> {
+  const { rows } = await sql.query<NoteRow>(
+    `SELECT ${NOTE_COLUMNS} FROM notes WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT $2`,
+    [scope.userId, limit],
+  );
+  return rows.map(toNote);
+}
+
+export async function allNotes(scope: UserScope, sql: Sql = db()): Promise<Note[]> {
+  const { rows } = await sql.query<NoteRow>(
+    `SELECT ${NOTE_COLUMNS} FROM notes WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at`,
+    [scope.userId],
+  );
+  return rows.map(toNote);
+}
+
+export async function purgeNotes(scope: UserScope, sql: Sql = db()): Promise<void> {
+  await sql.query(`DELETE FROM notes WHERE user_id = $1`, [scope.userId]);
+}
+
+// ── health ────────────────────────────────────────────────────────────────
+// PRD §6.6: conversational context, not a tracker.  There is nothing here to
+// compute a score from, by design — no calories, no macros, no grades.
+export type HealthKind = 'meal' | 'workout' | 'medication';
+export type HealthEntry = {
+  id: string; kind: HealthKind; description: string; occurredAt: Date;
+  durationMinutes: number | null; originMessageId: string | null;
+};
+type HealthRow = {
+  id: string; kind: HealthKind; description: string; occurred_at: Date;
+  duration_minutes: number | null; origin_message_id: string | null;
+};
+const HEALTH_COLUMNS = 'id, kind, description, occurred_at, duration_minutes, origin_message_id';
+const toHealth = (r: HealthRow): HealthEntry => ({
+  id: r.id, kind: r.kind, description: r.description, occurredAt: r.occurred_at,
+  durationMinutes: r.duration_minutes, originMessageId: r.origin_message_id,
+});
+
+export async function createHealthEntry(
+  scope: UserScope,
+  input: { kind: HealthKind; description: string; occurredAt: Date; durationMinutes?: number | null; originMessageId?: string | null; originAssistantId?: string | null },
+  sql: Sql = db(),
+): Promise<HealthEntry> {
+  const { rows } = await sql.query<HealthRow>(
+    `INSERT INTO health_entries (user_id, kind, description, occurred_at, duration_minutes, origin_message_id, origin_assistant_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING ${HEALTH_COLUMNS}`,
+    [scope.userId, input.kind, input.description, input.occurredAt, input.durationMinutes ?? null,
+     input.originMessageId ?? null, input.originAssistantId ?? null],
+  );
+  return toHealth(rows[0]!);
+}
+
+/** The week view (UI-UX §26.2): meals, workouts and medication together. */
+export async function healthWeek(scope: UserScope, from: Date, to: Date, sql: Sql = db()): Promise<HealthEntry[]> {
+  const { rows } = await sql.query<HealthRow>(
+    `SELECT ${HEALTH_COLUMNS} FROM health_entries
+     WHERE user_id = $1 AND deleted_at IS NULL AND occurred_at >= $2 AND occurred_at < $3
+     ORDER BY occurred_at`,
+    [scope.userId, from, to],
+  );
+  return rows.map(toHealth);
+}
+
+export async function allHealth(scope: UserScope, sql: Sql = db()): Promise<HealthEntry[]> {
+  const { rows } = await sql.query<HealthRow>(
+    `SELECT ${HEALTH_COLUMNS} FROM health_entries WHERE user_id = $1 AND deleted_at IS NULL ORDER BY occurred_at`,
+    [scope.userId],
+  );
+  return rows.map(toHealth);
+}
+
+export async function purgeHealth(scope: UserScope, sql: Sql = db()): Promise<void> {
+  await sql.query(`DELETE FROM health_entries WHERE user_id = $1`, [scope.userId]);
+}

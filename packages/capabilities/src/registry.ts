@@ -9,8 +9,13 @@ import type { Capability, CapabilityContext, CapabilityTag, ExportSlice, Outreac
 import type { CapabilityPorts } from './ports.ts';
 import { tasksCapability } from './tasks/index.ts';
 import { moneyCapability } from './money/index.ts';
+import { notesCapability } from './notes/index.ts';
+import { healthCapability } from './health/index.ts';
 
-export const REGISTRY: readonly Capability<CapabilityPorts>[] = [tasksCapability, moneyCapability];
+// Adding a capability is a directory and a line.  These two were the line.
+export const REGISTRY: readonly Capability<CapabilityPorts>[] = [
+  tasksCapability, moneyCapability, notesCapability, healthCapability,
+];
 
 export function capabilityById(id: string): Capability<CapabilityPorts> | undefined {
   return REGISTRY.find((capability) => capability.id === id);

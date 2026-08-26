@@ -10,22 +10,32 @@ import type { Capability, CapabilityContext, CaptureOutcome, OutreachCandidate, 
 import type { CapabilityPorts } from '../ports.ts';
 import { line } from '../copy.ts';
 
-type TodoPayload = { title?: unknown; due?: unknown; habit?: unknown; recurrence?: unknown };
+type TodoPayload = { title?: unknown; due?: unknown; freq?: unknown; days?: unknown };
 
 export const tasksCapability: Capability<CapabilityPorts> = {
   id: 'tasks',
 
+  // Two tags, one capability.  A habit IS a task with a recurrence — same
+  // correction screen, same day-specific completion, same origin hint — so
+  // splitting it into a second capability would mean two things writing one
+  // table.  It gets its own TAG because the model needs the distinction
+  // ("I want to drink more water" is not "remind me to call the bank"), and
+  // because a single tag with a boolean flag gets the flag forgotten.
   tags: [
     {
       name: 'todo', payload: true,
-      usage: '{"title":"return the book","due":"2026-05-19"} — something they said they will do. Add "habit":true and a "recurrence" for something they want to do regularly.',
+      usage: '{"title":"return the book","due":"2026-05-19"} — one thing they said they will do, once.',
+    },
+    {
+      name: 'habit', payload: true,
+      usage: '{"title":"drink more water","freq":"daily"} or {"title":"swim","freq":"weekly","days":[2,5]} — something they want to do regularly. Days are 1=Monday.',
     },
   ],
 
   promptFragment(context) {
     return context.language === 'ar'
-      ? 'الاحتفاظ باللي قالوا إنهم هيعملوه، والتذكير بيه في وقته.'
-      : 'Keep track of what they said they would do, and remind them at the right time.';
+      ? 'الاحتفاظ باللي قالوا إنهم هيعملوه والتذكير بيه في وقته، والعادات اللي عايزين يكرروها.'
+      : 'Keep track of what they said they would do and remind them at the right time, and of habits they want to repeat.';
   },
 
   async contextFragment(context, ports) {
@@ -48,20 +58,31 @@ export const tasksCapability: Capability<CapabilityPorts> = {
     // has already said "I'll remind you" by the time this runs, so the turn
     // needs a real answer either way.
     if (title === '') return { ok: false, reason: 'no title' };
-    const dueOn = typeof payload.due === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(payload.due) ? payload.due : null;
-    const kind = payload.habit === true ? 'habit' : 'task';
-    if (kind === 'habit' && payload.recurrence === undefined) return { ok: false, reason: 'a habit needs a recurrence' };
+
+    const isHabit = tag.name === 'habit';
+    let recurrence: unknown = null;
+    if (isHabit) {
+      const freq = payload.freq;
+      if (freq !== 'daily' && freq !== 'weekly') return { ok: false, reason: 'a habit needs to be daily or weekly' };
+      const days = Array.isArray(payload.days)
+        ? payload.days.filter((day): day is number => typeof day === 'number' && day >= 1 && day <= 7)
+        : [];
+      if (freq === 'weekly' && days.length === 0) return { ok: false, reason: 'a weekly habit needs days' };
+      recurrence = { freq, days };
+    }
+
+    const dueOn = !isHabit && typeof payload.due === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(payload.due) ? payload.due : null;
 
     const task = await ports.tasks.create(context.userId, {
-      kind, title, dueOn, recurrence: payload.recurrence ?? null,
+      kind: isHabit ? 'habit' : 'task', title, dueOn, recurrence,
       originMessageId: messageId, originAssistantId: context.assistantId,
     });
 
     return {
       ok: true, entityTable: 'tasks', entityId: task.id,
       summary: {
-        capability: 'tasks', icon: 'i-tasks',
-        line: dueOn === null ? title : `${title} · ${dueOn}`,
+        capability: 'tasks', icon: isHabit ? 'i-habit' : 'i-tasks',
+        line: isHabit ? title : dueOn === null ? title : `${title} · ${dueOn}`,
         correctionRoute: `/tasks/${task.id}`,
       },
     };

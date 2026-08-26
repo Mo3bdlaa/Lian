@@ -13,12 +13,30 @@ export type TransactionRecord = {
   category: string | null; occurredOn: string; note: string | null; originMessageId: string | null;
 };
 
+export type NoteRecord = { id: string; title: string | null; body: string; topic: string | null; createdAt: Date };
+export type HealthRecord = {
+  id: string; kind: 'meal' | 'workout' | 'medication'; description: string;
+  occurredAt: Date; durationMinutes: number | null;
+};
+
 export type CapabilityPorts = {
   tasks: {
     create(userId: string, input: { kind: 'task' | 'habit'; title: string; dueOn: string | null; recurrence: unknown; originMessageId: string; originAssistantId: string }): Promise<TaskRecord>;
     dueOn(userId: string, day: string): Promise<TaskRecord[]>;
     completionsOn(userId: string, day: string): Promise<string[]>;
     all(userId: string): Promise<TaskRecord[]>;
+    purge(userId: string): Promise<void>;
+  };
+  notes: {
+    create(userId: string, input: { title: string | null; body: string; topic: string | null; originMessageId: string; originAssistantId: string }): Promise<NoteRecord>;
+    recent(userId: string, limit: number): Promise<NoteRecord[]>;
+    all(userId: string): Promise<NoteRecord[]>;
+    purge(userId: string): Promise<void>;
+  };
+  health: {
+    create(userId: string, input: { kind: 'meal' | 'workout' | 'medication'; description: string; occurredAt: Date; durationMinutes: number | null; originMessageId: string; originAssistantId: string }): Promise<HealthRecord>;
+    week(userId: string, from: Date, to: Date): Promise<HealthRecord[]>;
+    all(userId: string): Promise<HealthRecord[]>;
     purge(userId: string): Promise<void>;
   };
   money: {

@@ -1,12 +1,16 @@
-import type { CapabilityPorts, TaskRecord, TransactionRecord } from './ports.ts';
+import type { CapabilityPorts, TaskRecord, TransactionRecord, NoteRecord, HealthRecord } from './ports.ts';
 
-export function fakePorts(): CapabilityPorts & { taskRows: TaskRecord[]; txRows: TransactionRecord[] } {
+export function fakePorts(): CapabilityPorts & {
+  taskRows: TaskRecord[]; txRows: TransactionRecord[]; noteRows: NoteRecord[]; healthRows: HealthRecord[];
+} {
   const taskRows: TaskRecord[] = [];
   const txRows: TransactionRecord[] = [];
+  const noteRows: NoteRecord[] = [];
+  const healthRows: HealthRecord[] = [];
   const completions = new Map<string, Set<string>>();
   let n = 0;
   return {
-    taskRows, txRows,
+    taskRows, txRows, noteRows, healthRows,
     tasks: {
       async create(_userId, input) {
         const row: TaskRecord = { id: `t${++n}`, kind: input.kind, title: input.title, dueOn: input.dueOn, completedAt: null, originMessageId: input.originMessageId };
@@ -17,6 +21,29 @@ export function fakePorts(): CapabilityPorts & { taskRows: TaskRecord[]; txRows:
       async completionsOn(_userId, day) { return [...(completions.get(day) ?? [])]; },
       async all() { return taskRows; },
       async purge() { taskRows.length = 0; },
+    },
+    notes: {
+      async create(_userId, input) {
+        const row: NoteRecord = { id: `n${++n}`, title: input.title, body: input.body, topic: input.topic, createdAt: new Date(2026, 4, 18) };
+        noteRows.push(row);
+        return row;
+      },
+      async recent(_userId, limit) { return noteRows.slice(-limit).reverse(); },
+      async all() { return noteRows; },
+      async purge() { noteRows.length = 0; },
+    },
+    health: {
+      async create(_userId, input) {
+        const row: HealthRecord = {
+          id: `h${++n}`, kind: input.kind, description: input.description,
+          occurredAt: input.occurredAt, durationMinutes: input.durationMinutes,
+        };
+        healthRows.push(row);
+        return row;
+      },
+      async week(_userId, from, to) { return healthRows.filter((e) => e.occurredAt >= from && e.occurredAt < to); },
+      async all() { return healthRows; },
+      async purge() { healthRows.length = 0; },
     },
     money: {
       async create(_userId, input) {

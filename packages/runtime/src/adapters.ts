@@ -131,6 +131,32 @@ export function capabilityPorts(): CapabilityPorts {
       },
       async purge(userId) { await db.life.purgeTasks({ userId }); },
     },
+    notes: {
+      async create(userId, input) {
+        const note = await db.life.createNote({ userId }, input);
+        return { id: note.id, title: note.title, body: note.body, topic: note.topic, createdAt: note.createdAt };
+      },
+      async recent(userId, limit) {
+        return (await db.life.recentNotes({ userId }, limit)).map((n) => ({ id: n.id, title: n.title, body: n.body, topic: n.topic, createdAt: n.createdAt }));
+      },
+      async all(userId) {
+        return (await db.life.allNotes({ userId })).map((n) => ({ id: n.id, title: n.title, body: n.body, topic: n.topic, createdAt: n.createdAt }));
+      },
+      async purge(userId) { await db.life.purgeNotes({ userId }); },
+    },
+    health: {
+      async create(userId, input) {
+        const entry = await db.life.createHealthEntry({ userId }, input);
+        return { id: entry.id, kind: entry.kind, description: entry.description, occurredAt: entry.occurredAt, durationMinutes: entry.durationMinutes };
+      },
+      async week(userId, from, to) {
+        return (await db.life.healthWeek({ userId }, from, to)).map((e) => ({ id: e.id, kind: e.kind, description: e.description, occurredAt: e.occurredAt, durationMinutes: e.durationMinutes }));
+      },
+      async all(userId) {
+        return (await db.life.allHealth({ userId })).map((e) => ({ id: e.id, kind: e.kind, description: e.description, occurredAt: e.occurredAt, durationMinutes: e.durationMinutes }));
+      },
+      async purge(userId) { await db.life.purgeHealth({ userId }); },
+    },
     money: {
       async create(userId, input) { return db.life.createTransaction({ userId }, input); },
       async monthSummary(userId, month) { return db.life.monthSummary({ userId }, month); },

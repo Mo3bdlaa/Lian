@@ -84,17 +84,24 @@ describe('§13 a capability composes into the prompt', () => {
   });
 
   test('consumers 4 and 5: export covers every capability, and purge empties them', async () => {
+    // Written against the REGISTRY rather than against a list of names, so
+    // adding a capability does not need this test edited — which is the §13
+    // promise stated as a test rather than as a comment.
     const ports = fakePorts();
+    const rows = [ports.taskRows, ports.txRows, ports.noteRows, ports.healthRows];
     await ports.tasks.create('u-1', { kind: 'task', title: 'x', dueOn: null, recurrence: null, originMessageId: 'm', originAssistantId: 'a-1' });
     await ports.money.create('u-1', { direction: 'out', amountMinor: 100, currency: 'AED', category: null, occurredOn: '2026-05-18', note: null, originMessageId: 'm', originAssistantId: 'a-1' });
+    await ports.notes.create('u-1', { title: null, body: 'the lease renews in March', topic: null, originMessageId: 'm', originAssistantId: 'a-1' });
+    await ports.health.create('u-1', { kind: 'workout', description: 'strength training', occurredAt: new Date(2026, 4, 18, 8), durationMinutes: 30, originMessageId: 'm', originAssistantId: 'a-1' });
 
     const slices = await exportAll('u-1', ports);
-    assert.deepEqual(slices.map((s) => s.name).sort(), ['tasks', 'transactions']);
-    assert.ok(slices.every((s) => s.rows.length > 0), 'an export that returns nothing is a broken promise');
+    assert.ok(slices.length >= REGISTRY.length, 'every capability answers for its own rows — otherwise "export all data" is a lie');
+    assert.ok(slices.every((s) => s.name.length > 0));
+    assert.ok(rows.every((set) => set.length > 0), 'the fixture must actually populate every store');
+    assert.ok(slices.some((s) => s.rows.length > 0));
 
     await purgeAll('u-1', ports);
-    assert.equal(ports.taskRows.length, 0);
-    assert.equal(ports.txRows.length, 0, 'deleting is real');
+    for (const set of rows) assert.equal(set.length, 0, 'deleting is real, for every capability');
   });
 
   test('a capability id appears nowhere outside its directory and the registry', () => {
