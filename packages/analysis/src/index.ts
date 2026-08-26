@@ -12,3 +12,7 @@ export {
 export {
   deterministicEmbedder, httpEmbedder, toVectorLiteral, EMBEDDING_DIMENSIONS, type Embedder,
 } from './embed.ts';
+export {
+  resolveEmbedder, EmbedderNotConfiguredError, EMBEDDER_CATALOGUE, CHOSEN_EMBEDDER,
+  type EmbedderChoice, type EmbedderEnv,
+} from './embedder-config.ts';

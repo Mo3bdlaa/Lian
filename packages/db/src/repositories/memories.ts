@@ -256,3 +256,20 @@ export async function deleteSourceMessage(
   );
   return { derivedRemoved: rowCount ?? 0, derivedKept: 0 };
 }
+
+/**
+ * Which embedders produced the vectors an assistant holds.
+ *
+ * Two models in one index is not a degraded search — it is two vector spaces
+ * being compared as though they were one, which returns confident nonsense.
+ * The column exists so this is answerable; this is the question.
+ */
+export async function embedderCensus(scope: AssistantScope, sql: Sql = db()): Promise<{ model: string | null; count: number }[]> {
+  const { rows } = await sql.query<{ model: string | null; count: number }>(
+    `SELECT embedding_model AS model, count(*)::int AS count FROM memories
+     WHERE assistant_id = $1 AND deleted_at IS NULL
+     GROUP BY embedding_model ORDER BY count DESC`,
+    [scope.assistantId],
+  );
+  return rows;
+}
