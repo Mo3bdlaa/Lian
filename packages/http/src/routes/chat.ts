@@ -15,6 +15,9 @@ export type ChatTurn = {
   conversationId: string;
   message: string | null;
   clientId: string;
+  /** An attachment already uploaded and confirmed. The route never sees the
+   *  bytes — only an id it hands on. */
+  attachmentId: string | null;
   onText(delta: string): void;
   onCapture(summary: unknown): void;
   onCaptureFailed(reason: string): void;
@@ -45,9 +48,13 @@ export function chatRoutes(ports: ChatRoutePorts): { method: 'POST'; pattern: st
           throw new HttpError(404, 'no_conversation', 'I cannot find that conversation');
         }
 
-        const body = context.body<{ message?: string; clientId?: string }>();
+        const body = context.body<{ message?: string; clientId?: string; attachmentId?: string }>();
         const message = (body.message ?? '').trim();
-        if (message === '') throw new HttpError(400, 'empty_message', 'there was nothing in that message');
+        const attachmentId = typeof body.attachmentId === 'string' && body.attachmentId !== '' ? body.attachmentId : null;
+        // A photographed receipt with no words is a whole message: the
+        // picture is the thing they sent. So empty is only empty when there
+        // is nothing attached either.
+        if (message === '' && attachmentId === null) throw new HttpError(400, 'empty_message', 'there was nothing in that message');
         if (message.length > MAX_MESSAGE_LENGTH) throw new HttpError(400, 'message_too_long', 'that is longer than I can take in one message');
         const clientId = body.clientId ?? context.headers['idempotency-key'] ?? '';
         if (clientId === '') throw new HttpError(400, 'idempotency_key_required', 'every write needs an idempotency-key header');
@@ -66,6 +73,7 @@ export function chatRoutes(ports: ChatRoutePorts): { method: 'POST'; pattern: st
                   conversationId,
                   message,
                   clientId,
+                  attachmentId,
                   onText: (delta) => { collected.push(delta); write('text', { delta }); },
                   onCapture: (summary) => write('capture', summary),
                   onCaptureFailed: (reason) => write('capture_failed', { reason }),
@@ -83,6 +91,12 @@ export function chatRoutes(ports: ChatRoutePorts): { method: 'POST'; pattern: st
             }
 
             const result = outcome.json as { status: string; line?: string };
+            // An attachment that could not be read: her sentence, in the
+            // conversation, rather than a toast. Nothing was charged and no
+            // message was written, so the client re-enables the composer.
+            if (result.status === 'attachment_failed' && typeof result.line === 'string') {
+              write('attachment_failed', { line: result.line });
+            }
             if (result.status === 'message_limit_reached' || result.status === 'cost_ceiling_reached') {
               // PRD §11: her line, not a modal. It travels as an event so the
               // client shows it in the conversation like anything she says.

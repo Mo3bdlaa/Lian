@@ -60,6 +60,7 @@ function turnPorts() {
     async hasHeadroom() { return true; },
     async charge() {},
     async markOutreachAnswered() {},
+    async attachToMessage() {},
     async creditQualifyingDay() {},
     async userMessagesOnDay() { return 0; },
     async recordEvent() {},

@@ -73,6 +73,23 @@ export type CapabilityContribution = {
   tags: { name: string; usage: string }[];
 };
 
+/**
+ * What they attached to the message they just sent.
+ *
+ * This is NOT the file. It is what a separate, non-voice path read off the
+ * file and validated into fields — @lian/analysis for a receipt, the
+ * transcriber for a voice note. The picture and the audio never reach the
+ * channel she speaks in, because both are text somebody else controls
+ * (LESSONS §1a). She is told one thing was attached and one line of what it
+ * said, and that is the entire surface.
+ */
+export type AttachmentContext = {
+  kind: 'photo' | 'receipt' | 'voice';
+  /** Composed by us out of validated fields. null when nothing could be
+   *  read, which she is told rather than left to infer. */
+  reading: string | null;
+};
+
 /** PRD §8, when it is still running.  null once onboarding is done. */
 export type OnboardingContext = { step: string; instruction: string; userName: string | null };
 
@@ -89,4 +106,5 @@ export type AssemblyContext = {
   profile: ProfileContext[];
   capabilities: CapabilityContribution[];
   onboarding: OnboardingContext | null;
+  attachment: AttachmentContext | null;
 };

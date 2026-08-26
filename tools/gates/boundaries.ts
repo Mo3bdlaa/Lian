@@ -31,6 +31,9 @@ const ALLOWED: Record<string, string[]> = {
   auth: ['domain', 'i18n'],
   voice: ['domain'],
   push: ['domain'],
+  // Storage speaks one protocol and knows nothing about the product: it
+  // takes a key and bytes.
+  storage: [],
   // The HTTP layer is transport only: it knows about sessions and rate
   // limits, and reaches everything else through ports the app wires up.
   http: ['domain'],

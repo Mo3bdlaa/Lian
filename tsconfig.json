@@ -58,6 +58,9 @@
       ],
       "@lian/design/server": [
         "./packages/design/src/server.ts"
+      ],
+      "@lian/storage": [
+        "./packages/storage/src/index.ts"
       ]
     },
     "baseUrl": "."

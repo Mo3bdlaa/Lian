@@ -15,6 +15,7 @@ import { atLocalHour, localHour } from '@lian/domain';
 import { deterministicEmbedder, EMBEDDING_DIMENSIONS, type AnalysisModel } from '@lian/analysis';
 import { DEFAULT_MODEL, type Provider } from '@lian/llm';
 import type { JobDeps } from '@lian/jobs';
+import { memoryStore, type ObjectStore } from '@lian/storage';
 import { scheduleRunner, SCHEDULE_HOURS } from './schedule.ts';
 
 const HAS_DB = (process.env['DATABASE_URL'] ?? '') !== '';
@@ -36,11 +37,12 @@ const analysis: AnalysisModel = {
   async complete() { return { text: '[]', usage: { inputTokens: 10, outputTokens: 2 } }; },
 };
 
-function deps(now: () => Date): JobDeps {
+function deps(now: () => Date): JobDeps & { store: ObjectStore } {
   return {
     provider: provider(), analysisModel: analysis,
     embedder: deterministicEmbedder(EMBEDDING_DIMENSIONS),
     push: null, // nothing to deliver to; the message is still written
+    store: memoryStore(),
     now,
   };
 }
@@ -175,6 +177,7 @@ describe('the schedule', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, () =
 
     const report = await scheduleRunner(deps(() => now))(now);
     assert.ok(report.swept.rateLimits >= 1);
+    assert.equal(typeof report.swept.abandonedUploads, 'number');
     assert.ok(report.swept.staleIdempotency >= 1);
 
     const remaining = await db().query<{ n: number }>(

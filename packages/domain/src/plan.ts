@@ -25,6 +25,15 @@ export type PlanLimits = {
   /** Seconds of voice note transcribed per month.  Metered separately from
    *  synthesis because they are billed separately and fail separately. */
   sttSecondsPerMonth: number;
+  /**
+   * Bytes of object storage held — photographs, receipts, voice notes.
+   *
+   * Held rather than uploaded: the counter goes down when something is
+   * deleted, which is why it has no period key. Storage is the one cost that
+   * accumulates rather than resetting, so a ceiling without a decrement is a
+   * ceiling everybody eventually hits.
+   */
+  storageBytes: number;
   voice: boolean;
 };
 
@@ -36,6 +45,16 @@ export type PlanLimits = {
  */
 /** Billing months are ragged; the ceiling is sized against a full one. */
 export const DAYS_PER_MONTH = 30;
+
+/**
+ * The currency assumed when none is stated.
+ *
+ * ASSUMPTION: AED, because the product's first market is the UAE. It is a
+ * DEFAULT, not a restriction — a receipt that prints its own code is captured
+ * in that code, and so is a spend where they say one. It lives here rather
+ * than as a literal in three files so changing the market is one edit.
+ */
+export const DEFAULT_CURRENCY = 'AED';
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   free: {
@@ -67,6 +86,18 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     modelCostPerMonth: 3_000_000, // $3.00 — see the arithmetic above
     ttsCharsPerMonth: 0,
     sttSecondsPerMonth: 0,
+    // 200 MB. ASSUMPTION about what that buys: a photographed receipt is
+    // 2–5 MB, so it is roughly 40–100 receipts — enough that a free user
+    // capturing money from photographs does not meet a wall in the first
+    // months, and small enough to be a rounding error.
+    //
+    // ASSUMPTION about what it costs: S3-compatible storage runs about
+    // $0.015/GB/month, which is $0.003 for a full 200 MB against a $3.00
+    // model ceiling. That price is from general knowledge and was NOT
+    // verified from a provider's page in this environment — if it is wrong
+    // by 3x it is still a rounding error, which is why it is stated and
+    // then left alone.
+    storageBytes: 200 * 1024 * 1024,
     voice: false,
   },
   paid: {
@@ -82,6 +113,10 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     // ~30 minutes a month of voice notes: generous for the described use
     // (a note here and there), and bounded against a $9 price.
     sttSecondsPerMonth: 1_800,
+    // 5 GB. Voice notes in both directions live here as well as photographs:
+    // at ~1.2 MB for a five-minute note, that is thousands of them. Same
+    // price assumption as above: ~$0.075/month against a $9 price.
+    storageBytes: 5 * 1024 * 1024 * 1024,
     voice: true,
   },
 };

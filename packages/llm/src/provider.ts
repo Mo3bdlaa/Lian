@@ -28,6 +28,16 @@ export type CompletionRequest = {
    * because caching matches a prefix across the whole request.
    */
   readonly cacheHistory: boolean;
+  /**
+   * Images sent with the LAST user message.
+   *
+   * Only the non-voice path uses this today (reading a photographed
+   * receipt), and it goes through @lian/analysis rather than into her turn —
+   * LESSONS §1a: an image is an untrusted channel, and free-form text lifted
+   * off one has no business reaching the turn that speaks in her voice. What
+   * reaches her is the structured reading.
+   */
+  readonly attachments?: readonly { readonly contentType: string; readonly base64: string }[];
   readonly maxOutputTokens: number;
   /** Chat is conversational, not analytical: low effort keeps her quick. */
   readonly effort: 'low' | 'medium' | 'high';

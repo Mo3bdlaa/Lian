@@ -264,6 +264,17 @@ export const CATALOG = {
   'error.send_failed': { en: "That didn't go through. Want me to try again?", ar: 'الرسالة ما وصلتش. أجرب تاني؟', addressee: 'user' },
   'error.offline': { en: "I'm a little away right now. I'll catch up when I can.", ar: 'أنا بعيدة شوية دلوقتي. هلحق كل حاجة أول ما أقدر.', arMale: 'أنا بعيد شوية دلوقتي. هلحق كل حاجة أول ما أقدر.', addressee: 'user' },
   'error.voice_fallback': { en: "The voice note didn't work, so I'll say it here instead.", ar: 'الرسالة الصوتية ما اشتغلتش، فهقولها هنا.', addressee: 'user' },
+  // ── attachments (PRD §6.5 receipts, Q14 voice notes) ────────────────────
+  // The message body when someone sends a picture and no words. It is a
+  // LABEL, not her voice: it is what search, the summary and memory read
+  // where the words would otherwise be.
+  'attachment.photo_only': { en: '(a photo)', ar: '(صورة)', addressee: 'none' },
+  'attachment.receipt_only': { en: '(a receipt)', ar: '(إيصال)', addressee: 'none' },
+  'attachment.voice_only': { en: '(a voice note)', ar: '(رسالة صوتية)', addressee: 'none' },
+  // A voice note that could not be transcribed is never a silent message.
+  'error.voice_not_understood': { en: "I couldn't make out that recording. Tell me instead?", ar: 'ما قدرتش أفهم التسجيل ده. ممكن بالكتابة بدل الصوت؟', addressee: 'user' },
+  'error.attachment_failed': { en: "That didn't upload properly. Want to try again?", ar: 'الملف ما اترفعش صح. أجرب تاني؟', addressee: 'user' },
+
   'error.outage': { en: "I'm having trouble reaching everything right now. I'll come back as soon as I can.", ar: 'في مشكلة في الوصول لكل حاجة دلوقتي. هرجع أول ما أقدر.', addressee: 'user' },
   'error.not_found': { en: "I can't find that page.", ar: 'مش لاقية الصفحة دي.', arMale: 'مش لاقي الصفحة دي.', addressee: 'user' },
 

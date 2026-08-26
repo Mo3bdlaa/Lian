@@ -27,9 +27,24 @@ export type CanonCandidate = {
   readonly sourceMessageId: string;
 };
 
+export type AnalysisCompletion = { text: string; usage: { inputTokens: number; outputTokens: number } };
+
 /** The model call.  Provider-agnostic: text in, text out, no tool-calling. */
 export type AnalysisModel = {
-  complete(input: { system: string; user: string; maxOutputTokens: number }): Promise<{ text: string; usage: { inputTokens: number; outputTokens: number } }>;
+  complete(input: { system: string; user: string; maxOutputTokens: number }): Promise<AnalysisCompletion>;
+  /**
+   * Text in, with ONE picture.  Optional because a deployment may be
+   * configured with a model that cannot see, and readReceipt() reports that
+   * as 'no_vision' rather than pretending it looked.
+   *
+   * Only receipt reading uses this, and only on this path: an image is
+   * attacker-controlled text, so it is read here into fields and never shown
+   * to the model that speaks in her voice (LESSONS §1a).
+   */
+  completeWithImage?(input: {
+    system: string; user: string; maxOutputTokens: number;
+    image: { contentType: string; base64: string };
+  }): Promise<AnalysisCompletion>;
 };
 
 export type Exchange = {

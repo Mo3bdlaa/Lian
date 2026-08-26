@@ -27,6 +27,15 @@ export type Config = {
   readonly embedder: { readonly model: string; readonly apiKey: string; readonly url: string | undefined };
   readonly speechApiKey: string | null;
   /**
+   * Object storage. Null means the deployment has nowhere to put a
+   * photograph or a voice note, and says so at boot rather than at the first
+   * upload.
+   */
+  readonly storage: {
+    readonly endpoint: string; readonly region: string; readonly bucket: string;
+    readonly accessKeyId: string; readonly secretAccessKey: string; readonly pathStyle: boolean;
+  } | null;
+  /**
    * Local development only: print the device-confirmation link to the server
    * log instead of emailing it.
    *
@@ -89,6 +98,19 @@ export function loadConfig(env: Env): { config: Config; degraded: string[] } {
   const speechApiKey = env['LIAN_SPEECH_API_KEY'] ?? '';
   if (speechApiKey === '') degraded.push('LIAN_SPEECH_API_KEY is not set — voice is unavailable; text is unaffected');
 
+  const storageBucket = env['LIAN_STORAGE_BUCKET'] ?? '';
+  const storageEndpoint = env['LIAN_STORAGE_ENDPOINT'] ?? '';
+  const storageKeyId = env['LIAN_STORAGE_ACCESS_KEY_ID'] ?? '';
+  const storageSecret = env['LIAN_STORAGE_SECRET_ACCESS_KEY'] ?? '';
+  const hasStorage = storageBucket !== '' && storageEndpoint !== '' && storageKeyId !== '' && storageSecret !== '';
+  if (!hasStorage) {
+    require(
+      'LIAN_STORAGE_BUCKET / _ENDPOINT / _ACCESS_KEY_ID / _SECRET_ACCESS_KEY',
+      undefined,
+      'photographs and voice notes have nowhere to live: receipts cannot be captured and voice notes fall back to text',
+    );
+  }
+
   const logConfirmationLinks = truthy(env['LIAN_LOG_CONFIRMATION_LINKS']);
   if (logConfirmationLinks && production) {
     problems.push('LIAN_LOG_CONFIRMATION_LINKS is set in production — it prints a link that grants a session, and it exists for local development only');
@@ -119,6 +141,17 @@ export function loadConfig(env: Env): { config: Config; degraded: string[] } {
       },
       embedder: { model: embedderModel, apiKey: embedderKey, url: env['LIAN_EMBEDDER_URL'] },
       speechApiKey: speechApiKey === '' ? null : speechApiKey,
+      storage: hasStorage
+        ? {
+            endpoint: storageEndpoint, bucket: storageBucket,
+            region: env['LIAN_STORAGE_REGION'] ?? 'auto',
+            accessKeyId: storageKeyId, secretAccessKey: storageSecret,
+            // Path style is the safe default: it works with MinIO, Garage and
+            // R2's S3 endpoint, and with S3 proper. Virtual-host style is the
+            // opt-in.
+            pathStyle: (env['LIAN_STORAGE_PATH_STYLE'] ?? 'true') !== 'false',
+          }
+        : null,
       logConfirmationLinks,
     },
     degraded,

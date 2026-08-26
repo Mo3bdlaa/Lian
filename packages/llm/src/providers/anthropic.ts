@@ -42,6 +42,23 @@ export function anthropicProvider(apiKey: string): Provider {
           // provider renders them (system, then messages).
           messages: request.messages.map((message, index) => {
             const isHistoryEnd = request.cacheHistory && index === request.messages.length - 2;
+            const isLast = index === request.messages.length - 1;
+            // Images ride with the last user message, as content blocks
+            // before the text: the model reads the picture and then the
+            // question about it.
+            const images = isLast ? (request.attachments ?? []) : [];
+            if (images.length > 0) {
+              return {
+                role: message.role,
+                content: [
+                  ...images.map((attachment) => ({
+                    type: 'image' as const,
+                    source: { type: 'base64' as const, media_type: attachment.contentType as 'image/jpeg', data: attachment.base64 },
+                  })),
+                  { type: 'text' as const, text: message.content },
+                ],
+              };
+            }
             return {
               role: message.role,
               content: isHistoryEnd

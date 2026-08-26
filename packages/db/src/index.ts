@@ -23,3 +23,4 @@ export * as voice from './repositories/voice.ts';
 export * as limits from './repositories/limits.ts';
 export * as corrections from './repositories/corrections.ts';
 export * as economics from './repositories/economics.ts';
+export * as attachments from './repositories/attachments.ts';

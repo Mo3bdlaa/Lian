@@ -25,7 +25,7 @@ import { BLOCKS } from './blocks.ts';
 import { BLOCK_IDS, BLOCK_ZONE, BLOCK_CHANNEL, BLOCK_VOLATILITY, TURN_SECTION, zoneRank, type BlockId } from './zones.ts';
 import { SURFACE_CONFIG, type Surface } from './surfaces.ts';
 import type { PromptPorts } from './ports.ts';
-import type { AssemblyContext } from './context.ts';
+import type { AssemblyContext, AttachmentContext } from './context.ts';
 
 export type AssemblyRequest = {
   readonly userId: string;
@@ -38,6 +38,13 @@ export type AssemblyRequest = {
   /** What to retrieve memory against.  null retrieves by salience. */
   readonly retrievalQuery: string | null;
   readonly memoryLimit: number;
+  /**
+   * What they attached to this message, already read into fields by a
+   * non-voice path. Passed rather than loaded because it belongs to ONE
+   * turn: there is no id that would let this function fetch it, and there
+   * must not be — the file itself has no route into this package.
+   */
+  readonly attachment?: AttachmentContext | null;
 };
 
 export type PromptSegment = { readonly text: string; readonly cache: boolean };
@@ -133,6 +140,7 @@ export async function loadContext(request: AssemblyRequest, ports: PromptPorts):
     profile,
     capabilities,
     onboarding,
+    attachment: request.attachment ?? null,
     environment: {
       now: request.now.toISOString(),
       localHour,

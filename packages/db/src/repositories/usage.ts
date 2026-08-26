@@ -8,7 +8,11 @@ import type { Sql } from '../client.ts';
 import { db } from '../client.ts';
 import type { UserScope } from '../scope.ts';
 
-export type CounterKind = 'messages' | 'proactive' | 'model_cost_micros' | 'tts_chars' | 'stt_seconds';
+export type CounterKind =
+  | 'messages' | 'proactive' | 'model_cost_micros' | 'tts_chars' | 'stt_seconds'
+  /** Bytes HELD, not bytes uploaded — it moves in both directions and has no
+   *  period. See migration 0009. */
+  | 'storage_bytes';
 
 /** Atomic: read-then-write across two requests is how a limit leaks. */
 export async function increment(
@@ -20,9 +24,14 @@ export async function increment(
 ): Promise<number> {
   const { rows } = await sql.query<{ value: number }>(
     `INSERT INTO usage_counters (user_id, kind, period_key, value, updated_at)
-     VALUES ($1, $2, $3, $4, now())
+     -- GREATEST on both branches: a decrement that arrives before anything
+     -- was counted must clamp rather than violate the CHECK.
+     VALUES ($1, $2, $3, GREATEST(0, $4), now())
      ON CONFLICT (user_id, kind, period_key)
-     DO UPDATE SET value = usage_counters.value + EXCLUDED.value, updated_at = now()
+     -- One counter moves in both directions: storage_bytes
+     -- goes down when an attachment is deleted, and a double decrement must
+     -- clamp rather than violate the CHECK and lose the whole statement.
+     DO UPDATE SET value = GREATEST(0, usage_counters.value + $4), updated_at = now()
      RETURNING value`,
     [scope.userId, kind, periodKey, by],
   );

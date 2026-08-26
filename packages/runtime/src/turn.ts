@@ -56,6 +56,9 @@ export type TurnPorts = {
     hasHeadroom(userId: string, kind: 'model_cost_micros', periodKey: string, ceiling: number): Promise<boolean>;
     charge(userId: string, kind: 'model_cost_micros', periodKey: string, micros: number): Promise<void>;
     markOutreachAnswered(assistantId: string): Promise<void>;
+    /** Link an already-uploaded attachment to the message it arrived with.
+     *  Scoped by user in the repository, so a stolen id belongs to nobody. */
+    attachToMessage(userId: string, attachmentId: string, messageId: string): Promise<void>;
     creditQualifyingDay(assistantId: string, localDay: string): Promise<void>;
     userMessagesOnDay(assistantId: string, localDay: string): Promise<number>;
     recordEvent(input: { name: 'message_sent' | 'proactive_sent' | 'capture_created'; userId: string; assistantId: string; dayKey: string }): Promise<void>;
@@ -86,6 +89,22 @@ export type TurnInput = {
   readonly clientId: string | null;
   /** For 'regenerate': the message being replaced, whose captures are voided. */
   readonly replacingMessageId: string | null;
+  /**
+   * What they attached to this message.
+   *
+   * Already READ by the time it arrives here: `reading` is a line composed
+   * out of validated fields by a non-voice path (receipt reading, voice
+   * transcription), and the file itself has no route into this function.
+   * The turn links the id to the message and hands the two words to the
+   * prompt — it never opens anything.
+   */
+  readonly attachment?: TurnAttachment | null;
+};
+
+export type TurnAttachment = {
+  readonly id: string;
+  readonly kind: 'photo' | 'receipt' | 'voice';
+  readonly reading: string | null;
 };
 
 export type TurnResult =
@@ -141,6 +160,9 @@ export async function runTurn(input: TurnInput, ports: TurnPorts, sink: TurnSink
       assistantId: input.assistantId, conversationId: input.conversationId, role: 'user',
       body: input.userMessage, tags: [], surface: null, clientId: input.clientId,
     })).id;
+    if (input.attachment != null) {
+      await ports.turn.attachToMessage(input.userId, input.attachment.id, userMessageId);
+    }
     // LESSONS §4: a reply answers everything she was waiting on, so backoff
     // resets.  Reminders the user set are untouched — they never counted.
     await ports.turn.markOutreachAnswered(input.assistantId);
@@ -158,6 +180,7 @@ export async function runTurn(input: TurnInput, ports: TurnPorts, sink: TurnSink
       userId: input.userId, assistantId: input.assistantId, surface: input.surface,
       conversationId: input.conversationId, now: input.now,
       retrievalQuery: input.userMessage, memoryLimit: 12,
+      attachment: input.attachment == null ? null : { kind: input.attachment.kind, reading: input.attachment.reading },
     },
     ports.prompt,
   );

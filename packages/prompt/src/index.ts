@@ -10,5 +10,6 @@ export type { PromptPorts } from './ports.ts';
 export type {
   AssemblyContext, CapabilityContribution, MemoryContext, CanonContext,
   ProfileContext, ConversationContext, EarlierContext, OnboardingContext, RelationshipContext, EnvironmentContext,
+  AttachmentContext,
   AssistantContext, UserContext,
 } from './context.ts';

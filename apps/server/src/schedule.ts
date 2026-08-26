@@ -49,7 +49,7 @@ export type ScheduleReport = {
   readonly proposed: { assistants: number; scheduled: number; heldBack: number; duplicate: number };
   readonly dreams: ReflectReport | null;
   readonly diary: ReflectReport | null;
-  readonly swept: { rateLimits: number; staleIdempotency: number; oldIdempotency: number };
+  readonly swept: { abandonedUploads: number; rateLimits: number; staleIdempotency: number; oldIdempotency: number };
 };
 
 const EMPTY_PROPOSED = { assistants: 0, scheduled: 0, heldBack: 0, duplicate: 0 };
@@ -58,8 +58,11 @@ const EMPTY_PROPOSED = { assistants: 0, scheduled: 0, heldBack: 0, duplicate: 0 
 const RATE_LIMIT_RETENTION_HOURS = 24;
 const IDEMPOTENCY_IN_FLIGHT_MINUTES = 15;
 const IDEMPOTENCY_RETENTION_DAYS = 7;
+/** Longer than the signed upload URL lives, so a slow upload is not swept
+ *  out from under itself. */
+const ABANDONED_UPLOAD_MINUTES = 60;
 
-export function scheduleRunner(deps: JobDeps): (now: Date) => Promise<ScheduleReport> {
+export function scheduleRunner(deps: JobDeps & { store: { remove(keys: readonly string[]): Promise<number> } | null }): (now: Date) => Promise<ScheduleReport> {
   return async (now: Date): Promise<ScheduleReport> => {
     // 1. Deliver what is already due. This is the only step that runs on
     //    every tick regardless of anyone's local hour — a reminder set for
@@ -121,7 +124,16 @@ export function scheduleRunner(deps: JobDeps): (now: Date) => Promise<ScheduleRe
 
     // 3. Sweeps. Cheap deletes, every tick, so neither table needs a person
     //    to remember it exists.
+    // Uploads that were signed and never completed: a row with no bytes, or
+    // bytes with no row pointing at them. Both are swept by age.
+    const abandoned = await db.attachments.abandoned(minutesAgo(now, ABANDONED_UPLOAD_MINUTES), BATCH);
+    for (const upload of abandoned) {
+      if (deps.store !== null && upload.storageKey !== '') await deps.store.remove([upload.storageKey]);
+      await db.attachments.deleteRows({ userId: upload.userId }, [upload.id]);
+    }
+
     const swept = {
+      abandonedUploads: abandoned.length,
       rateLimits: await db.limits.sweepRateLimits(hoursAgo(now, RATE_LIMIT_RETENTION_HOURS)),
       // A request that died mid-flight leaves a claimed key. Released by age
       // so a crash does not lock a client out of retrying forever.

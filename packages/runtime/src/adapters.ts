@@ -248,6 +248,9 @@ export function turnPorts(userId: string): import('./turn.ts').TurnPorts['turn']
     async markOutreachAnswered(assistantId) {
       await db.outreach.markAnswered(scopeFor(assistantId), new Date());
     },
+    async attachToMessage(forUserId, attachmentId, messageId) {
+      await db.attachments.attachToMessage({ userId: forUserId }, attachmentId, messageId);
+    },
     async creditQualifyingDay(assistantId, localDay) {
       const scope = scopeFor(assistantId);
       const current = await db.relationship.get(scope);
@@ -343,8 +346,17 @@ export function absorbPort(userId: string, deps: { model: AnalysisModel; embedde
   };
 }
 
-/** Export and deletion, backed by the repositories (LESSONS §11). */
-export function ownershipPorts(): OwnershipPorts {
+/**
+ * Export and deletion, backed by the repositories (LESSONS §11).
+ *
+ * `store` is the object store. It is a parameter rather than an import
+ * because deletion has to reach BYTES as well as rows, and a null store —
+ * a deployment with no bucket — must report the count it could not remove
+ * rather than silently returning zero.
+ */
+export function ownershipPorts(store: {
+  remove(keys: readonly string[]): Promise<number>;
+} | null = null): OwnershipPorts {
   return {
     async accountSlices(userId) {
       const user = await db.accounts.getUser({ userId });
@@ -378,10 +390,20 @@ export function ownershipPorts(): OwnershipPorts {
       await db.accounts.deleteAccount({ userId });
     },
     async deleteStoredFiles(userId) {
-      // Object storage is not wired yet.  Returning the COUNT of what would
-      // have to go, rather than 0, so the gap is visible in the report
-      // instead of looking like success.
-      return db.life.attachmentCount({ userId });
+      // The rows are the index of what storage holds (LESSONS §11): the keys
+      // come from the database, not from a prefix listing, because a listing
+      // is eventually consistent and "deleted" cannot be.
+      const held = await db.attachments.keysFor({ userId });
+      if (held.length === 0) return 0;
+      if (store === null) {
+        // No bucket configured. Report what WOULD have to go rather than
+        // zero, so the gap shows in the deletion report instead of looking
+        // like a clean sweep.
+        return held.length;
+      }
+      const removed = await store.remove(held.map((row) => row.storageKey).filter((key) => key !== ''));
+      await db.attachments.purge({ userId });
+      return removed;
     },
     async recordEvent(input) {
       await db.events.record({ name: input.name, userId: input.userId, dayKey: input.dayKey });

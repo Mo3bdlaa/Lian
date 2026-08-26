@@ -4,6 +4,7 @@
 // observation; recent transactions.  No budgets, no bars, no pie charts, no
 // red/green semantics, no add button — so this capability has exactly one
 // write path too, and it is a tag in her reply or a photographed receipt.
+import { DEFAULT_CURRENCY } from '@lian/domain';
 import type { Capability, CaptureOutcome, ExportSlice } from '@lian/domain';
 import type { CapabilityPorts } from '../ports.ts';
 import { line } from '../copy.ts';
@@ -48,7 +49,7 @@ export const moneyCapability: Capability<CapabilityPorts> = {
     const month = context.localDay.slice(0, 7);
     const summary = await ports.money.monthSummary(context.userId, month);
     if (summary.inMinor === 0 && summary.outMinor === 0) return null;
-    const currency = 'AED';
+    const currency = DEFAULT_CURRENCY;
     return line(
       context.language,
       `This month: ${formatMinor(summary.inMinor, currency)} in, ${formatMinor(summary.outMinor, currency)} out.`,
@@ -60,7 +61,7 @@ export const moneyCapability: Capability<CapabilityPorts> = {
     const payload = (tag.payload ?? {}) as SpendPayload;
     const amount = typeof payload.amount === 'number' ? payload.amount : Number.NaN;
     if (!Number.isFinite(amount) || amount <= 0) return { ok: false, reason: 'no usable amount' };
-    const currency = typeof payload.currency === 'string' && payload.currency.length === 3 ? payload.currency.toUpperCase() : 'AED';
+    const currency = typeof payload.currency === 'string' && payload.currency.length === 3 ? payload.currency.toUpperCase() : DEFAULT_CURRENCY;
     const occurredOn = typeof payload.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(payload.date) ? payload.date : context.localDay;
     const direction = payload.direction === 'in' ? 'in' : 'out';
 

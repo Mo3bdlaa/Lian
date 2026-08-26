@@ -18,21 +18,26 @@ import {
   summaryPorts, moodPorts, maybeRollSummary, refreshMood, exportEverything,
   deleteEverything, serializeArchive, relationshipView, type TurnSink,
 } from '@lian/runtime';
-import { DEFAULT_MODEL, type Provider } from '@lian/llm';
+import { DEFAULT_MODEL, turnCostMicros, type Provider } from '@lian/llm';
 import { verifyTick } from '@lian/jobs';
 import { transcribeVoiceNote } from '@lian/voice';
-import { localDayKey, localHour, limitsFor, messageBudget, nextStep } from '@lian/domain';
+import { localDayKey, localHour, limitsFor, messageBudget, nextStep, DEFAULT_CURRENCY } from '@lian/domain';
 import { moodPhrase, t } from '@lian/i18n';
 import { describeCaptures, LANGUAGE_STYLES } from '@lian/capabilities';
 import { resolveTheme, timeBand } from '@lian/design';
 
-import type { Embedder, AnalysisModel } from '@lian/analysis';
+import { readReceipt, describeReading, type Embedder, type AnalysisModel } from '@lian/analysis';
 import {
   authRoutes, chatRoutes, correctionRoutes, platformRoutes,
   type MiddlewarePorts, type AuthRoutePorts, type ChatRoutePorts,
   type CorrectionPorts, type PlatformPorts, type ReadPorts, type Route,
-  readRoutes,
+  readRoutes, attachmentRoutes, type AttachmentPorts,
 } from '@lian/http';
+import {
+  attachmentKey, kindOf, ACCEPTED, MAX_ATTACHMENT_BYTES,
+  UPLOAD_URL_SECONDS, DOWNLOAD_URL_SECONDS, type ObjectStore,
+} from '@lian/storage';
+import { VISION_MODEL } from './analysis.ts';
 import type { Config } from './config.ts';
 
 export type Deps = {
@@ -48,6 +53,9 @@ export type Deps = {
    *  running a model. */
   readonly runTick: (now: Date) => Promise<unknown>;
   readonly log: (line: string) => void;
+  /** Null when no bucket is configured: an upload reports that plainly
+   *  rather than failing halfway through. */
+  readonly store: ObjectStore | null;
   /** Null when no speech key is configured: voice reports that plainly
    *  rather than failing as if something went wrong. */
   readonly speech: { transcribe(input: { audio: Uint8Array; contentType: string; languageHint: string | null }): Promise<{ text: string; language: string | null }> } | null;
@@ -174,6 +182,130 @@ export function authRoutePorts(deps: Deps): AuthRoutePorts {
   };
 }
 
+// ── attachments arriving with a message ───────────────────────────────────
+
+/**
+ * What an attachment becomes before the turn runs.
+ *
+ * Two things happen here and NEITHER of them is "show her the file":
+ *
+ *   a picture  is read by @lian/analysis into five validated fields, and she
+ *              is given one line composed from them
+ *   a voice note is transcribed, and THE TRANSCRIPT IS THE MESSAGE BODY
+ *              (Q14) — memory, search and the summary all read bodies, so a
+ *              voice note stored as audio alone is a message the product
+ *              cannot think about
+ *
+ * Both paths are non-voice (LESSONS §1a): an image and an audio file are text
+ * somebody else controls, and neither reaches the channel she speaks in.
+ */
+type PreparedAttachment =
+  | { readonly status: 'ready'; readonly attachment: { id: string; kind: 'photo' | 'receipt' | 'voice'; reading: string | null }; readonly body: string | null }
+  /** Nothing was written and no budget was spent; the caller says so. */
+  | { readonly status: 'failed'; readonly line: string };
+
+/**
+ * ASSUMPTION, and it costs money: every image sent in a conversation is read
+ * as a possible receipt, rather than asking the person to declare which of
+ * their photographs is one. A form is what this product does not do (PRD §2),
+ * and the money capability exists to capture a spend from a photo. The cost is
+ * one vision call per image message; album photos do not come through this
+ * route, so they are not read.
+ */
+async function prepareAttachment(
+  deps: Deps,
+  input: {
+    userId: string; attachmentId: string; typed: string;
+    language: 'en' | 'ar'; gender: 'female' | 'male'; localDay: string; plan: 'free' | 'paid';
+  },
+): Promise<PreparedAttachment> {
+  const attachment = await db.attachments.get({ userId: input.userId }, input.attachmentId);
+  // An id that is not theirs, or bytes that never arrived. Not an error worth
+  // a scary line — the message still goes, without it.
+  if (attachment === null || attachment.status !== 'ready' || deps.store === null) {
+    return { status: 'failed', line: t('error.attachment_failed', input.language, input.gender) };
+  }
+
+  const object = await deps.store.get(attachment.storageKey);
+  if (object === null) return { status: 'failed', line: t('error.attachment_failed', input.language, input.gender) };
+
+  if (attachment.kind === 'audio') {
+    if (deps.speech === null) return { status: 'failed', line: t('error.voice_not_understood', input.language, input.gender) };
+    const transcribed = await transcribeVoiceNote(
+      {
+        userId: input.userId, audio: object.bytes, contentType: object.contentType,
+        // Duration is not known server-side without decoding the container,
+        // so the SIZE ceiling is what bounds this (policy.MAX_ATTACHMENT_BYTES
+        // for audio, sized against five minutes of Opus). Passing 0 here
+        // would silently skip the length check, so the bytes-per-second
+        // assumption is made explicit instead.
+        durationSeconds: Math.ceil(object.bytes.byteLength / AUDIO_BYTES_PER_SECOND),
+        month: input.localDay.slice(0, 7),
+        secondsCeiling: limitsFor(input.plan).sttSecondsPerMonth,
+        languageHint: input.language,
+      },
+      {
+        speech: deps.speech,
+        usage: {
+          async reserveSeconds(forUserId, month, ceiling, seconds) {
+            return (await db.usage.reserve({ userId: forUserId }, 'stt_seconds', month, ceiling, seconds)).granted;
+          },
+        },
+      },
+    );
+    if (transcribed.status !== 'transcribed') {
+      return { status: 'failed', line: t('error.voice_not_understood', input.language, input.gender) };
+    }
+    return {
+      status: 'ready',
+      attachment: { id: attachment.id, kind: 'voice', reading: null },
+      // The transcript IS the body. What they typed, if anything, stays in
+      // front of it rather than being replaced.
+      body: input.typed === '' ? transcribed.text : `${input.typed}\n${transcribed.text}`,
+    };
+  }
+
+  const receipt = await readReceipt(
+    {
+      image: { contentType: object.contentType, base64: Buffer.from(object.bytes).toString('base64') },
+      today: input.localDay,
+      fallbackCurrency: DEFAULT_CURRENCY,
+    },
+    deps.analysisModel,
+  );
+
+  // LESSONS §12: a paid model call with no per-user ceiling is how these
+  // products die, and looking at a picture is the most expensive call in the
+  // product. It is charged against the same monthly meter the turn is, so a
+  // hundred photographs cannot go around the limit that a hundred messages
+  // cannot go around.
+  const spent = turnCostMicros(VISION_MODEL, { ...receipt.usage, cacheWriteTokens: 0, cacheReadTokens: 0 });
+  if (spent > 0) {
+    await db.usage.increment({ userId: input.userId }, 'model_cost_micros', input.localDay.slice(0, 7), spent);
+  }
+
+  const isReceipt = receipt.ok;
+  return {
+    status: 'ready',
+    attachment: {
+      id: attachment.id,
+      kind: isReceipt ? 'receipt' : 'photo',
+      reading: receipt.ok ? describeReading(receipt.reading) : null,
+    },
+    body: input.typed === '' ? t(isReceipt ? 'attachment.receipt_only' : 'attachment.photo_only', input.language, input.gender) : input.typed,
+  };
+}
+
+/**
+ * ASSUMPTION: 4 kB per second of audio — Opus at roughly 32 kbit/s, which is
+ * what a browser's MediaRecorder produces for speech by default. Used only to
+ * turn a byte count into the seconds the STT meter charges for; a denser
+ * codec is charged more than it should be, which is the safe direction for a
+ * ceiling and the wrong one for a bill, so a real duration from the client
+ * should replace it when the recorder reports one.
+ */
+const AUDIO_BYTES_PER_SECOND = 4_000;
+
 // ── chat ──────────────────────────────────────────────────────────────────
 
 export function chatRoutePorts(deps: Deps): ChatRoutePorts {
@@ -207,13 +339,32 @@ export function chatRoutePorts(deps: Deps): ChatRoutePorts {
         memoryQueueFull: () => input.onMemoryQueueFull(),
       };
 
+      const language = languageOf(user.languageStyle);
+
+      // Before the turn, and before any budget is reserved: reading a picture
+      // or a recording is where an attachment message can fail, and failing
+      // here costs the person nothing.
+      let attachment: { id: string; kind: 'photo' | 'receipt' | 'voice'; reading: string | null } | null = null;
+      let body = input.message;
+      if (input.attachmentId !== null) {
+        const prepared = await prepareAttachment(deps, {
+          userId: input.userId, attachmentId: input.attachmentId,
+          typed: input.message ?? '', language, gender: assistant.gender,
+          localDay: dayKeyFor(user.timeZone, deps.now()), plan: user.plan,
+        });
+        if (prepared.status === 'failed') return { status: 'attachment_failed', line: prepared.line };
+        attachment = prepared.attachment;
+        body = prepared.body;
+      }
+
       const result = await runTurn(
         {
           userId: input.userId, assistantId: assistant.id, conversationId: input.conversationId,
           surface, plan: user.plan, timeZone: user.timeZone,
-          language: languageOf(user.languageStyle), assistantGender: assistant.gender,
+          language, assistantGender: assistant.gender,
           model: DEFAULT_MODEL, now: deps.now(),
-          userMessage: input.message, clientId: input.clientId, replacingMessageId: null,
+          userMessage: body, clientId: input.clientId, replacingMessageId: null,
+          attachment,
         },
         {
           prompt: promptPorts(input.userId, deps.embedder),
@@ -340,7 +491,7 @@ export function platformPorts(deps: Deps): PlatformPorts {
       const localDay = dayKeyFor(user?.timeZone ?? 'UTC', deps.now());
       const archive = await exportEverything(
         { userId, localDay, now: deps.now() },
-        { ...ownershipPorts(), capabilities: capabilityPorts(userId) },
+        { ...ownershipPorts(deps.store), capabilities: capabilityPorts(userId) },
       );
       return { archive: JSON.parse(serializeArchive(archive)) as unknown, filename: `lian-export-${localDay}.json` };
     },
@@ -349,7 +500,7 @@ export function platformPorts(deps: Deps): PlatformPorts {
       const user = await db.accounts.getUser({ userId });
       return deleteEverything(
         { userId, localDay: dayKeyFor(user?.timeZone ?? 'UTC', deps.now()) },
-        { ...ownershipPorts(), capabilities: capabilityPorts(userId) },
+        { ...ownershipPorts(deps.store), capabilities: capabilityPorts(userId) },
       );
     },
   };
@@ -360,6 +511,7 @@ export function routesFor(deps: Deps): Route[] {
   return [
     ...authRoutes(authRoutePorts(deps), { secureCookies: deps.config.secureCookies }),
     ...readRoutes(readPorts(deps)),
+    ...attachmentRoutes(attachmentPorts(deps)),
     ...chatRoutes(chatRoutePorts(deps)),
     ...platformRoutes(platformPorts(deps)),
     // Last: its pattern is `/api/:kind/:id`, which would otherwise shadow a
@@ -686,4 +838,129 @@ function deviceLabel(userAgent: string | null): string {
 async function mainConversation(scope: { userId: string; assistantId: string }) {
   const conversations = await db.conversations.listSearchable(scope);
   return conversations.find((conversation) => conversation.kind === 'main') ?? null;
+}
+
+// ── attachments (LESSONS §11, §12) ────────────────────────────────────────
+
+/** How long a pending upload may sit before the tick sweeps it. */
+export const UPLOAD_WINDOW_MINUTES = 30;
+
+const EXTENSIONS: Record<string, string> = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif',
+  'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/aac': 'aac',
+};
+
+export function attachmentPorts(deps: Deps): AttachmentPorts {
+  return {
+    ...middlewarePorts(deps),
+    now: deps.now,
+
+    async beginUpload({ userId, kind, contentType, conversationId }) {
+      if (deps.store === null) return { status: 'no_storage' as const };
+      const attachmentKind = kindOf(kind);
+      if (attachmentKind === null || !ACCEPTED[attachmentKind].includes(contentType)) {
+        return { status: 'unsupported_type' as const };
+      }
+      const user = await db.accounts.getUser({ userId });
+      if (user === null) return { status: 'no_storage' as const };
+
+      // The ceiling is checked before a URL is signed: an upload URL is a
+      // capability, and handing one out to somebody who is already full only
+      // moves the refusal somewhere less useful.
+      const ceiling = limitsFor(user.plan).storageBytes;
+      const held = await db.usage.current({ userId }, 'storage_bytes', STORAGE_PERIOD);
+      if (held + MAX_ATTACHMENT_BYTES[attachmentKind] > ceiling) {
+        return { status: 'ceiling_reached' as const, heldBytes: held, ceiling };
+      }
+
+      // Incognito writes nothing that outlives it (Q12), so its attachments
+      // are marked as not persisting and go when the conversation does.
+      const conversation = conversationId === null ? null : await conversationFor(userId, conversationId);
+      const persist = conversation === null || conversation.retention === 'persist';
+
+      const attachment = await db.attachments.reserve(
+        { userId },
+        { kind: attachmentKind, contentType, persist, conversationId },
+      );
+      const key = attachmentKey({
+        userId, kind: attachmentKind, attachmentId: attachment.id,
+        extension: EXTENSIONS[contentType] ?? 'bin',
+      });
+      await db.attachments.setKey({ userId }, attachment.id, key);
+      const signed = await deps.store.presignPut({ key, contentType, expiresIn: UPLOAD_URL_SECONDS });
+      return {
+        status: 'ready' as const,
+        id: attachment.id, url: signed.url, method: signed.method,
+        headers: signed.headers, expiresIn: UPLOAD_URL_SECONDS,
+      };
+    },
+
+    async completeUpload({ userId, attachmentId }) {
+      if (deps.store === null) return { status: 'missing' as const };
+      const attachment = await db.attachments.get({ userId }, attachmentId);
+      if (attachment === null || attachment.storageKey === '') return { status: 'missing' as const };
+      // What the STORE says, not what the client claims: a ceiling checked
+      // against a number the uploader supplies is not a ceiling.
+      const object = await deps.store.head(attachment.storageKey);
+      if (object === null) return { status: 'missing' as const };
+
+      const limit = MAX_ATTACHMENT_BYTES[attachment.kind];
+      if (object.bytes > limit) {
+        await deps.store.remove([attachment.storageKey]);
+        await db.attachments.remove({ userId }, attachmentId);
+        return { status: 'too_large' as const, bytes: object.bytes, limit };
+      }
+
+      const user = await db.accounts.getUser({ userId });
+      const ceiling = limitsFor(user?.plan ?? 'free').storageBytes;
+      const granted = await db.usage.reserve({ userId }, 'storage_bytes', STORAGE_PERIOD, ceiling, object.bytes);
+      if (!granted.granted) {
+        await deps.store.remove([attachment.storageKey]);
+        await db.attachments.remove({ userId }, attachmentId);
+        return { status: 'ceiling_reached' as const };
+      }
+
+      const ready = await db.attachments.markReady({ userId }, attachmentId, object.bytes);
+      return ready === null
+        ? { status: 'missing' as const }
+        : { status: 'ready' as const, id: ready.id, bytes: object.bytes, kind: ready.kind };
+    },
+
+    async attachmentUrl({ userId, attachmentId }) {
+      if (deps.store === null) return null;
+      const attachment = await db.attachments.get({ userId }, attachmentId);
+      if (attachment === null || attachment.status !== 'ready') return null;
+      return {
+        url: await deps.store.presignGet({
+          key: attachment.storageKey, expiresIn: DOWNLOAD_URL_SECONDS, contentType: attachment.contentType,
+        }),
+        contentType: attachment.contentType,
+      };
+    },
+
+    async removeAttachment({ userId, attachmentId }) {
+      const removed = await db.attachments.remove({ userId }, attachmentId);
+      if (removed === null) return false;
+      // The bytes, then the meter: a ceiling that only ever goes up is a
+      // ceiling everybody eventually hits.
+      if (deps.store !== null && removed.storageKey !== '') await deps.store.remove([removed.storageKey]);
+      if (removed.bytes > 0) await db.usage.increment({ userId }, 'storage_bytes', STORAGE_PERIOD, -removed.bytes);
+      return true;
+    },
+  };
+}
+
+/**
+ * Storage is not metered by month.
+ *
+ * Everything else in usage_counters resets — messages daily, model spend
+ * monthly. Bytes held do not: they accumulate until something is deleted, so
+ * they live under one fixed key and the counter moves in both directions.
+ */
+export const STORAGE_PERIOD = 'held';
+
+async function conversationFor(userId: string, conversationId: string) {
+  const assistant = await assistantOf(userId);
+  if (assistant === null) return null;
+  return db.conversations.getConversation({ userId, assistantId: assistant.id }, conversationId);
 }

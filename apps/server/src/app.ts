@@ -12,6 +12,7 @@ import { clientModules, stylesheets, icons, version } from './assets.ts';
 import { shell } from './shell.ts';
 import type { JobDeps } from '@lian/jobs';
 import { httpSpeechProvider, DEFAULT_SPEECH } from '@lian/voice';
+import { s3Store, memoryStore, type ObjectStore } from '@lian/storage';
 import type { Fetcher } from '@lian/push';
 import type { Server } from 'node:http';
 import { analysisModelFrom } from './analysis.ts';
@@ -31,6 +32,7 @@ export type Overrides = {
    *  loads the DOM library. */
   readonly fetcher?: Fetcher;
   readonly speech?: Deps['speech'];
+  readonly store?: ObjectStore | null;
 };
 
 export type Application = {
@@ -111,10 +113,19 @@ export function createApplication(config: Config, overrides: Overrides = {}): Ap
     },
     now,
   };
-  const runSchedule = scheduleRunner(jobDeps);
+  const store = overrides.store !== undefined
+    ? overrides.store
+    : config.storage === null
+      ? (config.nodeEnv === 'production' ? null : memoryStore())
+      : s3Store({ ...config.storage, now });
+  const runSchedule = scheduleRunner({ ...jobDeps, store });
 
   const deps: Deps = {
     config, provider, analysisModel, embedder, now, log,
+    // Object storage. In development with no bucket configured the store is
+    // in-process: it works, and it is honest — the objects live as long as
+    // the process does, and the boot log says the bucket is missing.
+    store,
     // Voice is unavailable rather than broken when there is no key: the
     // route says so, and the client falls back to text with her line.
     speech: overrides.speech !== undefined

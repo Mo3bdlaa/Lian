@@ -79,6 +79,7 @@ function fakeTurnPorts() {
     },
     async charge(_userId, kind, periodKey, micros) { counters.set(`${kind}:${periodKey}`, (counters.get(`${kind}:${periodKey}`) ?? 0) + micros); },
     async markOutreachAnswered() { answered++; },
+    async attachToMessage() {},
     async creditQualifyingDay(_assistantId, localDay) { credited.push(localDay); },
     async userMessagesOnDay() { return 3; },
     async recordEvent(input) { events.push(input.name); },

@@ -26,6 +26,7 @@ export const BLOCK_IDS = [
   'memory',        // what she remembers about them
   'standing',      // where things stand right now — capability state
   'environment',   // time, mood, language, plan
+  'attachment',    // what they attached, as fields we read — never the file
   'onboarding',    // what the first conversation still has to learn (PRD §8)
   // ── override ────────────────────────────────────────────────────────────
   'scenario',      // replaces the role above (LESSONS §2)
@@ -45,6 +46,7 @@ export const BLOCK_ZONE: Readonly<Record<BlockId, Zone>> = {
   capabilities: 'foundation',
   standing: 'foundation',
   environment: 'foundation',
+  attachment: 'foundation',
   onboarding: 'foundation',
   conversation: 'foundation',
   earlier: 'foundation',
@@ -114,6 +116,7 @@ export const TURN_SECTION: Readonly<Record<BlockId, TurnSection | null>> = {
   standing: 'recalled',
   scenario: 'recalled',
   environment: 'environment',
+  attachment: 'environment',
   onboarding: 'environment',
 };
 
@@ -135,6 +138,7 @@ export const BLOCK_CHANNEL: Readonly<Record<BlockId, Channel>> = {
   memory: 'turn',
   standing: 'turn',
   environment: 'turn',
+  attachment: 'turn',
   onboarding: 'turn',
   scenario: 'turn',
 };
@@ -176,6 +180,8 @@ export const BLOCK_VOLATILITY: Readonly<Record<BlockId, Volatility>> = {
   standing: 'per-turn',
   memory: 'per-turn',
   environment: 'per-turn',
+  // The most per-turn thing there is: it exists for exactly one message.
+  attachment: 'per-turn',
   onboarding: 'per-turn',
   conversation: 'stable',
   earlier: 'per-turn',
