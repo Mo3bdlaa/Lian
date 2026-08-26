@@ -8,7 +8,10 @@ import type { PromptPorts } from '@lian/prompt';
 import type { CapabilityPorts } from '@lian/capabilities';
 import { contributions } from '@lian/capabilities';
 import { limitsFor, messageBudget, nextStage, stageKey, type Plan } from '@lian/domain';
-import { toVectorLiteral, type Embedder } from '@lian/analysis';
+import { toVectorLiteral, type Embedder, type AnalysisModel } from '@lian/analysis';
+import { absorbExchange, type MemoryPorts, type AbsorbInput } from './memory.ts';
+import type { SummaryPorts } from './summary.ts';
+import type { MoodPorts } from './mood.ts';
 import type { AssistantScope, UserScope } from '@lian/db';
 
 /** Prose for each stage.  LESSONS §6: the client is told which stage, never
@@ -215,6 +218,85 @@ export function turnPorts(userId: string): import('./turn.ts').TurnPorts['turn']
     async recordEvent(input) {
       await db.events.record({ name: input.name, userId: input.userId, assistantId: input.assistantId, dayKey: input.dayKey });
     },
+  };
+}
+
+/** The absorber's ports (memory.ts), backed by the repositories. */
+export function memoryPorts(userId: string): MemoryPorts {
+  const scopeFor = (assistantId: string): AssistantScope => ({ userId, assistantId });
+  return {
+    async countActive(assistantId) { return db.memories.countActive(scopeFor(assistantId)); },
+    async countPending(assistantId) { return db.memories.countPending(scopeFor(assistantId)); },
+    async findSimilar(assistantId, embedding, threshold) {
+      const found = await db.memories.findSimilar(scopeFor(assistantId), embedding, threshold);
+      return found === null ? null : { id: found.id, statement: found.statement };
+    },
+    async remember(assistantId, input, capacity) {
+      const result = await db.memories.remember(
+        scopeFor(assistantId),
+        {
+          type: input.type as db.memories.MemoryType, statement: input.statement, salience: input.salience,
+          sourceMessageId: input.sourceMessageId, embedding: input.embedding, embeddingModel: input.embeddingModel,
+        },
+        capacity,
+      );
+      return result.outcome === 'queue_full'
+        ? { outcome: 'queue_full' }
+        : { outcome: result.outcome, id: result.memory.id };
+    },
+    async existingCanon(assistantId) {
+      return (await db.canon.all(scopeFor(assistantId))).map((row) => ({ statement: row.statement }));
+    },
+    async stateCanon(assistantId, input) {
+      await db.canon.state(scopeFor(assistantId), {
+        statement: input.statement, category: input.category as db.canon.CanonCategory, firstMessageId: input.firstMessageId,
+      });
+    },
+    async recordEvent(input) {
+      await db.events.record({ name: input.name, userId: input.userId, assistantId: input.assistantId, dayKey: input.dayKey });
+    },
+  };
+}
+
+/** The summary roller's ports. */
+export function summaryPorts(userId: string): SummaryPorts {
+  const scopeFor = (assistantId: string): AssistantScope => ({ userId, assistantId });
+  return {
+    async get(assistantId, conversationId) {
+      const summary = await db.summaries.get(scopeFor(assistantId), conversationId);
+      return summary === null ? null : { summary: summary.summary, coversThroughAt: summary.coversThroughAt };
+    },
+    async unsummarised(assistantId, conversationId, windowSize) {
+      return db.summaries.unsummarised(scopeFor(assistantId), conversationId, windowSize);
+    },
+    async put(assistantId, conversationId, input) {
+      await db.summaries.put(scopeFor(assistantId), conversationId, input);
+    },
+  };
+}
+
+/** Mood's ports. */
+export function moodPorts(userId: string): MoodPorts {
+  const scopeFor = (assistantId: string): AssistantScope => ({ userId, assistantId });
+  return {
+    async recentUserMessages(assistantId, since, limit) {
+      return db.conversations.recentUserMessages(scopeFor(assistantId), since, limit);
+    },
+    async unansweredStreak(assistantId) { return db.outreach.unansweredStreak(scopeFor(assistantId)); },
+    async setMood(assistantId, mood, signals) { await db.accounts.setMood(scopeFor(assistantId), mood, signals); },
+  };
+}
+
+/**
+ * The turn's absorb port, assembled.  This is the one place the non-voice
+ * path (@lian/analysis) is joined to a turn — the turn itself only ever sees
+ * a function, so it cannot reach the extraction prompts (LESSONS §1).
+ */
+export function absorbPort(userId: string, deps: { model: AnalysisModel; embedder: Embedder | null }) {
+  const ports = memoryPorts(userId);
+  return async (input: AbsorbInput) => {
+    const report = await absorbExchange(input, { model: deps.model, embedder: deps.embedder, ports });
+    return { kept: report.kept, queued: report.queued, refused: report.refused };
   };
 }
 

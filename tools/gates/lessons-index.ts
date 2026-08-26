@@ -18,6 +18,9 @@ const COVERAGE: Record<number, Coverage[]> = {
     { where: 'packages/prompt/src/assemble.test.ts', marker: /fault injection over every required port/ },
     { where: 'packages/runtime/src/turn.test.ts', marker: /assemble through the same path/ },
     { where: 'tools/gates/boundaries.ts', marker: /persona text outside/ },
+    // The restated rule: a non-voice path is allowed, under two conditions.
+    { where: 'packages/analysis/src/prompts.ts', marker: /THE NON-VOICE PROMPT PATH/ },
+    { where: 'tools/gates/analysis-path.ts', marker: /reconstructs a persona|ONE CLEARLY NAMED PLACE/ },
   ],
   2: [
     { where: 'packages/prompt/src/blocks.ts', marker: /SCENARIO_OVERRIDE_PREFIX/ },
@@ -35,20 +38,25 @@ const COVERAGE: Record<number, Coverage[]> = {
   5: [
     { where: 'packages/db/src/repositories/canon.ts', marker: /Retrieval is UNCONDITIONAL/ },
     { where: 'packages/db/src/repositories/lessons.test.ts', marker: /canon is retrieved unconditionally and is never dropped/ },
+    { where: 'packages/db/migrations/0003_vector_memory.sql', marker: /canon_is_never_deleted/ },
+    { where: 'packages/db/src/repositories/lessons.test.ts', marker: /the database refuses to delete canon/ },
   ],
   6: [
     { where: 'packages/domain/src/relationship.ts', marker: /STAGE_THRESHOLDS/ },
     { where: 'packages/db/src/repositories/lessons.test.ts', marker: /relationship stage cannot go backwards/ },
+    { where: 'packages/runtime/src/relationship.test.ts', marker: /a digit reached the client/ },
   ],
   7: [
     { where: 'packages/design/src/theme/resolve.ts', marker: /THIS FILE DECIDES THE THEME/ },
     { where: 'packages/design/src/theme/apply.ts', marker: /ONLY PLACE THE RUNTIME WRITES THE THEME/ },
     { where: 'tools/gates/theme-single-writer.ts', marker: /sets a CSS custom property at runtime/ },
+    { where: 'packages/runtime/src/mood.test.ts', marker: /the same value picks the palette and the phrase/ },
   ],
   8: [
     { where: 'packages/voice/src/speak.ts', marker: /THE ONLY PLACE AUDIO IS WRITTEN TO THE CACHE/ },
     { where: 'packages/voice/src/speak.test.ts', marker: /persist:false never writes/ },
     { where: 'tools/gates/voice-cache.ts', marker: /sole write path/ },
+    { where: 'packages/voice/src/transcribe.ts', marker: /THE TRANSCRIPT IS THE MESSAGE BODY/ },
   ],
   9: [
     { where: 'tools/gates/tokens-audit.ts', marker: /resolves to nothing/ },
@@ -73,11 +81,13 @@ const COVERAGE: Record<number, Coverage[]> = {
     { where: 'packages/db/src/repositories/usage.ts', marker: /not a rate limit/ },
     { where: 'packages/runtime/src/turn.test.ts', marker: /per-user model cost ceiling/ },
     { where: 'packages/jobs/src/signature.ts', marker: /HMAC/ },
+    { where: 'packages/domain/src/plan.test.ts', marker: /voice is metered in both directions/ },
   ],
   13: [
     { where: 'packages/domain/src/capability.ts', marker: /COMPOSES INTO THE PROMPT/ },
     { where: 'packages/capabilities/src/registry.test.ts', marker: /appears nowhere outside its directory/ },
     { where: 'tools/gates/boundaries.ts', marker: /composes INTO the prompt/ },
+    { where: 'packages/capabilities/src/capabilities.test.ts', marker: /adding a capability stayed cheap/ },
   ],
   14: [
     // Scope discipline is mostly a matter of what does NOT exist.  What can

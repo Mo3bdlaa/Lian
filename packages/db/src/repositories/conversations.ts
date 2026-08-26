@@ -153,6 +153,26 @@ export async function softDeleteMessage(scope: AssistantScope, messageId: string
   return (rowCount ?? 0) > 0;
 }
 
+/** The user's own recent messages, for the affect signals (Q9).  Incognito
+ *  is excluded here rather than by the caller: nothing said there shapes how
+ *  she feels, any more than it shapes what she remembers. */
+export async function recentUserMessages(
+  scope: AssistantScope,
+  since: Date,
+  limit: number,
+  sql: Sql = db(),
+): Promise<string[]> {
+  const { rows } = await sql.query<{ body: string }>(
+    `SELECT m.body FROM messages m
+     JOIN conversations c ON c.id = m.conversation_id
+     WHERE m.assistant_id = $1 AND m.role = 'user' AND m.deleted_at IS NULL
+       AND c.retention = 'persist' AND m.created_at >= $2
+     ORDER BY m.created_at DESC LIMIT $3`,
+    [scope.assistantId, since, limit],
+  );
+  return rows.map((row) => row.body);
+}
+
 /** How many of the user's messages landed on a given local day — the input to
  *  the qualifying-day rule (Q3).  Incognito is excluded: it earns nothing. */
 export async function userMessagesOnDay(
