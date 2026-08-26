@@ -90,6 +90,37 @@ export function zoneRank(zone: Zone): number {
 // the persona, not earlier, so §2 gets stronger rather than weaker.
 export type Channel = 'system' | 'turn';
 
+/**
+ * Within the turn, the order is FIXED and the sections are named, because the
+ * turn is now a trust boundary as well as a caching decision.
+ *
+ *   recalled     what she remembers and what was said before.  Contains text
+ *                the USER wrote, so it is sanitised and labelled as a record.
+ *   environment  time, mood, plan.  Ours, not theirs.
+ *   (message)    what they actually said, last, added by the runtime.
+ *
+ * Fixed so the model can rely on it: "the last thing in this message is what
+ * they just said" is only useful if it is always true.
+ */
+export type TurnSection = 'recalled' | 'environment';
+
+export const TURN_SECTION: Readonly<Record<BlockId, TurnSection | null>> = {
+  identity: null, canon: null, relationship: null, profile: null,
+  capabilities: null, contract: null, directive: null,
+
+  conversation: 'recalled',
+  earlier: 'recalled',
+  memory: 'recalled',
+  standing: 'recalled',
+  scenario: 'recalled',
+  environment: 'environment',
+  onboarding: 'environment',
+};
+
+export function blocksInSection(section: TurnSection): BlockId[] {
+  return BLOCK_IDS.filter((id) => TURN_SECTION[id] === section);
+}
+
 export const BLOCK_CHANNEL: Readonly<Record<BlockId, Channel>> = {
   identity: 'system',
   canon: 'system',

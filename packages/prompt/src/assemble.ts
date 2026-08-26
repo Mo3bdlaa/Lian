@@ -22,7 +22,7 @@
 // ==========================================================================
 import { MissingContextError } from './errors.ts';
 import { BLOCKS } from './blocks.ts';
-import { BLOCK_IDS, BLOCK_ZONE, BLOCK_CHANNEL, BLOCK_VOLATILITY, zoneRank, type BlockId } from './zones.ts';
+import { BLOCK_IDS, BLOCK_ZONE, BLOCK_CHANNEL, BLOCK_VOLATILITY, TURN_SECTION, zoneRank, type BlockId } from './zones.ts';
 import { SURFACE_CONFIG, type Surface } from './surfaces.ts';
 import type { PromptPorts } from './ports.ts';
 import type { AssemblyContext } from './context.ts';
@@ -149,7 +149,10 @@ export function renderPrompt(context: AssemblyContext): AssembledPrompt {
   const rendered: { id: BlockId; chars: number }[] = [];
   const parts: string[] = [];
   const systemParts: string[] = [];
-  const turnParts: string[] = [];
+  // The turn's two sections, kept apart so the structure is fixed rather
+  // than incidental (see TURN_SECTION).
+  const recalled: string[] = [];
+  const environment: string[] = [];
 
   // BLOCK_IDS is already in zone order; asserting it here means a future edit
   // to that array cannot silently break the recency rule, even if someone
@@ -167,16 +170,25 @@ export function renderPrompt(context: AssemblyContext): AssembledPrompt {
     // system block, once ending the turn.  That is §1's repetition, not a
     // duplicate.
     if (id === 'directive') { systemParts.push(trimmed); continue; }
-    (BLOCK_CHANNEL[id] === 'system' ? systemParts : turnParts).push(trimmed);
+    if (BLOCK_CHANNEL[id] === 'system') { systemParts.push(trimmed); continue; }
+    (TURN_SECTION[id] === 'environment' ? environment : recalled).push(trimmed);
   }
 
   const systemText = systemParts.join(SEPARATOR);
   const directive = BLOCKS.directive(context) ?? '';
 
+  // Named sections, always in this order, always with these labels — the
+  // contract in the system block describes exactly this shape, and "the last
+  // thing in the message is what they just said" is only useful to her if it
+  // is always true.
+  const turnSections: string[] = [];
+  if (recalled.length > 0) turnSections.push(`RECALLED\n${recalled.join(SEPARATOR)}`);
+  if (environment.length > 0) turnSections.push(`ENVIRONMENT\n${environment.join(SEPARATOR)}`);
+
   return {
     text: parts.join(SEPARATOR),
     system: systemText === '' ? [] : [{ text: systemText, cache: true }],
-    turnPrefix: turnParts.join(SEPARATOR),
+    turnPrefix: turnSections.join(SEPARATOR),
     turnSuffix: directive.trim(),
     systemChars: systemText.length,
     surface: context.surface,

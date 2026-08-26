@@ -5,7 +5,7 @@
 // the jobs runner, data export and deletion (LESSONS §13 and §11).
 //
 // Adding a capability is: one directory, one import, one line here.
-import type { Capability, CapabilityContext, CapabilityTag, ExportSlice, OutreachCandidate } from '@lian/domain';
+import { sanitiseRecalled, type Capability, type CapabilityContext, type CapabilityTag, type ExportSlice, type OutreachCandidate } from '@lian/domain';
 import type { CapabilityPorts } from './ports.ts';
 import { tasksCapability } from './tasks/index.ts';
 import { moneyCapability } from './money/index.ts';
@@ -41,10 +41,14 @@ export async function contributions(
   for (const capability of REGISTRY) {
     const ability = capability.promptFragment(context);
     if (ability === null) continue;
+    // A capability's state line is built from user-entered titles and notes
+    // ("Due today: <whatever they called it>"), and it renders in the turn.
+    // Same channel, same treatment.
+    const state = await capability.contextFragment(context, ports);
     out.push({
       id: capability.id,
       ability,
-      state: await capability.contextFragment(context, ports),
+      state: state === null ? null : sanitiseRecalled(state, 600),
       // Tag names reach the prompt with their brackets; the parser is given
       // the bare names.  Same list, one source.
       tags: capability.tags.map((tag) => ({ name: `<${tag.name}>`, usage: tag.usage })),

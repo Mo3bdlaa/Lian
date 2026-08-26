@@ -9,6 +9,7 @@ import {
   CONVERSATION_TITLE_SYSTEM, CONVERSATION_SUMMARY_SYSTEM,
 } from './prompts.ts';
 import { parseArray, extractJson } from './json.ts';
+import { sanitiseRecalled, looksLikeInstruction } from '@lian/domain';
 
 export type MemoryType = (typeof MEMORY_TYPES)[number];
 
@@ -50,9 +51,15 @@ function validMemory(sourceMessageId: string) {
     const record = value as Record<string, unknown>;
     const type = record['type'];
     if (typeof type !== 'string' || !(MEMORY_TYPES as readonly string[]).includes(type)) return `unknown type ${String(type)}`;
-    const statement = record['statement'];
-    if (typeof statement !== 'string' || statement.trim().length < 8) return 'statement too short';
-    if (statement.length > MAX_STATEMENT_LENGTH) return 'statement too long';
+    const raw = record['statement'];
+    if (typeof raw !== 'string' || raw.trim().length < 8) return 'statement too short';
+    if (raw.length > MAX_STATEMENT_LENGTH) return 'statement too long';
+    // On the way IN.  A memory should hold what was meant, not verbatim text
+    // with its directive formatting intact — retrieved text renders inside a
+    // user message, so storing the shape is storing the attack.
+    if (looksLikeInstruction(raw)) return 'reads as an instruction rather than a fact';
+    const statement = sanitiseRecalled(raw);
+    if (statement.length < 8) return 'nothing left after sanitising';
     const rawSalience = record['salience'];
     const salience = typeof rawSalience === 'number' && Number.isFinite(rawSalience) ? Math.min(1, Math.max(0, rawSalience)) : 0.5;
     return { type: type as MemoryType, statement: statement.trim(), salience, sourceMessageId };
@@ -67,10 +74,16 @@ function validCanon(sourceMessageId: string) {
     if (category !== 'self' && category !== 'preference' && category !== 'history' && category !== 'boundary') {
       return `unknown category ${String(category)}`;
     }
-    const statement = record['statement'];
-    if (typeof statement !== 'string' || statement.trim().length < 8) return 'statement too short';
-    if (statement.length > MAX_STATEMENT_LENGTH) return 'statement too long';
-    return { category, statement: statement.trim(), sourceMessageId };
+    const raw = record['statement'];
+    if (typeof raw !== 'string' || raw.trim().length < 8) return 'statement too short';
+    if (raw.length > MAX_STATEMENT_LENGTH) return 'statement too long';
+    // Canon is retrieved unconditionally and can never be contradicted, so a
+    // poisoned canon statement is permanent.  The bar is the same, and the
+    // consequence of getting it wrong is worse.
+    if (looksLikeInstruction(raw)) return 'reads as an instruction rather than something she said';
+    const statement = sanitiseRecalled(raw);
+    if (statement.length < 8) return 'nothing left after sanitising';
+    return { category, statement, sourceMessageId };
   };
 }
 
@@ -156,7 +169,8 @@ export async function rollSummary(
     user: `SUMMARY SO FAR:\n${input.summarySoFar ?? '(none yet)'}\n\nMESSAGES SINCE:\n${transcript}`,
     maxOutputTokens: 512,
   });
-  const summary = text.trim();
+  // The summary is written FROM user text, so it can carry the same shapes.
+  const summary = sanitiseRecalled(text, 1_600);
   if (summary === '') return null;
   // A model that ignored the word limit gets truncated at a sentence rather
   // than mid-clause; the alternative is an unbounded block in every prompt.

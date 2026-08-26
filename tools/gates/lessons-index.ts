@@ -12,8 +12,17 @@ import { existsSync } from 'node:fs';
 
 type Coverage = { readonly where: string; readonly marker: RegExp };
 
-const COVERAGE: Record<number, Coverage[]> = {
-  1: [
+// Section numbers are read from LESSONS.md's own headings, including
+// fractional ones like §1a — a lesson added between two others should not
+// have to renumber the file.
+const COVERAGE: Record<string, Coverage[]> = {
+  '1a': [
+    { where: 'packages/domain/src/untrusted.ts', marker: /a memory can carry\s*\n?\/\/ instruction-shaped text|instruction-shaped text into the channel/ },
+    { where: 'packages/runtime/src/injection.test.ts', marker: /tested as an attack rather than as a shape/ },
+    { where: 'packages/domain/src/untrusted.test.ts', marker: /ordinary memories pass through unchanged/ },
+    { where: 'packages/prompt/src/zones.ts', marker: /trust boundary as well as a caching decision/ },
+  ],
+  '1': [
     { where: 'packages/prompt/src/assemble.ts', marker: /THE ONE PATH THAT BUILDS THE SYSTEM PROMPT/ },
     { where: 'packages/prompt/src/assemble.test.ts', marker: /fault injection over every required port/ },
     { where: 'packages/runtime/src/turn.test.ts', marker: /assemble through the same path/ },
@@ -22,55 +31,55 @@ const COVERAGE: Record<number, Coverage[]> = {
     { where: 'packages/analysis/src/prompts.ts', marker: /THE NON-VOICE PROMPT PATH/ },
     { where: 'tools/gates/analysis-path.ts', marker: /reconstructs a persona|ONE CLEARLY NAMED PLACE/ },
   ],
-  2: [
+  '2': [
     { where: 'packages/prompt/src/blocks.ts', marker: /SCENARIO_OVERRIDE_PREFIX/ },
     { where: 'packages/prompt/src/assemble.test.ts', marker: /the scenario states that it overrides/ },
   ],
-  3: [
+  '3': [
     { where: 'packages/llm/src/tagstream.ts', marker: /tail buffer/ },
     { where: 'packages/llm/src/tagstream.test.ts', marker: /EVERY possible single split point/ },
   ],
-  4: [
+  '4': [
     { where: 'packages/db/src/repositories/outreach.ts', marker: /unansweredStreak/ },
     { where: 'packages/jobs/src/deliver.test.ts', marker: /a real push with the real message in it/ },
     { where: 'packages/db/src/repositories/lessons.test.ts', marker: /backoff counts only her own unanswered messages/ },
     { where: 'packages/jobs/src/tick.test.ts', marker: /never silenced by backoff/ },
   ],
-  5: [
+  '5': [
     { where: 'packages/db/src/repositories/canon.ts', marker: /Retrieval is UNCONDITIONAL/ },
     { where: 'packages/db/src/repositories/lessons.test.ts', marker: /canon is retrieved unconditionally and is never dropped/ },
     { where: 'packages/db/migrations/0003_vector_memory.sql', marker: /canon_is_never_deleted/ },
     { where: 'packages/db/src/repositories/lessons.test.ts', marker: /the database refuses to delete canon/ },
   ],
-  6: [
+  '6': [
     { where: 'packages/domain/src/relationship.ts', marker: /STAGE_THRESHOLDS/ },
     { where: 'packages/db/src/repositories/lessons.test.ts', marker: /relationship stage cannot go backwards/ },
     { where: 'packages/runtime/src/relationship.test.ts', marker: /a digit reached the client/ },
   ],
-  7: [
+  '7': [
     { where: 'packages/design/src/theme/resolve.ts', marker: /THIS FILE DECIDES THE THEME/ },
     { where: 'packages/design/src/theme/apply.ts', marker: /ONLY PLACE THE RUNTIME WRITES THE THEME/ },
     { where: 'tools/gates/theme-single-writer.ts', marker: /sets a CSS custom property at runtime/ },
     { where: 'packages/runtime/src/mood.test.ts', marker: /the same value picks the palette and the phrase/ },
   ],
-  8: [
+  '8': [
     { where: 'packages/voice/src/speak.ts', marker: /THE ONLY PLACE AUDIO IS WRITTEN TO THE CACHE/ },
     { where: 'packages/voice/src/speak.test.ts', marker: /persist:false never writes/ },
     { where: 'tools/gates/voice-cache.ts', marker: /sole write path/ },
     { where: 'packages/voice/src/transcribe.ts', marker: /THE TRANSCRIPT IS THE MESSAGE BODY/ },
   ],
-  9: [
+  '9': [
     { where: 'tools/gates/tokens-audit.ts', marker: /resolves to nothing/ },
     { where: 'tools/gates/tokens-raw.ts', marker: /raw hex colour/ },
     { where: 'tools/gates/tokens-contrast.ts', marker: /MISSING cell/ },
     { where: 'tools/gates/tokens-tap.ts', marker: /tap-min/ },
   ],
-  10: [
+  '10': [
     { where: 'packages/i18n/src/arabic.ts', marker: /DIRECTION OF ADDRESS/ },
     { where: 'packages/i18n/src/arabic.test.ts', marker: /addressed to HER is correct and passes/ },
     { where: 'tools/gates/arabic-address.ts', marker: /addressee/ },
   ],
-  11: [
+  '11': [
     { where: 'packages/db/src/scope.ts', marker: /deliberate decision with legal weight/ },
     { where: 'tools/gates/db-scoping.ts', marker: /without \$\{scopeColumn\}|scope predicate|scopeColumn/ },
     { where: 'packages/db/src/repositories/lessons.test.ts', marker: /one assistant cannot read another assistant memory/ },
@@ -78,7 +87,7 @@ const COVERAGE: Record<number, Coverage[]> = {
     { where: 'packages/runtime/src/ownership.ts', marker: /walk the capability REGISTRY/ },
     { where: 'packages/db/src/repositories/ownership.test.ts', marker: /leaves NOTHING, in any table, checked generically/ },
   ],
-  12: [
+  '12': [
     { where: 'packages/llm/src/keypool.ts', marker: /COOLDOWN_STATUSES/ },
     { where: 'packages/llm/src/keypool.test.ts', marker: /the pool state is in the store, not in the instance/ },
     { where: 'packages/db/src/repositories/usage.ts', marker: /not a rate limit/ },
@@ -87,13 +96,13 @@ const COVERAGE: Record<number, Coverage[]> = {
     { where: 'packages/domain/src/plan.test.ts', marker: /voice is metered in both directions/ },
     { where: 'packages/runtime/src/turn.test.ts', marker: /the saving is a measured number, not a claim/ },
   ],
-  13: [
+  '13': [
     { where: 'packages/domain/src/capability.ts', marker: /COMPOSES INTO THE PROMPT/ },
     { where: 'packages/capabilities/src/registry.test.ts', marker: /nothing dispatches on a capability id/ },
     { where: 'tools/gates/boundaries.ts', marker: /composes INTO the prompt/ },
     { where: 'packages/capabilities/src/capabilities.test.ts', marker: /adding a capability stayed cheap/ },
   ],
-  14: [
+  '14': [
     // Scope discipline is mostly a matter of what does NOT exist.  What can
     // be checked is checked: no calendar anywhere, separate memory per
     // assistant, and no relationship score crossing the network.
@@ -104,7 +113,7 @@ const COVERAGE: Record<number, Coverage[]> = {
 };
 
 const lessons = read(`${ROOT}/LESSONS.md`);
-const sections = [...lessons.matchAll(/^## (\d+)\.\s+(.+)$/gm)].map((m) => ({ number: Number(m[1]), title: m[2]!.trim() }));
+const sections = [...lessons.matchAll(/^## (\d+[a-z]?)\.\s+(.+)$/gm)].map((m) => ({ number: m[1]!, title: m[2]!.trim() }));
 
 const violations: Violation[] = [];
 const rows: string[] = [];

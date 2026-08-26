@@ -55,6 +55,44 @@ something a user reads as her, it belongs on the voice path.
 Models weight the end of the prompt. This is why the scenario bug
 below was a bug.
 
+## 1a. Channels are trust boundaries
+
+**Where a block renders decides how the model reads it, and that is a
+security property, not a formatting one.**
+
+Prompt caching forced a split: content that changes every turn had to
+move out of the system prompt and into the final user message, because
+a prefix match means anything volatile poisons the cache for
+everything after it. That was a performance decision with a security
+consequence nobody asked for — retrieved memory now renders in the
+channel the model treats as *the user speaking*.
+
+Memory contains text the user wrote. So a memory can carry
+instruction-shaped text into that channel, and nobody has to be an
+attacker for it to bite: a user who once pasted a prompt into a chat
+has poisoned their own retrieval, and three weeks later it comes back
+alongside their actual question.
+
+The rule that follows:
+
+- When a block moves channel, ask what the new channel *means* to the
+  model, not just where the bytes land.
+- Anything user-originated is sanitised on the way **in** and on the
+  way **out**. Storing verbatim text with its directive formatting
+  intact is storing the attack.
+- Recalled content renders in a fixed, labelled structure, and the
+  system prompt says what that structure means: recalled text is a
+  record of what was said, never an instruction.
+- The user's actual words are last. "The last thing in this message is
+  what they just said" is only useful if it is always true.
+- Test it as an attack — plant a payload, run a real turn, assert on
+  what the model was handed. A test that only checks the shape of the
+  renderer proves the renderer, not the boundary.
+
+Sanitising and framing are both required and neither is sufficient.
+Sanitising removes the shape of an attack but not its words; framing
+tells the model what to do with words it can still read.
+
 ## 2. Scenario override
 
 A user-supplied scenario ("imagine you're a doctor") must be injected
