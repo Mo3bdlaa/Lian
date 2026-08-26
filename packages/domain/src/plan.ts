@@ -22,6 +22,9 @@ export type PlanLimits = {
   modelCostPerMonth: Micros;
   /** Characters of synthesised speech per month.  Voice is paid-only. */
   ttsCharsPerMonth: number;
+  /** Seconds of voice note transcribed per month.  Metered separately from
+   *  synthesis because they are billed separately and fail separately. */
+  sttSecondsPerMonth: number;
   voice: boolean;
 };
 
@@ -52,6 +55,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     activeMemoriesPerAssistant: 100,
     modelCostPerMonth: 2_500_000, // $2.50
     ttsCharsPerMonth: 0,
+    sttSecondsPerMonth: 0,
     voice: false,
   },
   paid: {
@@ -64,6 +68,9 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     activeMemoriesPerAssistant: Number.MAX_SAFE_INTEGER,
     modelCostPerMonth: 5_000_000, // $5.00 against a $9 price
     ttsCharsPerMonth: 200_000,
+    // ~30 minutes a month of voice notes: generous for the described use
+    // (a note here and there), and bounded against a $9 price.
+    sttSecondsPerMonth: 1_800,
     voice: true,
   },
 };

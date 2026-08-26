@@ -8,7 +8,7 @@ import type { Sql } from '../client.ts';
 import { db } from '../client.ts';
 import type { UserScope } from '../scope.ts';
 
-export type CounterKind = 'messages' | 'proactive' | 'model_cost_micros' | 'tts_chars';
+export type CounterKind = 'messages' | 'proactive' | 'model_cost_micros' | 'tts_chars' | 'stt_seconds';
 
 /** Atomic: read-then-write across two requests is how a limit leaks. */
 export async function increment(

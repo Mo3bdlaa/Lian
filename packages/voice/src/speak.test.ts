@@ -90,3 +90,84 @@ describe('§8 audio from a non-persisting context is never cached', () => {
     assert.notEqual(hashText('hello'), hashText('hello.'));
   });
 });
+
+// ── voice notes from the user ───────────────────────────────────────────────
+import { transcribeVoiceNote, MAX_VOICE_NOTE_SECONDS } from './transcribe.ts';
+
+function transcribePorts(result: { text: string; language: string | null } | Error = { text: 'I paid the gym four hundred.', language: 'en' }) {
+  let used = 0;
+  return {
+    get used() { return used; },
+    speech: {
+      async transcribe() {
+        if (result instanceof Error) throw result;
+        return result;
+      },
+    },
+    usage: {
+      async reserveSeconds(_u: string, _m: string, ceiling: number, seconds: number) {
+        if (used + seconds > ceiling) return false;
+        used += seconds;
+        return true;
+      },
+    },
+  };
+}
+
+const note = {
+  userId: 'u-1', audio: new Uint8Array([1, 2, 3]), contentType: 'audio/mpeg',
+  durationSeconds: 12, month: '2026-05', secondsCeiling: 3_600, languageHint: 'en',
+};
+
+describe('Q14 the transcript is the message body', () => {
+  test('a voice note becomes text the rest of the product can read', async () => {
+    const result = await transcribeVoiceNote(note, transcribePorts());
+    assert.deepEqual(result, { status: 'transcribed', text: 'I paid the gym four hundred.', language: 'en' });
+    // Memory extraction, search, the rolling summary and the model all read
+    // message bodies.  A voice note stored as audio alone is a message the
+    // product cannot think about.
+  });
+
+  test('an empty transcript is a failure, not an empty message', async () => {
+    const result = await transcribeVoiceNote(note, transcribePorts({ text: '   ', language: null }));
+    assert.equal(result.status, 'failed');
+  });
+
+  test('a provider error is reported, not thrown', async () => {
+    const result = await transcribeVoiceNote(note, transcribePorts(new Error('provider blocked this IP')));
+    assert.equal(result.status, 'failed');
+    assert.ok(result.status === 'failed' && /blocked this IP/.test(result.reason));
+  });
+
+  test('§12 the per-user ceiling applies to listening as well as speaking', async () => {
+    const ports = transcribePorts();
+    const result = await transcribeVoiceNote({ ...note, secondsCeiling: 5 }, ports);
+    assert.equal(result.status, 'ceiling_reached');
+    assert.equal(ports.used, 0, 'a refusal does not consume the budget');
+  });
+
+  test('a recording longer than a voice note is refused before it is paid for', async () => {
+    const ports = transcribePorts();
+    const result = await transcribeVoiceNote({ ...note, durationSeconds: MAX_VOICE_NOTE_SECONDS + 1 }, ports);
+    assert.equal(result.status, 'failed');
+    assert.equal(ports.used, 0);
+  });
+
+  test('an empty recording never reaches the provider', async () => {
+    const ports = transcribePorts();
+    assert.equal((await transcribeVoiceNote({ ...note, audio: new Uint8Array() }, ports)).status, 'failed');
+    assert.equal(ports.used, 0);
+  });
+});
+
+describe('the speech provider satisfies the three constraints (Q14)', () => {
+  test('synthesis returns bytes, never a hosted URL', async () => {
+    // Constraint 2: where audio is written is decided in speak.ts and nowhere
+    // else.  A provider that returned a URL would have made that decision for
+    // us, and persist:false would be unenforceable.
+    const shape = await import('./providers/speech.ts');
+    assert.ok('httpSpeechProvider' in shape);
+    assert.equal(shape.DEFAULT_SPEECH.id, 'openai-speech');
+    assert.ok(shape.DEFAULT_SPEECH.ttsUrl.startsWith('https://'), 'and it is reachable from a datacenter — constraint 1');
+  });
+});

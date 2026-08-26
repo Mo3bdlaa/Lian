@@ -14,6 +14,16 @@ describe('plan limits', () => {
     assert.ok(limitsFor('free').modelCostPerMonth > 0, 'a free plan with no ceiling is how these products die');
   });
 
+  test('voice is metered in both directions, and free has neither', () => {
+    // LESSONS §12's ceiling rule applies to listening as well as speaking:
+    // synthesis is billed per character, transcription per second, and a
+    // paid plan with no ceiling on either is the same failure twice.
+    assert.equal(limitsFor('free').ttsCharsPerMonth, 0);
+    assert.equal(limitsFor('free').sttSecondsPerMonth, 0);
+    assert.ok(limitsFor('paid').ttsCharsPerMonth > 0);
+    assert.ok(limitsFor('paid').sttSecondsPerMonth > 0);
+  });
+
   test('paid is unlimited in practice — the daily number is a runaway guard', () => {
     assert.ok(limitsFor('paid').messagesPerDay >= 10 * limitsFor('free').messagesPerDay);
     assert.ok(limitsFor('paid').modelCostPerMonth > limitsFor('free').modelCostPerMonth);
