@@ -43,6 +43,12 @@
       ],
       "@lian/capabilities/test-fakes": [
         "./packages/capabilities/src/test-fakes.ts"
+      ],
+      "@lian/analysis": [
+        "./packages/analysis/src/index.ts"
+      ],
+      "@lian/analysis/test-fakes": [
+        "./packages/analysis/src/test-fakes.ts"
       ]
     },
     "baseUrl": "."

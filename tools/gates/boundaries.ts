@@ -20,6 +20,9 @@ const ALLOWED: Record<string, string[]> = {
   i18n: ['domain'],
   db: ['domain'],
   llm: ['domain'],
+  // The non-voice prompt path (LESSONS §1, as restated).  It reads text and
+  // returns JSON; it must never be able to name the persona.
+  analysis: ['domain'],
   // prompt talks to the database through ports declared in domain, never to db
   // directly: it must stay assemblable from fakes in a unit test.
   prompt: ['domain', 'i18n'],
@@ -28,8 +31,8 @@ const ALLOWED: Record<string, string[]> = {
   auth: ['domain', 'i18n'],
   voice: ['domain'],
   // composition roots: they wire ports to implementations.
-  runtime: ['domain', 'i18n', 'design', 'prompt', 'llm', 'capabilities', 'auth', 'voice', 'db'],
-  jobs: ['domain', 'i18n', 'prompt', 'llm', 'capabilities', 'voice', 'db', 'runtime'],
+  runtime: ['domain', 'i18n', 'design', 'prompt', 'llm', 'capabilities', 'auth', 'voice', 'db', 'analysis'],
+  jobs: ['domain', 'i18n', 'prompt', 'llm', 'capabilities', 'voice', 'db', 'runtime', 'analysis'],
 };
 
 const SQL_KEYWORDS = /\b(SELECT\s+[\s\S]{0,200}?\bFROM\b|INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM|CREATE\s+(TABLE|INDEX|TYPE)|ALTER\s+TABLE)\b/i;
@@ -88,6 +91,8 @@ for (const file of files) {
       const why =
         pkg === 'capabilities' && target === 'prompt'
           ? " — LESSONS §13: a capability composes INTO the prompt, it never reaches into it"
+        : pkg === 'analysis' && target === 'prompt'
+          ? ' — LESSONS §1: the non-voice path may not construct a persona. That is the whole condition it exists under.'
           : pkg === 'prompt' && target === 'db'
             ? ' — prompt reads through ports declared in @lian/domain so it stays testable with fakes'
             : '';

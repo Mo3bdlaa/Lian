@@ -8,6 +8,7 @@ import type { PromptPorts } from '@lian/prompt';
 import type { CapabilityPorts } from '@lian/capabilities';
 import { contributions } from '@lian/capabilities';
 import { limitsFor, messageBudget, nextStage, stageKey, type Plan } from '@lian/domain';
+import { toVectorLiteral, type Embedder } from '@lian/analysis';
 import type { AssistantScope, UserScope } from '@lian/db';
 
 /** Prose for each stage.  LESSONS §6: the client is told which stage, never
@@ -24,7 +25,7 @@ const STAGE_PROSE: Record<string, string> = {
 // built with a placeholder user would compile and would quietly make an
 // assistant id sufficient to read a row — the access path LESSONS §11 says
 // must be a deliberate decision.  There is no placeholder here.
-export function promptPorts(userId: string): PromptPorts {
+export function promptPorts(userId: string, embedder: Embedder | null = null): PromptPorts {
   const scopeFor = (assistantId: string): AssistantScope => ({ userId, assistantId });
   return {
     async loadAssistant(assistantId, userId) {
@@ -59,10 +60,21 @@ export function promptPorts(userId: string): PromptPorts {
       const rows = await db.canon.all(scopeFor(assistantId));
       return rows.map((row) => ({ statement: row.statement }));
     },
-    async loadMemories(assistantId, _query, limit) {
-      // Embedding retrieval is wired when the embedder lands; salience and
-      // recency is the honest fallback, not a silent one.
-      const rows = await db.memories.retrieve(scopeFor(assistantId), null, limit);
+    async loadMemories(assistantId, query, limit) {
+      // Semantic retrieval when there is something to retrieve against, and a
+      // salience ordering when there is not (her own turn, a briefing).  A
+      // failed embedding degrades to the same fallback rather than losing the
+      // turn — she should be less precise, never silent.
+      let embedding: string | null = null;
+      if (query !== null && query.trim() !== '' && embedder !== null) {
+        try {
+          const [vector] = await embedder.embed([query]);
+          if (vector !== undefined) embedding = toVectorLiteral(vector);
+        } catch {
+          embedding = null;
+        }
+      }
+      const rows = await db.memories.retrieve(scopeFor(assistantId), embedding, limit);
       return rows.map((row) => ({
         type: row.type, statement: row.statement,
         when: row.createdAt.toISOString().slice(0, 10),

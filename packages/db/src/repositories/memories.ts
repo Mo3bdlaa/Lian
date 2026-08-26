@@ -66,7 +66,10 @@ export type RememberInput = {
   statement: string;
   salience?: number;
   sourceMessageId?: string | null;
-  embedding?: number[] | null;
+  /** pgvector literal, e.g. '[0.1,-0.2,…]'.  Absent means the row is stored
+   *  but not yet searchable — honest, and visible in a backfill query. */
+  embedding?: string | null;
+  embeddingModel?: string | null;
 };
 
 export type RememberResult =
@@ -95,22 +98,34 @@ export async function remember(
   }
 
   const { rows } = await sql.query<Row>(
-    `INSERT INTO memories (assistant_id, type, statement, status, salience, source_message_id, embedding)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING ${COLUMNS}`,
-    [scope.assistantId, input.type, input.statement, status, input.salience ?? 0.5, input.sourceMessageId ?? null, input.embedding ?? null],
+    `INSERT INTO memories (assistant_id, type, statement, status, salience, source_message_id, embedding_v, embedding_model)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::vector, $8) RETURNING ${COLUMNS}`,
+    [scope.assistantId, input.type, input.statement, status, input.salience ?? 0.5,
+     input.sourceMessageId ?? null, input.embedding ?? null, input.embeddingModel ?? null],
   );
   const memory = toMemory(rows[0]!);
   if (status === 'active') return { outcome: 'kept', memory };
   return { outcome: 'queued', memory, pendingCount: await countPending(scope, sql) };
 }
 
-/** Retrieval for the prompt's memory block: similarity, then recency. */
+/**
+ * Retrieval for the prompt's memory block.
+ *
+ * Semantic first, then salience, then recency.  The ranking is deliberately
+ * not pure similarity: a highly salient fact about someone's sister should
+ * survive a turn about lunch, and pure cosine will happily bury it under
+ * three lunch memories.  `1 - (a <=> b)` is cosine similarity; pgvector's
+ * <=> is cosine DISTANCE.
+ *
+ * A memory with no embedding is still reachable — it sorts by salience — so a
+ * failed embedding call degrades retrieval rather than losing the memory.
+ */
 export async function retrieve(
   scope: AssistantScope,
-  embedding: number[] | null,
+  embedding: string | null,
   limit: number,
   sql: Sql = db(),
-): Promise<Memory[]> {
+): Promise<(Memory & { similarity: number | null })[]> {
   if (embedding === null) {
     const { rows } = await sql.query<Row>(
       `SELECT ${COLUMNS} FROM memories
@@ -118,16 +133,63 @@ export async function retrieve(
        ORDER BY salience DESC, created_at DESC LIMIT $2`,
       [scope.assistantId, limit],
     );
-    return rows.map(toMemory);
+    return rows.map((row) => ({ ...toMemory(row), similarity: null }));
   }
-  const { rows } = await sql.query<Row>(
-    `SELECT ${COLUMNS} FROM memories
+  const { rows } = await sql.query<Row & { similarity: number | null }>(
+    `SELECT ${COLUMNS},
+            CASE WHEN embedding_v IS NULL THEN NULL ELSE 1 - (embedding_v <=> $2::vector) END AS similarity
+     FROM memories
      WHERE assistant_id = $1 AND status = 'active' AND deleted_at IS NULL
-     ORDER BY coalesce(cosine_similarity(embedding, $2::real[]), 0) DESC, salience DESC, created_at DESC
+     ORDER BY (coalesce(CASE WHEN embedding_v IS NULL THEN NULL ELSE 1 - (embedding_v <=> $2::vector) END, 0) * 0.7
+               + salience * 0.3) DESC,
+              created_at DESC
      LIMIT $3`,
     [scope.assistantId, embedding, limit],
   );
+  return rows.map((row) => ({ ...toMemory(row), similarity: row.similarity }));
+}
+
+/** Rows stored before an embedder existed, or whose embedding call failed. */
+export async function needingEmbedding(scope: AssistantScope, limit: number, sql: Sql = db()): Promise<Memory[]> {
+  const { rows } = await sql.query<Row>(
+    `SELECT ${COLUMNS} FROM memories
+     WHERE assistant_id = $1 AND embedding_v IS NULL AND deleted_at IS NULL
+     ORDER BY created_at LIMIT $2`,
+    [scope.assistantId, limit],
+  );
   return rows.map(toMemory);
+}
+
+export async function setEmbedding(
+  scope: AssistantScope,
+  memoryId: string,
+  embedding: string,
+  embeddingModel: string,
+  sql: Sql = db(),
+): Promise<void> {
+  await sql.query(
+    `UPDATE memories SET embedding_v = $3::vector, embedding_model = $4, updated_at = now()
+     WHERE assistant_id = $1 AND id = $2`,
+    [scope.assistantId, memoryId, embedding, embeddingModel],
+  );
+}
+
+/** Near-duplicate check before writing.  Cheap, and it runs against what is
+ *  already stored rather than only within one exchange. */
+export async function findSimilar(
+  scope: AssistantScope,
+  embedding: string,
+  threshold: number,
+  sql: Sql = db(),
+): Promise<Memory | null> {
+  const { rows } = await sql.query<Row>(
+    `SELECT ${COLUMNS} FROM memories
+     WHERE assistant_id = $1 AND deleted_at IS NULL AND embedding_v IS NOT NULL
+       AND 1 - (embedding_v <=> $2::vector) >= $3
+     ORDER BY embedding_v <=> $2::vector LIMIT 1`,
+    [scope.assistantId, embedding, threshold],
+  );
+  return rows[0] === undefined ? null : toMemory(rows[0]);
 }
 
 export async function list(scope: AssistantScope, status: MemoryStatus, sql: Sql = db()): Promise<Memory[]> {

@@ -19,7 +19,12 @@
 import { assemblePrompt, type PromptPorts, type Surface } from '@lian/prompt';
 import { TagStream, type Provider, type TagSpec, costMicros, modelEntry, budgetFor } from '@lian/llm';
 import { ownerOfTag, tagSpecs, type CapabilityPorts } from '@lian/capabilities';
-import { limitsFor, localDayKey, type CaptureSummary, type Plan } from '@lian/domain';
+import { limitsFor, localDayKey, SUBSTANTIVE_MESSAGES_PER_QUALIFYING_DAY, type CaptureSummary, type Plan } from '@lian/domain';
+
+export type AbsorbFn = (input: {
+  userId: string; assistantId: string; plan: Plan; localDay: string;
+  exchange: { userMessage: string | null; assistantMessage: string; userMessageId: string | null; assistantMessageId: string };
+}) => Promise<{ kept: number; queued: number; refused: number }>;
 
 export type TurnSink = {
   /** Already-clean text.  A control tag never reaches this (LESSONS §3). */
@@ -29,6 +34,9 @@ export type TurnSink = {
   /** Q7: she has already said "logged AED 400" by now, so a failed capture
    *  is spoken about rather than silently dropped. */
   captureFailed(reason: string, language: 'en' | 'ar'): void;
+  /** Q5: the pending queue is full.  A visible, honest state — never a
+   *  silent drop, and never a countdown. */
+  memoryQueueFull?(language: 'en' | 'ar'): void;
 };
 
 export type TurnPorts = {
@@ -52,6 +60,10 @@ export type TurnPorts = {
     recordEvent(input: { name: 'message_sent' | 'proactive_sent' | 'capture_created'; userId: string; assistantId: string; dayKey: string }): Promise<void>;
   };
   provider: Provider;
+  /** Extraction runs on the non-voice path (LESSONS §1, as restated).  It is
+   *  a port rather than an import so the turn cannot reach the analysis
+   *  prompts, and so a test can run a turn without a second model. */
+  absorb: AbsorbFn;
 };
 
 export type TurnInput = {
@@ -106,11 +118,12 @@ export async function runTurn(input: TurnInput, ports: TurnPorts, sink: TurnSink
   if (!costHeadroom) return { status: 'cost_ceiling_reached' };
 
   // ── 2. the user's message ───────────────────────────────────────────────
+  let userMessageId: string | null = null;
   if (input.userMessage !== null) {
-    await ports.turn.appendMessage({
+    userMessageId = (await ports.turn.appendMessage({
       assistantId: input.assistantId, conversationId: input.conversationId, role: 'user',
       body: input.userMessage, tags: [], surface: null, clientId: input.clientId,
-    });
+    })).id;
     // LESSONS §4: a reply answers everything she was waiting on, so backoff
     // resets.  Reminders the user set are untouched — they never counted.
     await ports.turn.markOutreachAnswered(input.assistantId);
@@ -211,12 +224,26 @@ export async function runTurn(input: TurnInput, ports: TurnPorts, sink: TurnSink
     userId: input.userId, assistantId: input.assistantId, dayKey: localDay,
   });
 
-  // Q3: a qualifying day is a day the user was really in, counted once.
-  // Incognito writes nothing, so it earns nothing — assembled.writesMemory
-  // carries that, and it comes from the surface rather than from a caller.
-  if (assembled.writesMemory && input.userMessage !== null) {
+  // ── 7. remember, and count the day ──────────────────────────────────────
+  // assembled.writesMemory comes from the SURFACE, not from a caller, so
+  // incognito cannot write memory by passing the wrong flag (Q12).
+  if (assembled.writesMemory && userMessageId !== null) {
+    const absorbed = await ports.absorb({
+      userId: input.userId, assistantId: input.assistantId, plan: input.plan, localDay,
+      exchange: {
+        userMessage: input.userMessage, assistantMessage: text.trim(),
+        userMessageId, assistantMessageId: message.id,
+      },
+    });
+    // Q5: at the queue cap she says so.  Bounded and truthful beats unbounded
+    // or silent, and this is the only place that state can be noticed.
+    if (absorbed.refused > 0) sink.memoryQueueFull?.(input.language);
+
+    // Q3: a qualifying day is a day the user was really in, counted once.
     const messagesToday = await ports.turn.userMessagesOnDay(input.assistantId, localDay);
-    if (messagesToday >= 3) await ports.turn.creditQualifyingDay(input.assistantId, localDay);
+    if (messagesToday >= SUBSTANTIVE_MESSAGES_PER_QUALIFYING_DAY) {
+      await ports.turn.creditQualifyingDay(input.assistantId, localDay);
+    }
   }
 
   return { status: 'done', messageId: message.id, text: text.trim(), captures, costMicros: spent };

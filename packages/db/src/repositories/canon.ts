@@ -84,10 +84,39 @@ export async function compact(
   sql: Sql = db(),
 ): Promise<CanonStatement> {
   if (sourceIds.length < 2) throw new Error('compaction merges two or more statements');
+
+  const before = (await allIncludingMerged(scope, sql)).length;
   const merged = await state(scope, { statement: mergedStatement, category }, sql);
-  await sql.query(
+  const { rowCount } = await sql.query(
     `UPDATE canon SET merged_into = $3 WHERE assistant_id = $1 AND id = ANY($2::uuid[]) AND merged_into IS NULL`,
     [scope.assistantId, sourceIds, merged.id],
   );
+  await sql.query(
+    `UPDATE canon SET merged_count = $3 WHERE assistant_id = $1 AND id = $2`,
+    [scope.assistantId, merged.id, rowCount ?? 0],
+  );
+
+  // LESSONS §5, checked rather than trusted.  A compaction that loses a
+  // statement is the one way canon can be silently wrong, and it would look
+  // exactly like a successful compaction.  So the count is verified: the
+  // total can only have grown by the merged row itself.
+  const after = (await allIncludingMerged(scope, sql)).length;
+  if (after !== before + 1) {
+    throw new Error(`compaction lost canon: ${before} statements before, ${after} after (expected ${before + 1}). Canon merges, it never drops (LESSONS §5).`);
+  }
+  if ((rowCount ?? 0) !== sourceIds.length) {
+    throw new Error(`compaction merged ${rowCount} of ${sourceIds.length} statements — a partial merge leaves canon claiming a source it did not absorb`);
+  }
   return merged;
+}
+
+/** What a merged statement absorbed.  Used by the Memory screen's audit view
+ *  and by the test that proves nothing was lost. */
+export async function sourcesOf(scope: AssistantScope, canonId: string, sql: Sql = db()): Promise<CanonStatement[]> {
+  const { rows } = await sql.query<Row>(
+    `SELECT id, statement, category, first_message_id, created_at FROM canon
+     WHERE assistant_id = $1 AND merged_into = $2 ORDER BY created_at`,
+    [scope.assistantId, canonId],
+  );
+  return rows.map(toCanon);
 }

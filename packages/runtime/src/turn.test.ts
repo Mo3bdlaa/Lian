@@ -72,16 +72,27 @@ function fakeTurnPorts() {
   return { turn, messages, counters, events, credited, claimedKeys: claimed, get answered() { return answered; }, get voided() { return voided; } };
 }
 
+function fakeAbsorb(result = { kept: 1, queued: 0, refused: 0 }) {
+  const calls: { assistantMessage: string; userMessageId: string | null }[] = [];
+  const fn = async (input: Parameters<TurnPorts['absorb']>[0]) => {
+    calls.push({ assistantMessage: input.exchange.assistantMessage, userMessageId: input.exchange.userMessageId });
+    return result;
+  };
+  return { fn, calls };
+}
+
 function collectingSink() {
   const chunks: string[] = [];
   const captures: CaptureSummary[] = [];
   const failures: string[] = [];
+  const queueFull: string[] = [];
   const sink: TurnSink = {
     text: (delta) => chunks.push(delta),
     capture: (summary) => captures.push(summary),
     captureFailed: (reason) => failures.push(reason),
+    memoryQueueFull: (language) => queueFull.push(language),
   };
-  return { sink, chunks, captures, failures, get text() { return chunks.join(''); } };
+  return { sink, chunks, captures, failures, queueFull, get text() { return chunks.join(''); } };
 }
 
 function input(overrides: Partial<TurnInput> = {}): TurnInput {
@@ -97,10 +108,10 @@ const REPLY = 'Okay, logged AED 400 for the gym today.\n<spend>{"amount":400,"cu
 
 describe('the turn', () => {
   test('chat: streams clean text, captures, charges, records', async () => {
-    const ports: TurnPorts = { prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), provider: fakeProvider(REPLY), turn: fakeTurnPorts().turn };
+    const ports: TurnPorts = { prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), provider: fakeProvider(REPLY), turn: fakeTurnPorts().turn, absorb: fakeAbsorb().fn };
     const collected = collectingSink();
     const store = fakeTurnPorts();
-    const result = await runTurn(input(), { ...ports, turn: store.turn }, collected.sink);
+    const result = await runTurn(input(), { ...ports, turn: store.turn, absorb: fakeAbsorb().fn }, collected.sink);
 
     assert.equal(result.status, 'done');
     assert.ok(result.status === 'done');
@@ -118,10 +129,10 @@ describe('the turn', () => {
     const proactiveProvider = fakeProvider('You said the presentation was making you tense — thinking of you.');
     const shared = { prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts() };
 
-    await runTurn(input(), { ...shared, provider: chatProvider, turn: fakeTurnPorts().turn }, collectingSink().sink);
+    await runTurn(input(), { ...shared, provider: chatProvider, turn: fakeTurnPorts().turn, absorb: fakeAbsorb().fn }, collectingSink().sink);
     await runTurn(
       input({ surface: 'proactive', userMessage: null }),
-      { ...shared, provider: proactiveProvider, turn: fakeTurnPorts().turn },
+      { ...shared, provider: proactiveProvider, turn: fakeTurnPorts().turn, absorb: fakeAbsorb().fn },
       collectingSink().sink,
     );
 
@@ -147,7 +158,7 @@ describe('the turn', () => {
     // see the test below, which is about exactly that collision.
     const ports: TurnPorts = {
       prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), turn: store.turn,
-      provider: fakeProvider('hello', 7, { inputTokens: 0, outputTokens: 0 }),
+      provider: fakeProvider('hello', 7, { inputTokens: 0, outputTokens: 0 }), absorb: fakeAbsorb().fn,
     };
     const limit = limitsFor('free').messagesPerDay;
     for (let i = 0; i < limit; i++) await runTurn(input(), ports, collectingSink().sink);
@@ -161,6 +172,7 @@ describe('the turn', () => {
     const ports: TurnPorts = {
       prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), turn: store.turn,
       provider: fakeProvider('thinking of you', 7, { inputTokens: 0, outputTokens: 0 }),
+      absorb: fakeAbsorb().fn,
     };
     // Spend the whole message allowance…
     for (let i = 0; i < limitsFor('free').messagesPerDay; i++) await runTurn(input(), ports, collectingSink().sink);
@@ -174,7 +186,7 @@ describe('the turn', () => {
   test('§12 the per-user model cost ceiling stops the turn', async () => {
     const store = fakeTurnPorts();
     store.counters.set('model_cost_micros:2026-05', limitsFor('free').modelCostPerMonth);
-    const ports: TurnPorts = { prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), provider: fakeProvider('hello'), turn: store.turn };
+    const ports: TurnPorts = { prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), provider: fakeProvider('hello'), turn: store.turn, absorb: fakeAbsorb().fn };
     const result = await runTurn(input(), ports, collectingSink().sink);
     assert.equal(result.status, 'cost_ceiling_reached');
   });
@@ -190,7 +202,7 @@ describe('the turn', () => {
     // other one, never to delete the test.
     const limits = limitsFor('free');
     const store = fakeTurnPorts();
-    const ports: TurnPorts = { prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), provider: fakeProvider('hello'), turn: store.turn };
+    const ports: TurnPorts = { prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), provider: fakeProvider('hello'), turn: store.turn, absorb: fakeAbsorb().fn };
 
     let delivered = 0;
     let lastStatus = '';
@@ -217,7 +229,7 @@ describe('the turn', () => {
 
   test('Q7 a regeneration voids the previous captures before writing new ones', async () => {
     const store = fakeTurnPorts();
-    const ports: TurnPorts = { prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), provider: fakeProvider(REPLY), turn: store.turn };
+    const ports: TurnPorts = { prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), provider: fakeProvider(REPLY), turn: store.turn, absorb: fakeAbsorb().fn };
     await runTurn(input({ surface: 'regenerate', replacingMessageId: 'm-old' }), ports, collectingSink().sink);
     assert.equal(store.voided, 1, 'regenerating "logged AED 400" must not log AED 400 twice');
   });
@@ -226,7 +238,7 @@ describe('the turn', () => {
     const store = fakeTurnPorts();
     const ports: TurnPorts = {
       prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), turn: store.turn,
-      provider: fakeProvider('Noted.<spend>{"amount":"a lot"}</spend>'),
+      provider: fakeProvider('Noted.<spend>{"amount":"a lot"}</spend>'), absorb: fakeAbsorb().fn,
     };
     const collected = collectingSink();
     const result = await runTurn(input(), ports, collected.sink);
@@ -239,18 +251,19 @@ describe('the turn', () => {
     const store = fakeTurnPorts();
     const ports: TurnPorts = {
       prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), provider: fakeProvider('Understood.'), turn: store.turn,
+      absorb: fakeAbsorb().fn,
     };
     await runTurn(input({ surface: 'incognito', conversationId: 'c-2' }), ports, collectingSink().sink);
     assert.deepEqual(store.credited, [], 'incognito writes nothing, so it earns nothing');
 
     const normal = fakeTurnPorts();
-    await runTurn(input(), { ...ports, turn: normal.turn }, collectingSink().sink);
+    await runTurn(input(), { ...ports, turn: normal.turn, absorb: fakeAbsorb().fn }, collectingSink().sink);
     assert.deepEqual(normal.credited, ['2026-05-18'], 'a real day counts once');
   });
 
   test('the assistant message stores clean text and the tags separately', async () => {
     const store = fakeTurnPorts();
-    const ports: TurnPorts = { prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), provider: fakeProvider(REPLY), turn: store.turn };
+    const ports: TurnPorts = { prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), provider: fakeProvider(REPLY), turn: store.turn, absorb: fakeAbsorb().fn };
     await runTurn(input(), ports, collectingSink().sink);
     const reply = store.messages.find((m) => m.role === 'assistant')!;
     assert.equal(reply.body, 'Okay, logged AED 400 for the gym today.');

@@ -20,12 +20,13 @@
     "gate:theme": "node tools/gates/theme-single-writer.ts",
     "gate:arabic": "node tools/gates/arabic-address.ts",
     "gate:lessons": "node tools/gates/lessons-index.ts",
-    "gates": "npm run gate:boundaries && npm run gate:db:scoping && npm run gate:tokens:audit && npm run gate:tokens:raw && npm run gate:tokens:contrast && npm run gate:tokens:tap && npm run gate:theme && npm run gate:voice && npm run gate:arabic && npm run gate:lessons",
+    "gates": "npm run gate:boundaries && npm run gate:analysis && npm run gate:db:scoping && npm run gate:tokens:audit && npm run gate:tokens:raw && npm run gate:tokens:contrast && npm run gate:tokens:tap && npm run gate:theme && npm run gate:voice && npm run gate:arabic && npm run gate:lessons",
     "verify": "npm run typecheck && npm run gates && npm run test",
     "db:up": "node tools/db/up.ts",
     "db:migrate": "node tools/db/migrate.ts",
     "gate:db:scoping": "node tools/gates/db-scoping.ts",
-    "gate:voice": "node tools/gates/voice-cache.ts"
+    "gate:voice": "node tools/gates/voice-cache.ts",
+    "gate:analysis": "node tools/gates/analysis-path.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

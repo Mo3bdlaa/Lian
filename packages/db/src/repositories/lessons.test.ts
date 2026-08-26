@@ -239,3 +239,99 @@ describe('LESSONS, enforced by the database', { skip: HAS_DB ? false : 'DATABASE
     assert.equal((await memories.list(stranger, 'active')).length, 0);
   });
 });
+
+// ── added in the memory run ─────────────────────────────────────────────────
+import * as memoriesRepo from './memories.ts';
+import { deterministicEmbedder, toVectorLiteral } from '@lian/analysis';
+
+describe('memory retrieval and canon, against the database', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, () => {
+  before(async () => { await ready(); });
+
+  test('§5 the database refuses to delete canon', async () => {
+    const user = await freshUser();
+    const scope = await freshAssistant(user);
+    const statement = await canon.state(scope, { statement: 'I keep early hours.' });
+    await assert.rejects(
+      () => db().query(`DELETE FROM canon WHERE id = $1`, [statement.id]),
+      /canon is never deleted/,
+      'not a convention and not a code path — a rule',
+    );
+    // Deleting the assistant still works: canon goes with her, by cascade.
+    await db().query(`DELETE FROM assistants WHERE id = $1`, [scope.assistantId]);
+    const { rows } = await db().query(`SELECT 1 FROM canon WHERE id = $1`, [statement.id]);
+    assert.equal(rows.length, 0);
+  });
+
+  test('§5 a compaction that would drop a statement fails loudly', async () => {
+    const user = await freshUser();
+    const scope = await freshAssistant(user);
+    const a = await canon.state(scope, { statement: 'I do not drink coffee.' });
+    const b = await canon.state(scope, { statement: 'I like the quiet before six.' });
+
+    const merged = await canon.compact(scope, [a.id, b.id], 'I keep early hours and I do not drink coffee.');
+    assert.deepEqual((await canon.all(scope)).map((c) => c.id), [merged.id]);
+    assert.equal((await canon.allIncludingMerged(scope)).length, 3, 'the sources are still there');
+    assert.deepEqual((await canon.sourcesOf(scope, merged.id)).map((c) => c.id), [a.id, b.id]);
+
+    // A compaction naming a statement that is already merged would absorb
+    // fewer sources than it claims — that is a partial merge, and it throws.
+    await assert.rejects(
+      () => canon.compact(scope, [a.id, b.id], 'A second merge of the same two.'),
+      /merged 0 of 2|compaction lost canon/,
+    );
+  });
+
+  test('semantic retrieval returns the relevant memory, not the most recent', async () => {
+    const user = await freshUser();
+    const scope = await freshAssistant(user);
+    const embedder = deterministicEmbedder();
+
+    const store = async (statement: string, salience: number) => {
+      const [vector] = await embedder.embed([statement]);
+      await memoriesRepo.remember(scope, {
+        type: 'fact', statement, salience,
+        embedding: toVectorLiteral(vector!), embeddingModel: embedder.id,
+      }, 100);
+    };
+    await store('Their sister Dana lives in Cairo.', 0.5);
+    await store('They are allergic to shellfish.', 0.5);
+    await store('They renewed the gym membership in May.', 0.5);
+
+    const [query] = await embedder.embed(['tell me about their sister']);
+    const found = await memoriesRepo.retrieve(scope, toVectorLiteral(query!), 3);
+    assert.match(found[0]!.statement, /sister Dana/, 'the relevant one ranks first, not the newest');
+    assert.ok(found[0]!.similarity !== null && found[0]!.similarity > 0);
+  });
+
+  test('a memory with no embedding is still retrievable — a failed embedder loses nothing', async () => {
+    const user = await freshUser();
+    const scope = await freshAssistant(user);
+    await memoriesRepo.remember(scope, { type: 'fact', statement: 'Stored before any embedder existed.' }, 100);
+
+    const embedder = deterministicEmbedder();
+    const [query] = await embedder.embed(['anything at all']);
+    const found = await memoriesRepo.retrieve(scope, toVectorLiteral(query!), 5);
+    assert.equal(found.length, 1);
+    assert.equal(found[0]!.similarity, null, 'and it is visibly unsearchable rather than silently missing');
+
+    const pending = await memoriesRepo.needingEmbedding(scope, 10);
+    assert.equal(pending.length, 1, 'the backfill can find it');
+    const [vector] = await embedder.embed([pending[0]!.statement]);
+    await memoriesRepo.setEmbedding(scope, pending[0]!.id, toVectorLiteral(vector!), embedder.id);
+    assert.equal((await memoriesRepo.needingEmbedding(scope, 10)).length, 0);
+  });
+
+  test('a near-duplicate is findable before it is written', async () => {
+    const user = await freshUser();
+    const scope = await freshAssistant(user);
+    const embedder = deterministicEmbedder();
+    const statement = 'Their sister Dana moved to Cairo.';
+    const [vector] = await embedder.embed([statement]);
+    await memoriesRepo.remember(scope, { type: 'person', statement, embedding: toVectorLiteral(vector!), embeddingModel: embedder.id }, 100);
+
+    const [again] = await embedder.embed([statement]);
+    assert.ok(await memoriesRepo.findSimilar(scope, toVectorLiteral(again!), 0.94), 'the same statement is a duplicate');
+    const [different] = await embedder.embed(['They renewed the gym membership.']);
+    assert.equal(await memoriesRepo.findSimilar(scope, toVectorLiteral(different!), 0.94), null);
+  });
+});
