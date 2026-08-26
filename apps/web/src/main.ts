@@ -66,7 +66,16 @@ function draw(state: State): void {
     // Before there is an account there is no header, no nav and no drawer —
     // just the screen.
     const language = me?.user.language ?? (document.documentElement.getAttribute('dir') === 'rtl' ? 'ar' : 'en');
+    // What is already typed survives the re-render. The first draw happens
+    // before /api/me answers, and the answer draws again — without this,
+    // anyone typing quickly has their email erased under them.
+    const typed = new Map<string, string>();
+    for (const field of root.querySelectorAll('input')) typed.set(field.name, field.value);
     root.innerHTML = render((entry ?? welcome)({ language, error: state.error, busy: state.busy }));
+    for (const field of root.querySelectorAll('input')) {
+      const value = typed.get(field.name);
+      if (value !== undefined && value !== '') field.value = value;
+    }
     return;
   }
   const where = regions();
@@ -221,6 +230,48 @@ async function loadOlder(): Promise<void> {
   // UI-UX §38: preserve the exact position, never jump to the top.
   where.scrollTop = where.scrollHeight - before;
 }
+
+// ── she speaks first (PRD §9) ─────────────────────────────────────────────
+//
+// A proactive message arrives as a push when the app is closed. When it is
+// OPEN, a notification is the wrong channel and the conversation is the right
+// one — so the client asks what is new while the person is looking at it.
+//
+// Polling rather than a second stream: the turn already owns an SSE
+// connection, and a persistent stream per open tab is a connection per tab to
+// hold for a message that arrives a few times a day.
+const CATCH_UP_SECONDS = 20;
+let catchUp = 0;
+
+function watchForHerMessages(): void {
+  clearInterval(catchUp);
+  catchUp = setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
+    const state = current();
+    if (state.me === null || state.busy || tabFor(state.path) !== 'chat') return;
+    void catchUpNow();
+  }, CATCH_UP_SECONDS * 1000) as unknown as number;
+}
+
+async function catchUpNow(): Promise<void> {
+  const state = current();
+  const conversation = state.me?.conversation;
+  const newest = state.messages.at(-1);
+  if (conversation === undefined || conversation === null || newest === undefined) return;
+  const page = await get<{ messages: Message[] }>(
+    `/api/conversations/${conversation.id}/messages?since_at=${encodeURIComponent(newest.at)}&since_id=${newest.id}`,
+  );
+  if (page.messages.length === 0) return;
+  set({ messages: [...current().messages, ...page.messages] });
+  // Her mood may have moved with it, and the header shows the mood.
+  await refresh();
+}
+
+// Coming back to the tab is the moment worth checking immediately: she may
+// have said something while it was in the background.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') void catchUpNow().catch(() => {});
+});
 
 // ── a turn ────────────────────────────────────────────────────────────────
 
@@ -642,6 +693,7 @@ async function boot(): Promise<void> {
     const me = await get<Snapshot>('/api/me');
     set({ me });
     applyTheme();
+    watchForHerMessages();
     // A signed-in person who lands on an entry screen goes to the
     // conversation: the entry screens exist for people who are not signed in.
     if (ENTRY[match(location.pathname)?.screen ?? ''] !== undefined) go('/chat', true);

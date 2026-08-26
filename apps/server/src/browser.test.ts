@@ -17,7 +17,7 @@
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
-import { db, closeDb, migrate, accounts } from '@lian/db';
+import { db, closeDb, migrate, accounts, outreach } from '@lian/db';
 import { deterministicEmbedder, EMBEDDING_DIMENSIONS, type AnalysisModel } from '@lian/analysis';
 import { DEFAULT_MODEL, type Provider } from '@lian/llm';
 import { generateVapidKeys } from '@lian/push';
@@ -88,6 +88,7 @@ const analysisModel: AnalysisModel = {
 describe('the app, in a browser', { skip: SKIP }, () => {
   const created: string[] = [];
   let base = '';
+  let runSchedule: ((now: Date) => Promise<unknown>) | null = null;
   let close: (() => Promise<void>) | null = null;
   let browser: Browser | null = null;
   /** Browsers opened by a test that needs a session of its own. Signing out
@@ -115,10 +116,12 @@ describe('the app, in a browser', { skip: SKIP }, () => {
       NODE_ENV: 'test', DATABASE_URL: process.env['DATABASE_URL'], PORT: '0',
       LIAN_TICK_SECRET: 'x', LIAN_VAPID_PUBLIC_KEY: VAPID.publicKey, LIAN_VAPID_PRIVATE_KEY: VAPID.privateKey,
     });
-    const { server } = createApplication(config, {
+    const application = createApplication(config, {
       provider: provider(), analysisModel,
       embedder: deterministicEmbedder(EMBEDDING_DIMENSIONS), log: () => {},
     });
+    const { server } = application;
+    runSchedule = application.runSchedule;
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     close = () => new Promise<void>((resolve) => { server.closeAllConnections(); server.close(() => resolve()); });
@@ -396,6 +399,36 @@ describe('the app, in a browser', { skip: SKIP }, () => {
 
     const { rows } = await db().query<{ n: number }>(`SELECT count(*)::int AS n FROM users WHERE id = $1`, [userId]);
     assert.equal(rows[0]!.n, 0, 'deleting is real (LESSONS §11)');
+  });
+
+  test('she messages first, and the open app shows it without a reload', async () => {
+    // The product's defining behaviour, from the inside: something is due,
+    // the tick runs, and the conversation the person is looking at grows a
+    // message they did not send.
+    //
+    // With the app CLOSED this arrives as a push — the encryption is tested
+    // in packages/push and the notification in push.test.ts. With it open, a
+    // notification would be the wrong channel.
+    const page = await freshBrowser();
+    const userId = await signUp(page);
+    await say(page, 'Hello');
+    const before_ = await page.evaluate<number>('document.querySelectorAll(".bubble").length');
+
+    const { rows } = await db().query<{ id: string }>(`SELECT id FROM assistants WHERE user_id = $1`, [userId]);
+    await outreach.schedule(
+      { userId, assistantId: rows[0]!.id },
+      { kind: 'reminder', source: 'user_requested', scheduledFor: new Date(Date.now() - 60_000), dedupeKey: `browser:${userId}` },
+    );
+    const report = await runSchedule!(new Date());
+    assert.ok((report as { outreach: { sent: number } }).outreach.sent >= 1, 'the tick did not deliver');
+
+    // The client asks what is new when the tab is looked at; the test looks
+    // at it rather than waiting out the interval.
+    await page.evaluate('document.dispatchEvent(new Event("visibilitychange"))');
+    await page.waitFor(`document.querySelectorAll(".bubble").length > ${before_}`, 15_000);
+    const last = await page.evaluate<string>('[...document.querySelectorAll(".bubble")].at(-1).textContent');
+    assert.ok(last.trim().length > 0, 'she said nothing');
+    assert.deepEqual(await page.errors(), []);
   });
 
   test('the PWA is installable: manifest, icons, worker', async () => {

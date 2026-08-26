@@ -59,7 +59,12 @@ export type SecurityView = {
 
 export type ReadPorts = MiddlewarePorts & {
   snapshot(userId: string): Promise<Snapshot | null>;
-  messages(input: { userId: string; conversationId: string; before: { at: string; id: string } | null }): Promise<{ messages: MessageView[]; hasOlder: boolean } | null>;
+  messages(input: {
+    userId: string; conversationId: string;
+    before: { at: string; id: string } | null;
+    /** Only what is newer than this — the open app catching up. */
+    since: { at: string; id: string } | null;
+  }): Promise<{ messages: MessageView[]; hasOlder: boolean } | null>;
   react(input: { userId: string; messageId: string; kind: string | null }): Promise<string | null>;
   deleteMessage(input: { userId: string; messageId: string; keepDerived: boolean }): Promise<{ deleted: boolean; memoriesRemoved: number }>;
   memories(input: { userId: string; query: string | null }): Promise<MemoryView[]>;
@@ -107,10 +112,13 @@ export function readRoutes(ports: ReadPorts): { method: 'GET' | 'POST' | 'PATCH'
         // it (UI-UX §38 — "preserve exact scroll position").
         const at = context.query.get('before_at');
         const id = context.query.get('before_id');
+        const sinceAt = context.query.get('since_at');
+        const sinceId = context.query.get('since_id');
         const page = await ports.messages({
           userId: session.userId,
           conversationId: context.params['id']!,
           before: at !== null && id !== null ? { at, id } : null,
+          since: sinceAt !== null && sinceId !== null ? { at: sinceAt, id: sinceId } : null,
         });
         if (page === null) throw new HttpError(404, 'no_conversation', 'I cannot find that conversation');
         return { status: 200, json: page };

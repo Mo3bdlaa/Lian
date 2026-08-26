@@ -147,6 +147,28 @@ export async function olderThan(
   return rows.map(toMessage).reverse();
 }
 
+/**
+ * Anything said since a moment — how an open app notices that she started
+ * talking (PRD §9: she reaches out first, and the app being open should not
+ * be the one place that misses it).
+ */
+export async function since(
+  scope: AssistantScope,
+  conversationId: string,
+  after: { createdAt: Date; id: string },
+  limit = WINDOW_SIZE,
+  sql: Sql = db(),
+): Promise<Message[]> {
+  const { rows } = await sql.query<MessageRow>(
+    `SELECT ${M_COLUMNS} FROM messages
+     WHERE assistant_id = $1 AND conversation_id = $2 AND deleted_at IS NULL
+       AND (created_at, id) > ($3, $4)
+     ORDER BY created_at, id LIMIT $5`,
+    [scope.assistantId, conversationId, after.createdAt, after.id, limit],
+  );
+  return rows.map(toMessage);
+}
+
 export async function softDeleteMessage(scope: AssistantScope, messageId: string, sql: Sql = db()): Promise<boolean> {
   const { rowCount } = await sql.query(
     `UPDATE messages SET deleted_at = now() WHERE assistant_id = $1 AND id = $2 AND deleted_at IS NULL`,

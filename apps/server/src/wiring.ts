@@ -433,7 +433,7 @@ export function readPorts(deps: Deps): ReadPorts {
       };
     },
 
-    async messages({ userId, conversationId, before }) {
+    async messages({ userId, conversationId, before, since }) {
       const user = await db.accounts.getUser({ userId });
       const assistant = await assistantOf(userId);
       if (user === null || assistant === null) return null;
@@ -441,9 +441,11 @@ export function readPorts(deps: Deps): ReadPorts {
       const conversation = await db.conversations.getConversation(scope, conversationId);
       if (conversation === null) return null;
 
-      const window = before === null
-        ? await db.conversations.recentWindow(scope, conversationId)
-        : await db.conversations.olderThan(scope, conversationId, { createdAt: new Date(before.at), id: before.id });
+      const window = since !== null
+        ? await db.conversations.since(scope, conversationId, { createdAt: new Date(since.at), id: since.id })
+        : before === null
+          ? await db.conversations.recentWindow(scope, conversationId)
+          : await db.conversations.olderThan(scope, conversationId, { createdAt: new Date(before.at), id: before.id });
 
       const ids = window.map((message) => message.id);
       const reactions = await db.conversations.reactionsFor({ userId }, ids);
@@ -486,9 +488,10 @@ export function readPorts(deps: Deps): ReadPorts {
       }
 
       // Whether there is more above decides whether the quiet top affordance
-      // is drawn at all (UI-UX §38 — no spinner takeover).
+      // is drawn at all (UI-UX §38 — no spinner takeover). A catch-up read is
+      // never the top of the window, so it does not ask.
       const oldest = window[0];
-      const hasOlder = oldest === undefined
+      const hasOlder = since !== null || oldest === undefined
         ? false
         : (await db.conversations.olderThan(scope, conversationId, { createdAt: oldest.createdAt, id: oldest.id }, 1)).length > 0;
 
