@@ -9,22 +9,32 @@ import assert from 'node:assert/strict';
 import { runTurn, type TurnInput, type TurnPorts, type TurnSink } from './turn.ts';
 import { fakePorts as fakePromptPorts } from '@lian/prompt/test-fakes';
 import { fakePorts as fakeCapabilityPorts } from '@lian/capabilities/test-fakes';
-import { costMicros, typicalTurnMicros, DEFAULT_MODEL, type Provider } from '@lian/llm';
+import { turnCostMicros, typicalTurnMicros, blendedTurnMicros, DEFAULT_MODEL, type Provider, type CompletionRequest } from '@lian/llm';
 import { limitsFor, monthlyMessageAllowance, type CaptureSummary } from '@lian/domain';
 
 const NOW = new Date('2026-05-18T06:30:00.000Z');
 
 /** A provider that replays a scripted response in awkward chunks. */
-function fakeProvider(response: string, chunkSize = 7, usage = { inputTokens: 1_000, outputTokens: 100 }): Provider & { systems: string[] } {
+function fakeProvider(
+  response: string,
+  chunkSize = 7,
+  usage: { inputTokens: number; outputTokens: number; cacheWriteTokens?: number; cacheReadTokens?: number } = { inputTokens: 1_000, outputTokens: 100 },
+): Provider & { systems: string[]; requests: CompletionRequest[] } {
   const systems: string[] = [];
+  const requests: CompletionRequest[] = [];
   return {
     systems,
+    requests,
     id: 'fake',
     capabilities: () => ({ streaming: true, toolCalling: false, vision: false, contextTokens: 200_000, maxOutputTokens: 4_000 }),
     async stream(request, onDelta) {
-      systems.push(request.system);
+      requests.push(request);
+      systems.push(request.system.map((segment) => segment.text).join('\n\n'));
       for (let i = 0; i < response.length; i += chunkSize) onDelta(response.slice(i, i + chunkSize));
-      return { usage, stopReason: 'end_turn' };
+      return {
+        usage: { cacheWriteTokens: 0, cacheReadTokens: 0, ...usage },
+        stopReason: 'end_turn',
+      };
     },
   };
 }
@@ -119,7 +129,7 @@ describe('the turn', () => {
     assert.ok(!collected.text.includes('<spend'), 'a control tag must never reach the sink (LESSONS §3)');
     assert.equal(collected.captures.length, 1);
     assert.equal(collected.captures[0]!.line, 'AED 400 · gym · Today');
-    assert.equal(result.costMicros, costMicros(DEFAULT_MODEL, { inputTokens: 1_000, outputTokens: 100 }));
+    assert.equal(result.costMicros, turnCostMicros(DEFAULT_MODEL, { inputTokens: 1_000, outputTokens: 100 }));
     assert.deepEqual(store.events, ['capture_created', 'message_sent']);
     assert.equal(store.answered, 1, 'a reply answers everything she was waiting on');
   });
@@ -138,9 +148,9 @@ describe('the turn', () => {
 
     const chatSystem = chatProvider.systems[0]!;
     const proactiveSystem = proactiveProvider.systems[0]!;
-    // The persona, canon and memory blocks are identical — this is exactly
-    // what Noura got wrong, and it is why the bug was invisible in chat.
-    for (const marker of ['You are Lian', 'WHAT YOU HAVE SAID ABOUT YOURSELF', 'WHAT YOU REMEMBER ABOUT THEM']) {
+    // The persona and canon are identical — this is exactly what Noura got
+    // wrong, and it is why the bug was invisible in chat.
+    for (const marker of ['You are Lian', 'WHAT YOU HAVE SAID ABOUT YOURSELF']) {
       assert.ok(chatSystem.includes(marker), `chat lost ${marker}`);
       assert.ok(proactiveSystem.includes(marker), `proactive lost ${marker} — this is the Noura bug`);
     }
@@ -150,6 +160,15 @@ describe('the turn', () => {
       'everything before the trailing directive must be byte-identical',
     );
     assert.match(proactiveSystem, /arrives on a lock screen/);
+
+    // And what she remembers still reaches her — it moved into the turn, not
+    // out of the prompt.  The split is about caching, not about content.
+    const chatTurn = chatProvider.requests[0]!.messages.at(-1)!.content;
+    const proactiveTurn = proactiveProvider.requests[0]!.messages.at(-1)!.content;
+    for (const turn of [chatTurn, proactiveTurn]) {
+      assert.match(turn, /WHAT YOU REMEMBER ABOUT THEM/);
+      assert.match(turn, /<<context>>/);
+    }
   });
 
   test('the free message limit stops the turn, and a refusal costs nothing', async () => {
@@ -219,12 +238,87 @@ describe('the turn', () => {
     // The same fact as arithmetic, over a MONTH — which is the period the
     // ceiling is denominated in.  Getting that wrong is how the collision
     // was mis-stated the first time.
-    const perTurn = typicalTurnMicros(DEFAULT_MODEL, true);
+    // BLENDED, not the best case: a month contains first turns, which pay a
+    // cache write and cost more than an uncached turn.  Sizing the ceiling
+    // against the cache-read figure alone would be optimistic in exactly the
+    // way the last mistake was.
+    const perTurn = blendedTurnMicros(DEFAULT_MODEL);
     const monthly = perTurn * monthlyMessageAllowance('free');
     assert.ok(
       monthly <= limits.modelCostPerMonth,
       `a month of free messages (${monthly} micros) must fit the ceiling (${limits.modelCostPerMonth})`,
     );
+    console.log(`      free tier: ${monthlyMessageAllowance('free')} turns × ${perTurn} micros = ${monthly} of ${limits.modelCostPerMonth} ceiling`);
+  });
+
+  test('prompt caching: the saving is a measured number, not a claim', async () => {
+    // ASSUMPTIONS, all three from catalogue.ts and stated there with their
+    // source and date: cache writes cost 1.25x fresh input, reads 0.1x, and
+    // ~60% of a typical turn's input is the stable prefix.  If any of them
+    // moves, this test is where it shows up.
+    const uncached = typicalTurnMicros(DEFAULT_MODEL, 'uncached');
+    const firstTurn = typicalTurnMicros(DEFAULT_MODEL, 'cache-write');
+    const everyTurnAfter = typicalTurnMicros(DEFAULT_MODEL, 'cache-read');
+
+    // The first turn of a conversation costs MORE — writing the cache is
+    // billed above fresh input.  A caching change that does not admit this
+    // is being reported optimistically.
+    assert.ok(firstTurn > uncached, `first turn ${firstTurn} should exceed uncached ${uncached}`);
+    assert.ok(everyTurnAfter < uncached, 'every turn after it costs less');
+
+    // The number that matters for the plan: how much of a turn caching
+    // removes, once a conversation is going.
+    const saving = 1 - everyTurnAfter / uncached;
+    assert.ok(saving > 0.4 && saving < 0.7, `caching should remove 40-70% of a turn; measured ${(saving * 100).toFixed(1)}%`);
+
+    // And it pays for the write within a couple of turns.
+    const breakEven = Math.ceil((firstTurn - uncached) / (uncached - everyTurnAfter));
+    assert.ok(breakEven <= 2, `the cache write should pay for itself within 2 turns; needs ${breakEven}`);
+
+    // Both figures, printed, because a number in a test is worth more when
+    // someone can read it without running a calculator.
+    console.log(`      uncached ${uncached} micros/turn · cached ${everyTurnAfter} · first turn ${firstTurn} · saving ${(saving * 100).toFixed(1)}%`);
+  });
+
+  test('the cache breakpoint is sent, and only at the end of the stable prefix', async () => {
+    const provider = fakeProvider('Okay.');
+    const store = fakeTurnPorts();
+    await runTurn(input(), {
+      prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), turn: store.turn,
+      provider, absorb: fakeAbsorb().fn,
+    }, collectingSink().sink);
+
+    const request = provider.requests[0]!;
+    // The whole system block is cacheable, because nothing per-turn is left
+    // in it.  That is what also makes the history after it cacheable.
+    assert.equal(request.system.length, 1);
+    assert.equal(request.system[0]!.cache, true);
+    assert.ok(request.system[0]!.text.includes('You are Lian'), 'the persona is inside it');
+    assert.ok(!request.system[0]!.text.includes('RIGHT NOW'), 'and per-turn context is not');
+    assert.ok(!request.system[0]!.text.includes('WHAT YOU REMEMBER'), 'nor retrieved memory');
+
+    // LESSONS §1: the directive ends the system block AND is repeated at the
+    // very end of the turn, which is now genuinely the last thing read.
+    assert.ok(request.system[0]!.text.trimEnd().endsWith('about the specific thing they said.'));
+    const finalTurn = request.messages.at(-1)!.content;
+    assert.ok(finalTurn.trimEnd().endsWith('about the specific thing they said.'), 'repeated last');
+    assert.ok(finalTurn.indexOf('<<context>>') < finalTurn.indexOf('WHAT TO DO NOW'), 'context first, instruction last');
+  });
+
+  test('what the cache actually did is reported, never assumed', async () => {
+    // A breakpoint under the provider's minimum prefix silently does not
+    // cache.  A zero here is how that becomes visible.
+    const store = fakeTurnPorts();
+    const result = await runTurn(input(), {
+      prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), turn: store.turn,
+      provider: fakeProvider('Okay.', 7, { inputTokens: 400, outputTokens: 100, cacheReadTokens: 1_600 }),
+      absorb: fakeAbsorb().fn,
+    }, collectingSink().sink);
+
+    assert.ok(result.status === 'done');
+    assert.deepEqual(result.cache, { written: 0, read: 1_600 });
+    // And the charge reflects it: 1,600 cached tokens are billed at 0.1x.
+    assert.equal(result.costMicros, turnCostMicros(DEFAULT_MODEL, { inputTokens: 400, outputTokens: 100, cacheReadTokens: 1_600 }));
   });
 
   test('Q7 a regeneration voids the previous captures before writing new ones', async () => {

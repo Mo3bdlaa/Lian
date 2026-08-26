@@ -22,7 +22,7 @@
 // ==========================================================================
 import { MissingContextError } from './errors.ts';
 import { BLOCKS } from './blocks.ts';
-import { BLOCK_IDS, BLOCK_ZONE, zoneRank, type BlockId } from './zones.ts';
+import { BLOCK_IDS, BLOCK_ZONE, BLOCK_CHANNEL, BLOCK_VOLATILITY, zoneRank, type BlockId } from './zones.ts';
 import { SURFACE_CONFIG, type Surface } from './surfaces.ts';
 import type { PromptPorts } from './ports.ts';
 import type { AssemblyContext } from './context.ts';
@@ -40,8 +40,27 @@ export type AssemblyRequest = {
   readonly memoryLimit: number;
 };
 
+export type PromptSegment = { readonly text: string; readonly cache: boolean };
+
 export type AssembledPrompt = {
+  /** The whole prompt as one string.  Not what is sent — the golden
+   *  snapshots read it, and so does anyone debugging which path produced a
+   *  message. */
   readonly text: string;
+  /**
+   * The system block: byte-stable for a whole conversation, and therefore
+   * cacheable — along with every message after it.
+   */
+  readonly system: readonly PromptSegment[];
+  /** Per-turn context, rendered into the final user turn ahead of what they
+   *  actually said. */
+  readonly turnPrefix: string;
+  /** LESSONS §1: "the most important instruction is repeated last."  This is
+   *  the repetition, and with the split it is now genuinely last. */
+  readonly turnSuffix: string;
+  /** Reported so a caller can see whether the prefix clears the provider's
+   *  minimum, rather than assuming it did. */
+  readonly systemChars: number;
   readonly surface: Surface;
   /** Which blocks rendered, in order, with sizes — for debugging one path
    *  rather than guessing which of two produced a message. */
@@ -127,6 +146,8 @@ export function renderPrompt(context: AssemblyContext): AssembledPrompt {
   const omitted = new Set<string>(config.omits);
   const rendered: { id: BlockId; chars: number }[] = [];
   const parts: string[] = [];
+  const systemParts: string[] = [];
+  const turnParts: string[] = [];
 
   // BLOCK_IDS is already in zone order; asserting it here means a future edit
   // to that array cannot silently break the recency rule, even if someone
@@ -137,12 +158,25 @@ export function renderPrompt(context: AssemblyContext): AssembledPrompt {
     if (omitted.has(id)) continue;
     const text = BLOCKS[id](context);
     if (text === null || text.trim() === '') continue;
-    parts.push(text.trim());
-    rendered.push({ id, chars: text.trim().length });
+    const trimmed = text.trim();
+    parts.push(trimmed);
+    rendered.push({ id, chars: trimmed.length });
+    // The directive is the one block that appears twice: once ending the
+    // system block, once ending the turn.  That is §1's repetition, not a
+    // duplicate.
+    if (id === 'directive') { systemParts.push(trimmed); continue; }
+    (BLOCK_CHANNEL[id] === 'system' ? systemParts : turnParts).push(trimmed);
   }
+
+  const systemText = systemParts.join(SEPARATOR);
+  const directive = BLOCKS.directive(context) ?? '';
 
   return {
     text: parts.join(SEPARATOR),
+    system: systemText === '' ? [] : [{ text: systemText, cache: true }],
+    turnPrefix: turnParts.join(SEPARATOR),
+    turnSuffix: directive.trim(),
+    systemChars: systemText.length,
     surface: context.surface,
     blocks: rendered,
     tags: context.capabilities.flatMap((c) => c.tags),
@@ -161,5 +195,8 @@ function assertZoneOrder(): void {
       );
     }
     highest = rank;
+    // Every block declares its volatility, because the cache breakpoint is
+    // computed from it and a missing entry would silently shrink the prefix.
+    if (BLOCK_VOLATILITY[id] === undefined) throw new Error(`block '${id}' does not declare volatility`);
   }
 }

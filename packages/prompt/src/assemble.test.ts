@@ -24,8 +24,8 @@ describe('block order is data, protected by a test', () => {
     // test failed: the order of the prompt just changed. Confirm it is what
     // you meant, then update the list.
     assert.deepEqual([...BLOCK_IDS], [
-      'identity', 'canon', 'relationship', 'profile', 'memory',
-      'capabilities', 'environment', 'conversation', 'earlier',
+      'identity', 'canon', 'relationship', 'profile', 'capabilities',
+      'conversation', 'earlier', 'memory', 'standing', 'environment',
       'scenario',
       'contract', 'directive',
     ]);
@@ -65,8 +65,47 @@ describe('block order is data, protected by a test', () => {
     for (const surface of SURFACES) {
       const result = await assemblePrompt(request(surface, surface === 'incognito' ? 'c-2' : 'c-1'), fakePorts());
       assert.equal(result.blocks.at(-1)?.id, 'directive', `${surface}: the directive must be last — models weight the end of the prompt`);
-      assert.ok(result.text.trimEnd().endsWith(result.text.trimEnd().split('\n').at(-1)!.trim()));
+      // It ends the system block AND is repeated as the turn's last word.
+      assert.ok(result.system[0]!.text.trimEnd().endsWith(result.turnSuffix), `${surface}: system must end on the directive`);
+      assert.notEqual(result.turnSuffix, '', `${surface}: nothing is repeated last`);
     }
+  });
+
+  test('the two channels split by what CHANGES, not by what it says', async () => {
+    const result = await assemblePrompt(request('chat'), fakePorts());
+    const system = result.system[0]!.text;
+    // Stable for the conversation → cacheable, and everything after it too.
+    for (const stable of ['You are Lian', 'WHAT YOU HAVE SAID ABOUT YOURSELF', 'HOW WELL YOU KNOW EACH OTHER', 'WHAT YOU CAN DO', 'HOW TO WRITE THIS MESSAGE']) {
+      assert.ok(system.includes(stable), `${stable} should be in the cacheable system block`);
+    }
+    // Changes per turn → in the turn, where being last costs nothing.
+    for (const volatile_ of ['WHAT YOU REMEMBER ABOUT THEM', 'RIGHT NOW']) {
+      assert.ok(!system.includes(volatile_), `${volatile_} in the system block would poison the cache for the whole request`);
+      assert.ok(result.turnPrefix.includes(volatile_), `${volatile_} should be in the turn`);
+    }
+  });
+
+  test('the system block is measured against the provider minimum, not assumed past it', async () => {
+    // ASSUMPTIONS: ~4 characters per token (rough, English) and a ~1024-token
+    // minimum cacheable prefix, both stated in @lian/llm/catalogue.ts with
+    // their source.
+    //
+    // The finding this test exists to keep visible: for a NEW user the system
+    // block is around 860 tokens — under the minimum — so the system
+    // breakpoint alone does nothing. Caching starts working via the SECOND
+    // breakpoint, at the end of the history, whose prefix is system + history
+    // and clears the minimum after an exchange or two. It grows past the
+    // minimum on its own as canon and profile fill in.
+    const result = await assemblePrompt(request('chat'), fakePorts());
+    const tokens = Math.ceil(result.system[0]!.text.length / 4);
+    assert.ok(tokens > 500, 'a system block this small would not be worth caching at all');
+    console.log(`      system block ≈${tokens} tokens (provider minimum ≈1024; history breakpoint covers the gap)`);
+  });
+
+  test('§2 the scenario override moved later relative to the persona, not earlier', async () => {
+    const result = await assemblePrompt(request('incognito', 'c-2'), fakePorts());
+    assert.ok(result.system[0]!.text.includes('You are Lian'), 'the persona is in the system block');
+    assert.ok(result.turnPrefix.includes(SCENARIO_OVERRIDE_PREFIX), 'and the override is in the turn, after all of it');
   });
 });
 

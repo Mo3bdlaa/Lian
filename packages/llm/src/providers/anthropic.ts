@@ -23,11 +23,32 @@ export function anthropicProvider(apiKey: string): Provider {
 
     async stream(request: CompletionRequest, onDelta: (delta: string) => void): Promise<CompletionResult> {
       try {
+        // Prompt caching: one breakpoint, at the end of the stable prefix.
+        // Caching is a PREFIX match, so a second breakpoint after per-turn
+        // content would never hit — packages/prompt decides where the
+        // boundary is and this only carries it across.
+        const system = request.system.map((segment) => ({
+          type: 'text' as const,
+          text: segment.text,
+          ...(segment.cache ? { cache_control: { type: 'ephemeral' as const } } : {}),
+        }));
+
         const stream = client.messages.stream({
           model: request.model,
           max_tokens: request.maxOutputTokens,
-          system: request.system,
-          messages: request.messages.map((m) => ({ role: m.role, content: m.content })),
+          system,
+          // Two breakpoints: the end of the system block, and the end of the
+          // history.  Both are prefixes of the same request, in the order the
+          // provider renders them (system, then messages).
+          messages: request.messages.map((message, index) => {
+            const isHistoryEnd = request.cacheHistory && index === request.messages.length - 2;
+            return {
+              role: message.role,
+              content: isHistoryEnd
+                ? [{ type: 'text' as const, text: message.content, cache_control: { type: 'ephemeral' as const } }]
+                : message.content,
+            };
+          }),
           // Adaptive thinking is on by default on this model family.  Her
           // replies are short and conversational, so effort is low unless a
           // surface asks for more: the work is recall and tone, not analysis.
@@ -39,7 +60,15 @@ export function anthropicProvider(apiKey: string): Provider {
         const final = await stream.finalMessage();
 
         return {
-          usage: { inputTokens: final.usage.input_tokens, outputTokens: final.usage.output_tokens },
+          usage: {
+            inputTokens: final.usage.input_tokens,
+            outputTokens: final.usage.output_tokens,
+            // Reported, never assumed.  A breakpoint under the provider's
+            // minimum prefix silently does not cache, and a zero here is how
+            // that becomes visible instead of being believed.
+            cacheWriteTokens: final.usage.cache_creation_input_tokens ?? 0,
+            cacheReadTokens: final.usage.cache_read_input_tokens ?? 0,
+          },
           stopReason: final.stop_reason,
         };
       } catch (error) {

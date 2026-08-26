@@ -12,17 +12,38 @@
 //      charged against the real number rather than an estimate.
 import type { ModelCapabilities } from './catalogue.ts';
 
+export type SystemSegment = { readonly text: string; readonly cache: boolean };
+
 export type CompletionRequest = {
   readonly model: string;
-  readonly system: string;
+  /** Segments, so the adapter can put a cache breakpoint at the end of the
+   *  stable prefix.  A provider without caching joins them. */
+  readonly system: readonly SystemSegment[];
   readonly messages: readonly { role: 'user' | 'assistant'; content: string }[];
+  /**
+   * Put a cache breakpoint at the end of the conversation history — every
+   * message except the last.  History is append-only within a conversation,
+   * so that prefix is byte-identical turn to turn, and in a long conversation
+   * it is most of the tokens.  Only worth anything if `system` is stable too,
+   * because caching matches a prefix across the whole request.
+   */
+  readonly cacheHistory: boolean;
   readonly maxOutputTokens: number;
   /** Chat is conversational, not analytical: low effort keeps her quick. */
   readonly effort: 'low' | 'medium' | 'high';
   readonly signal?: AbortSignal;
 };
 
-export type Usage = { inputTokens: number; outputTokens: number };
+export type Usage = {
+  inputTokens: number;
+  outputTokens: number;
+  /** Tokens written to the cache this turn (billed above fresh input), and
+   *  read from it (billed far below).  Reported rather than assumed: a
+   *  breakpoint under the provider's minimum silently does nothing, and the
+   *  only way to know is to look at what came back. */
+  cacheWriteTokens: number;
+  cacheReadTokens: number;
+};
 
 export type CompletionResult = { readonly usage: Usage; readonly stopReason: string | null };
 

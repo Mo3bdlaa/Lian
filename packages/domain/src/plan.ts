@@ -40,20 +40,31 @@ export const DAYS_PER_MONTH = 30;
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   free: {
     // 20 messages a day is the named limit, so the ceiling must fund it.
-    // 20 × 30 days × ~4,000 micros a cached turn ≈ 2.4M micros, so the
-    // ceiling is 2.5M ($2.50) and the limit a free user meets is the one the
-    // copy names.  runtime/turn.test.ts fails if these two stop agreeing.
     //
-    // Two things to know about that number.  It assumes prompt caching, which
-    // is NOT implemented yet — uncached, a free user costs about $4.80/month
-    // and will hit the ceiling around day 15.  And $2.50 of model spend per
-    // free user is an acquisition cost, not a rounding error: it is a
-    // business decision, recorded here so it is visible rather than inferred
-    // from an invoice.
+    // The arithmetic, with every assumption named (all of them live in
+    // @lian/llm/catalogue.ts with their source and date):
+    //
+    //   20 messages/day × 30 days          = 600 turns/month
+    //   a typical turn, uncached           = 8,000 micros
+    //   the same turn reading the cache    = 4,220
+    //   the same turn WRITING the cache    = 9,050  (first turn of a session)
+    //   blended at 1-in-10 writes          ≈ 4,700
+    //   600 × 4,700                        ≈ 2,820,000 micros = $2.82
+    //
+    // So the ceiling is $3.00, which funds the named limit with ~6% of head
+    // room.  runtime/turn.test.ts recomputes all of this from the model
+    // catalogue and fails if the two stop agreeing.
+    //
+    // What that means, stated plainly because it is a business fact and not
+    // an engineering one: a free user costs up to $3.00/month of model spend
+    // against $9.00 from a subscriber, so roughly three free users consume
+    // one paying customer — before voice, before hosting.  Caching already
+    // halved it; the levers left are the message limit, the model, and how
+    // much history a turn carries.
     messagesPerDay: 20,
     proactivePerDay: 1,
     activeMemoriesPerAssistant: 100,
-    modelCostPerMonth: 2_500_000, // $2.50
+    modelCostPerMonth: 3_000_000, // $3.00 — see the arithmetic above
     ttsCharsPerMonth: 0,
     sttSecondsPerMonth: 0,
     voice: false,

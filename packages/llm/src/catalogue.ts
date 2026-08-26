@@ -84,27 +84,111 @@ export function modelEntry(id: string): ModelEntry {
 export const TYPICAL_TURN = { inputTokens: 3_000, outputTokens: 200 } as const;
 
 /**
- * The lever that has not been pulled yet.  Our system prompt is stable within
- * a conversation, which is exactly the shape prompt caching wants: cached
- * input reads cost about a tenth of fresh input.  With the prompt cached, a
- * typical turn's input drops to roughly a quarter of its billed cost.
+ * Prompt-cache price multipliers, relative to fresh input.
  *
- * NOT IMPLEMENTED.  It is written down here because the plan arithmetic
- * below assumes it, and someone should be able to see that assumption rather
- * than inherit it.
+ * ASSUMPTION, stated because every number below depends on it: writing to
+ * the cache costs about 1.25× fresh input, and reading from it about 0.1×.
+ * Read from the provider's pricing documentation on 2026-06-24, same source
+ * and date as the per-model prices above.  If those multipliers move, the
+ * free-tier ceiling in domain/plan.ts moves with them, and the test in
+ * runtime/turn.test.ts is what says so.
  */
-export const PROMPT_CACHE_INPUT_FACTOR = 0.25;
+export const CACHE_WRITE_MULTIPLIER = 1.25;
+export const CACHE_READ_MULTIPLIER = 0.1;
 
-/** Cost of one typical turn on a model, with and without caching. */
-export function typicalTurnMicros(model: string, cached = false): number {
+/**
+ * Below this many tokens a cache breakpoint silently does nothing.
+ * ASSUMPTION: ~1024 tokens, from the same documentation.  "Silently" is the
+ * important word — a prefix under the minimum is not an error, it is simply
+ * never cached, so the turn reports what it actually got rather than
+ * assuming a hit.
+ */
+export const MIN_CACHEABLE_TOKENS = 1024;
+
+/**
+ * What share of a typical turn's input is cacheable.
+ *
+ * MEASURED, not assumed — and the first version of this number was assumed
+ * and wrong by three times, which is why it now says how it was arrived at.
+ *
+ * From the golden chat prompt (packages/prompt/src/__golden__/chat.txt) plus
+ * TYPICAL_TURN's 3,000 input tokens:
+ *
+ *   system block          ~790 tokens   stable for the conversation
+ *   per-turn context      ~135 tokens   memory, standing, time, directive
+ *   history               ~2,075 tokens  append-only, so all but the last
+ *                                        message is stable too
+ *
+ * Cacheable = the system block plus the history prefix = ~0.85 of the input.
+ * The number below is deliberately more conservative than that: history is
+ * short early in a conversation, and a cache entry expires between sessions.
+ *
+ * ASSUMPTION inside the measurement: ~4 characters per token, the usual rough
+ * ratio for English; Arabic runs denser, so the Arabic side caches slightly
+ * better than this and never worse.
+ */
+export const TYPICAL_CACHED_SHARE = 0.7;
+
+export type TurnUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  cacheWriteTokens?: number;
+  cacheReadTokens?: number;
+};
+
+/** Cost of one turn from real usage, cache-aware. */
+export function turnCostMicros(model: string, usage: TurnUsage): number {
   const { pricing } = modelEntry(model);
-  const input = TYPICAL_TURN.inputTokens * (cached ? PROMPT_CACHE_INPUT_FACTOR : 1);
-  return Math.ceil((input * pricing.inputPerMillionMicros) / M + (TYPICAL_TURN.outputTokens * pricing.outputPerMillionMicros) / M);
+  const input = usage.inputTokens * pricing.inputPerMillionMicros;
+  const write = (usage.cacheWriteTokens ?? 0) * pricing.inputPerMillionMicros * CACHE_WRITE_MULTIPLIER;
+  const read = (usage.cacheReadTokens ?? 0) * pricing.inputPerMillionMicros * CACHE_READ_MULTIPLIER;
+  const output = usage.outputTokens * pricing.outputPerMillionMicros;
+  return Math.ceil((input + write + read + output) / M);
 }
 
+/**
+ * Cost of one typical turn, in three states, so the difference caching makes
+ * is a number rather than a claim:
+ *
+ *   'uncached'    no caching at all — what we billed before this ran
+ *   'cache-write' the first turn of a conversation, which pays 1.25×
+ *   'cache-read'  every turn after it
+ */
+/**
+ * The share of turns that pay a cache WRITE rather than a read.
+ *
+ * ASSUMPTION: 1 in 10.  A cache entry lives ~5 minutes by default, so the
+ * first turn of every session pays the write, as does any turn after a pause
+ * longer than that.  One in ten implies sessions of about ten turns, which
+ * matches nothing measured yet — there is no usage data.  It is here rather
+ * than buried in a spreadsheet so that the first week of real sessions can
+ * correct it, and so the plan ceiling below is not quietly optimistic.
+ */
+export const CACHE_WRITE_TURN_SHARE = 0.1;
+
+/**
+ * What a turn costs on average once caching is on — the number the plan
+ * ceiling should actually be sized against, because a month contains both
+ * kinds of turn.
+ */
+export function blendedTurnMicros(model: string): number {
+  const write = typicalTurnMicros(model, 'cache-write');
+  const read = typicalTurnMicros(model, 'cache-read');
+  return Math.ceil(write * CACHE_WRITE_TURN_SHARE + read * (1 - CACHE_WRITE_TURN_SHARE));
+}
+
+export function typicalTurnMicros(model: string, state: 'uncached' | 'cache-write' | 'cache-read' = 'uncached'): number {
+  const prefix = Math.round(TYPICAL_TURN.inputTokens * TYPICAL_CACHED_SHARE);
+  const rest = TYPICAL_TURN.inputTokens - prefix;
+  if (state === 'uncached') return turnCostMicros(model, TYPICAL_TURN);
+  return turnCostMicros(model, {
+    inputTokens: rest,
+    outputTokens: TYPICAL_TURN.outputTokens,
+    ...(state === 'cache-write' ? { cacheWriteTokens: prefix } : { cacheReadTokens: prefix }),
+  });
+}
+
+/** Kept for callers that have no cache usage to report. */
 export function costMicros(model: string, usage: { inputTokens: number; outputTokens: number }): number {
-  const { pricing } = modelEntry(model);
-  return Math.ceil(
-    (usage.inputTokens * pricing.inputPerMillionMicros) / M + (usage.outputTokens * pricing.outputPerMillionMicros) / M,
-  );
+  return turnCostMicros(model, usage);
 }

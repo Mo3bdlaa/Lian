@@ -17,7 +17,7 @@
 //   6. persist, charge, record
 // ==========================================================================
 import { assemblePrompt, type PromptPorts, type Surface } from '@lian/prompt';
-import { TagStream, type Provider, type TagSpec, costMicros, modelEntry, budgetFor } from '@lian/llm';
+import { TagStream, type Provider, type TagSpec, turnCostMicros, modelEntry, budgetFor } from '@lian/llm';
 import { ownerOfTag, tagSpecs, type CapabilityPorts } from '@lian/capabilities';
 import { limitsFor, localDayKey, SUBSTANTIVE_MESSAGES_PER_QUALIFYING_DAY, type CaptureSummary, type Plan } from '@lian/domain';
 
@@ -85,7 +85,13 @@ export type TurnInput = {
 };
 
 export type TurnResult =
-  | { readonly status: 'done'; readonly messageId: string; readonly text: string; readonly captures: CaptureSummary[]; readonly costMicros: number }
+  | {
+      readonly status: 'done'; readonly messageId: string; readonly text: string;
+      readonly captures: CaptureSummary[]; readonly costMicros: number;
+      /** What the cache actually did this turn, so the saving is observed
+       *  rather than assumed. */
+      readonly cache: { readonly written: number; readonly read: number };
+    }
   /** PRD §11: she is not gone.  The caller shows her line, not a modal. */
   | { readonly status: 'message_limit_reached' }
   /** LESSONS §12: the per-user ceiling.  Distinct from the message limit
@@ -156,6 +162,31 @@ export async function runTurn(input: TurnInput, ports: TurnPorts, sink: TurnSink
   });
 
   const history = await ports.turn.history(input.assistantId, input.conversationId, HISTORY_MESSAGES);
+
+  // The final turn: per-turn context, then what they actually said, then the
+  // repeated directive.  Everything before it is byte-stable, which is what
+  // makes both the system block and the history cacheable.
+  //
+  // The context is delimited and labelled because it now travels inside a
+  // user message: the system block says anything between these markers is
+  // from the system rather than from the person.  Someone typing the markers
+  // themselves gets them back as ordinary text, which is the failure mode
+  // worth being deliberate about.
+  const finalTurn = [
+    assembled.turnPrefix === '' ? null : `<<context>>\n${assembled.turnPrefix}\n<</context>>`,
+    input.userMessage,
+    assembled.turnSuffix === '' ? null : assembled.turnSuffix,
+  ].filter((part): part is string => part !== null && part !== '').join('\n\n');
+
+  // When the user just spoke, the last history entry IS that message — it was
+  // persisted above.  It is replaced by the composed version rather than
+  // appearing twice.  When she speaks first there is nothing to replace.
+  const prior = input.userMessage === null ? history : history.slice(0, -1);
+  // A conversation has to open on a user turn; a window can begin mid-reply.
+  const firstUser = prior.findIndex((message) => message.role === 'user');
+  const priorHistory = firstUser === -1 ? [] : prior.slice(firstUser);
+  const messages = [...priorHistory, { role: 'user' as const, content: finalTurn }];
+
   const pendingTags: { name: string; payload: unknown; index: number }[] = [];
   const failedTags: string[] = [];
   let text = '';
@@ -170,8 +201,10 @@ export async function runTurn(input: TurnInput, ports: TurnPorts, sink: TurnSink
 
   const usage = await ports.provider.stream(
     {
-      model: input.model, system: assembled.text, messages: history,
+      model: input.model, system: assembled.system, messages,
       maxOutputTokens: budget.maxOutputTokens, effort: 'low',
+      // Only worth a breakpoint when there is history to cache.
+      cacheHistory: priorHistory.length >= 2,
     },
     (delta) => consume(stream.push(delta)),
   );
@@ -217,7 +250,7 @@ export async function runTurn(input: TurnInput, ports: TurnPorts, sink: TurnSink
   }
 
   // ── 6. charge and record ────────────────────────────────────────────────
-  const spent = costMicros(input.model, usage.usage);
+  const spent = turnCostMicros(input.model, usage.usage);
   await ports.turn.charge(input.userId, 'model_cost_micros', month, spent);
   await ports.turn.recordEvent({
     name: input.surface === 'proactive' ? 'proactive_sent' : 'message_sent',
@@ -246,5 +279,8 @@ export async function runTurn(input: TurnInput, ports: TurnPorts, sink: TurnSink
     }
   }
 
-  return { status: 'done', messageId: message.id, text: text.trim(), captures, costMicros: spent };
+  return {
+    status: 'done', messageId: message.id, text: text.trim(), captures, costMicros: spent,
+    cache: { written: usage.usage.cacheWriteTokens, read: usage.usage.cacheReadTokens },
+  };
 }
