@@ -10,7 +10,7 @@
 // MissingContextError.  It never produces a default.
 import type {
   AssistantContext, CanonContext, CapabilityContribution, ConversationContext,
-  MemoryContext, ProfileContext, RelationshipContext, UserContext,
+  EarlierContext, MemoryContext, ProfileContext, RelationshipContext, UserContext,
 } from './context.ts';
 import type { Surface } from './surfaces.ts';
 
@@ -20,6 +20,8 @@ export type PromptPorts = {
   loadRelationship(assistantId: string): Promise<RelationshipContext | null>;
   loadMood(assistantId: string): Promise<'warm' | 'quiet' | 'neutral' | null>;
   loadConversation(assistantId: string, conversationId: string): Promise<ConversationContext | null>;
+  /** null when the conversation still fits in the window. */
+  loadEarlier(assistantId: string, conversationId: string): Promise<EarlierContext | null>;
   loadCanon(assistantId: string): Promise<CanonContext[]>;
   loadMemories(assistantId: string, query: string | null, limit: number): Promise<MemoryContext[]>;
   loadProfile(userId: string): Promise<ProfileContext[]>;

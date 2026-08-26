@@ -4,7 +4,10 @@
 // neither writes anything.  Persisting is the caller's job, because that is
 // where the plan's capacity rules and the pending queue live, and because an
 // extractor that could write would be a second thing deciding what she keeps.
-import { MEMORY_TYPES, MEMORY_EXTRACTION_SYSTEM, CANON_EXTRACTION_SYSTEM, CONVERSATION_TITLE_SYSTEM } from './prompts.ts';
+import {
+  MEMORY_TYPES, MEMORY_EXTRACTION_SYSTEM, CANON_EXTRACTION_SYSTEM,
+  CONVERSATION_TITLE_SYSTEM, CONVERSATION_SUMMARY_SYSTEM,
+} from './prompts.ts';
 import { parseArray, extractJson } from './json.ts';
 
 export type MemoryType = (typeof MEMORY_TYPES)[number];
@@ -132,6 +135,36 @@ export async function titleConversation(messages: readonly string[], model: Anal
   });
   const title = text.trim().replace(/^["'`]|["'`]$/g, '').replace(/[.!?]$/, '').trim();
   return title.length === 0 || title.length > 60 ? null : title;
+}
+
+/** Words, not tokens: the cap is a product statement about how much of the
+ *  past she carries, and a reader should be able to check it. */
+export const SUMMARY_WORD_LIMIT = 200;
+
+/**
+ * Roll the summary forward over the messages that fell out of the window.
+ * Returns null when there is nothing to add, so a caller can skip the write.
+ */
+export async function rollSummary(
+  input: { summarySoFar: string | null; messages: readonly { role: 'user' | 'assistant'; body: string }[] },
+  model: AnalysisModel,
+): Promise<string | null> {
+  if (input.messages.length === 0) return null;
+  const transcript = input.messages.map((m) => `${m.role === 'user' ? 'USER' : 'ASSISTANT'}: ${m.body}`).join('\n');
+  const { text } = await model.complete({
+    system: CONVERSATION_SUMMARY_SYSTEM,
+    user: `SUMMARY SO FAR:\n${input.summarySoFar ?? '(none yet)'}\n\nMESSAGES SINCE:\n${transcript}`,
+    maxOutputTokens: 512,
+  });
+  const summary = text.trim();
+  if (summary === '') return null;
+  // A model that ignored the word limit gets truncated at a sentence rather
+  // than mid-clause; the alternative is an unbounded block in every prompt.
+  const words = summary.split(/\s+/);
+  if (words.length <= SUMMARY_WORD_LIMIT) return summary;
+  const cut = words.slice(0, SUMMARY_WORD_LIMIT).join(' ');
+  const lastStop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '), cut.lastIndexOf('! '));
+  return lastStop > cut.length / 2 ? cut.slice(0, lastStop + 1) : `${cut}…`;
 }
 
 export { extractJson };

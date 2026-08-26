@@ -8,6 +8,6 @@ export { MissingContextError, MissingPersonaError } from './errors.ts';
 export type { PromptPorts } from './ports.ts';
 export type {
   AssemblyContext, CapabilityContribution, MemoryContext, CanonContext,
-  ProfileContext, ConversationContext, RelationshipContext, EnvironmentContext,
+  ProfileContext, ConversationContext, EarlierContext, RelationshipContext, EnvironmentContext,
   AssistantContext, UserContext,
 } from './context.ts';

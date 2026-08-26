@@ -24,6 +24,7 @@ export const BLOCK_IDS = [
   'capabilities',  // composed from the registry (LESSONS §13)
   'environment',   // time, mood, language, plan
   'conversation',  // which conversation this is, and whether it is kept
+  'earlier',       // the rolling summary of what fell out of the window
   // ── override ────────────────────────────────────────────────────────────
   'scenario',      // replaces the role above (LESSONS §2)
   // ── trailing ────────────────────────────────────────────────────────────
@@ -42,6 +43,7 @@ export const BLOCK_ZONE: Readonly<Record<BlockId, Zone>> = {
   capabilities: 'foundation',
   environment: 'foundation',
   conversation: 'foundation',
+  earlier: 'foundation',
   scenario: 'override',
   contract: 'trailing',
   directive: 'trailing',

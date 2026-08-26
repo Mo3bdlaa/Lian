@@ -25,7 +25,7 @@ describe('block order is data, protected by a test', () => {
     // you meant, then update the list.
     assert.deepEqual([...BLOCK_IDS], [
       'identity', 'canon', 'relationship', 'profile', 'memory',
-      'capabilities', 'environment', 'conversation',
+      'capabilities', 'environment', 'conversation', 'earlier',
       'scenario',
       'contract', 'directive',
     ]);
@@ -79,6 +79,23 @@ describe('one path, all surfaces', () => {
       assert.ok(result.text.includes('You are Lian'), `${surface} lost the persona — this is the Noura bug`);
       assert.equal(result.surface, surface);
     }
+  });
+
+  test('the rolling summary sits after the conversation frame, before any override', async () => {
+    const withEarlier = fakePorts({
+      loadEarlier: async () => ({ summary: 'They decided to postpone the trip. You said you would check on Thursday.', messageCount: 140 }),
+    });
+    const result = await assemblePrompt(request('chat'), withEarlier);
+    const ids = result.blocks.map((b) => b.id);
+    assert.ok(ids.includes('earlier'));
+    assert.ok(ids.indexOf('earlier') > ids.indexOf('conversation'), 'the frame comes before the contents');
+    assert.ok(ids.indexOf('earlier') < ids.indexOf('contract'));
+    assert.match(result.text, /EARLIER IN THIS CONVERSATION/);
+  });
+
+  test('a conversation that still fits the window carries no summary block', async () => {
+    const result = await assemblePrompt(request('chat'), fakePorts());
+    assert.ok(!result.blocks.some((b) => b.id === 'earlier'));
   });
 
   test('a surface that omits a block omits only that block', async () => {

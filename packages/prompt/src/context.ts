@@ -30,6 +30,10 @@ export type MemoryContext = { type: string; statement: string; when: string };
 export type CanonContext = { statement: string };
 export type ProfileContext = { section: string; body: string };
 
+/** UI-UX §38: the window holds ~60 messages.  This is what she is shown
+ *  instead of everything older — rewritten forward, never regenerated. */
+export type EarlierContext = { summary: string; messageCount: number };
+
 export type ConversationContext = {
   id: string;
   kind: 'main' | 'side' | 'incognito';
@@ -76,6 +80,7 @@ export type AssemblyContext = {
   relationship: RelationshipContext;
   environment: EnvironmentContext;
   conversation: ConversationContext | null;
+  earlier: EarlierContext | null;
   canon: CanonContext[];
   memories: MemoryContext[];
   profile: ProfileContext[];

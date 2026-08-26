@@ -20,7 +20,7 @@
 // ==========================================================================
 
 /** Every prompt in this package, named, so the set is countable. */
-export const ANALYSIS_PROMPTS = ['memory_extraction', 'canon_extraction', 'conversation_title'] as const;
+export const ANALYSIS_PROMPTS = ['memory_extraction', 'canon_extraction', 'conversation_title', 'conversation_summary'] as const;
 export type AnalysisPrompt = (typeof ANALYSIS_PROMPTS)[number];
 
 export const MEMORY_TYPES = ['fact', 'preference', 'topic', 'moment', 'person', 'emotional_state'] as const;
@@ -97,6 +97,29 @@ Rules:
 - Prefer nothing to a maybe.`;
 
 /** Titling a side conversation.  The cheapest possible non-voice prompt. */
+/**
+ * The rolling summary.
+ *
+ * The bounded window (UI-UX §38) is what she is shown verbatim — roughly the
+ * last 60 messages.  Everything older still happened, and this is what she is
+ * shown instead of it.  It is rewritten forward rather than regenerated, so
+ * the cost is bounded no matter how long a conversation runs.
+ *
+ * The instruction that matters is the last one: this is not a précis of a
+ * text, it is what someone would carry in their head.
+ */
+export const CONVERSATION_SUMMARY_SYSTEM = `You maintain a running summary of a long conversation.
+
+You will be given the summary so far (possibly empty) and the messages since. Return ONLY the new summary. No prose about what you did, no headings, no bullet points.
+
+Rules:
+- At most 200 words. If the conversation grows, compress the old rather than dropping it.
+- Keep: decisions made, things that were agreed, open questions, anything referred back to more than once, and how the person seemed.
+- Drop: pleasantries, exact wording, anything already captured as a task, a transaction or a memory.
+- Third person about the user, second person about the assistant: "They decided to postpone the trip. You said you would check on Thursday."
+- Never invent. If the messages do not say why something changed, do not explain it.
+- This is not a précis of a transcript. It is what someone would still carry in their head a week later.`;
+
 export const CONVERSATION_TITLE_SYSTEM = `Give this conversation a title of at most five words.
 
 Return ONLY the title. No quotes, no punctuation at the end, no explanation.

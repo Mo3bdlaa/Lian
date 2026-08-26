@@ -56,6 +56,10 @@ export function promptPorts(userId: string, embedder: Embedder | null = null): P
         id: conversation.id, kind: conversation.kind, retention: conversation.retention, scenarioText: conversation.scenarioText,
       };
     },
+    async loadEarlier(assistantId, conversationId) {
+      const summary = await db.summaries.get(scopeFor(assistantId), conversationId);
+      return summary === null ? null : { summary: summary.summary, messageCount: summary.messageCount };
+    },
     async loadCanon(assistantId) {
       const rows = await db.canon.all(scopeFor(assistantId));
       return rows.map((row) => ({ statement: row.statement }));

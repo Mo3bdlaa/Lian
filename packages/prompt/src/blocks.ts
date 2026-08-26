@@ -135,6 +135,14 @@ export const BLOCKS: Readonly<Record<BlockId, BlockRenderer>> = {
     return `THIS CONVERSATION\n${kind}`;
   },
 
+  // What fell out of the bounded window.  Placed after `conversation` so she
+  // reads "this is a side conversation" before "here is what came before" —
+  // the frame first, then the contents.
+  earlier: (ctx) =>
+    ctx.earlier === null
+      ? null
+      : `EARLIER IN THIS CONVERSATION\nYou have the most recent messages in full. This is what came before them, in short:\n${ctx.earlier.summary}`,
+
   // ── override zone ───────────────────────────────────────────────────────
   scenario: (ctx) => {
     const text = ctx.conversation?.scenarioText;
