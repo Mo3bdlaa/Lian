@@ -51,7 +51,6 @@ export const CATALOG = {
   // A screen the product will have and this build does not. Stated plainly
   // rather than hidden: a drawer item that silently shows the conversation is
   // worse than one that says what it is.
-  'screen.not_built': { en: 'This part is not built yet.', ar: 'الجزء ده لسه ما اتبنى.', addressee: 'none' },
   'screen.back_to_chat': { en: 'Back to the conversation', ar: 'رجوع للمحادثة', addressee: 'none' },
 
   // ── memory (UI-UX §5) ───────────────────────────────────────────────────

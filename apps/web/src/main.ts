@@ -27,7 +27,7 @@ import { healthScreen, albumScreen, type Health, type Album } from './screens/al
 import { searchScreen, briefingScreen, profileScreen, type Search, type Briefing, type Profile } from './screens/find.ts';
 import { planScreen, type Plan } from './screens/plan.ts';
 import { identityScreen, dialsScreen, quietHoursScreen, assistantsScreen, type Settings } from './screens/her.ts';
-import { settingsScreen, securityScreen, dataScreen, notBuilt, type Security, type DataState } from './screens/trust.ts';
+import { settingsScreen, securityScreen, dataScreen, type Security, type DataState } from './screens/trust.ts';
 import { correctionSheet, type Correcting, type CorrectKind } from './screens/correct.ts';
 
 const root = document.getElementById('app')!;
@@ -191,7 +191,6 @@ function screenFor(screen: string, state: State, me: Snapshot): Html {
     case 'assistants': return screenData.settings === null ? html`` : assistantsScreen(me, screenData.settings);
     case 'subscription': return screenData.plan === null ? html`` : planScreen(me, screenData.plan, new URLSearchParams(location.search).get('checkout') === 'done');
     case 'album': return screenData.album === null ? html`` : albumScreen(me, screenData.album, screenData.viewing);
-    case 'soon': return notBuilt(me);
     default: return chatScreen(state);
   }
 }

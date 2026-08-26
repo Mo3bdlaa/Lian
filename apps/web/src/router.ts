@@ -19,9 +19,8 @@ export const ROUTES: readonly Route[] = [
   { pattern: '/security', screen: 'security' },
   { pattern: '/data', screen: 'data' },
   { pattern: '/profile', screen: 'profile' },
-  // In the drawer (PRD §13) and in the specs, and not built in this run.
-  // They are routes so that tapping one says so, rather than quietly
-  // rendering the conversation.
+  // The drawer's three groups (PRD §13). Every one of them is built; a path
+  // that is not in this list renders the 404, not the conversation.
   { pattern: '/search', screen: 'search' },
   { pattern: '/album', screen: 'album' },
   { pattern: '/briefing', screen: 'briefing' },
