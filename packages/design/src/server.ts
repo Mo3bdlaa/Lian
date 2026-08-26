@@ -1,3 +1,12 @@
+// The part of the design package that touches the filesystem.
+//
+// It is a SEPARATE entry point — `@lian/design/server` — because the rest of
+// this package is pure and the browser loads it: theme resolution and the
+// single attribute writer are the same modules on both sides, which is what
+// keeps LESSONS §7's "one decision point" true across the network as well as
+// inside the process. A `node:fs` import in the index would make the whole
+// package unservable.
+//
 // Reading a brand colour at runtime.
 //
 // design-system/lian-tokens.css is the single source for every colour in the

@@ -15,6 +15,7 @@ import { current, set, subscribe, type Message, type Snapshot, type State } from
 import { match, tabFor } from './router.ts';
 import { html, render, type Html } from './dom.ts';
 import { t } from './copy.ts';
+import { applyTheme as writeTheme, THEME_COOKIE, DIRECTION_COOKIE, type ThemeName } from '@lian/design';
 import { head } from './components/head.ts';
 import { nav } from './components/nav.ts';
 import { drawer } from './components/drawer.ts';
@@ -511,12 +512,16 @@ async function setAppearance(preference: string): Promise<void> {
 function applyTheme(): void {
   const me = current().me;
   if (me === null) return;
-  document.documentElement.setAttribute('data-t', me.theme);
-  document.documentElement.setAttribute('dir', me.direction);
-  // The cookie is what the server and the pre-hydration script read, so the
-  // next load paints the same thing without a flash.
-  document.cookie = `lian_t=${me.theme}; path=/; max-age=31536000; samesite=lax`;
-  document.cookie = `lian_dir=${me.direction}; path=/; max-age=31536000; samesite=lax`;
+  // The SAME writer the server-rendered document uses (LESSONS §7: one
+  // decision point, one writer, and it writes an attribute rather than a
+  // colour). The theme itself was decided server-side and arrives in the
+  // snapshot; this only applies it.
+  writeTheme(document.documentElement, me.theme as ThemeName, me.direction);
+  // The cookies are what the pre-hydration script reads, so the next load
+  // paints the same thing without a flash. They carry the last known theme,
+  // never a colour.
+  document.cookie = `${THEME_COOKIE}=${me.theme}; path=/; max-age=31536000; samesite=lax`;
+  document.cookie = `${DIRECTION_COOKIE}=${me.direction}; path=/; max-age=31536000; samesite=lax`;
 }
 
 async function revokeDevice(deviceId: string): Promise<void> {

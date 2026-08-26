@@ -1,5 +1,10 @@
 // The app, in a browser.
 //
+// It lives beside the server rather than in apps/web because it runs in Node:
+// it starts the real application and drives Chromium from outside. Putting it
+// in the browser project would pull the whole server graph into a typecheck
+// that has the DOM library loaded, where Node's fetch and the DOM's disagree.
+//
 // Chromium over the DevTools protocol (tools/browser.ts) — no test framework,
 // no driver package, no download step. It skips when Chromium is absent, the
 // way the database tests skip without DATABASE_URL, so `npm test` still runs
@@ -16,8 +21,8 @@ import { db, closeDb, migrate, accounts } from '@lian/db';
 import { deterministicEmbedder, EMBEDDING_DIMENSIONS, type AnalysisModel } from '@lian/analysis';
 import { DEFAULT_MODEL, type Provider } from '@lian/llm';
 import { generateVapidKeys } from '@lian/push';
-import { createApplication } from '../../server/src/app.ts';
-import { loadConfig } from '../../server/src/config.ts';
+import { createApplication } from './app.ts';
+import { loadConfig } from './config.ts';
 import { Browser, chromiumPath } from '../../../tools/browser.ts';
 
 const HAS_DB = (process.env['DATABASE_URL'] ?? '') !== '';

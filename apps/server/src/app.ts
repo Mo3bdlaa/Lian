@@ -6,11 +6,13 @@
 import { anthropicProvider, type Provider } from '@lian/llm';
 import { resolveEmbedder, type AnalysisModel, type Embedder } from '@lian/analysis';
 import { createLianServer, manifestJson, SERVICE_WORKER, PUSH_CLIENT } from '@lian/http';
-import { brandColor, resolveTheme } from '@lian/design';
+import { resolveTheme } from '@lian/design';
+import { brandColor } from '@lian/design/server';
 import { clientModules, stylesheets, icons, version } from './assets.ts';
 import { shell } from './shell.ts';
 import type { JobDeps } from '@lian/jobs';
 import { httpSpeechProvider, DEFAULT_SPEECH } from '@lian/voice';
+import type { Fetcher } from '@lian/push';
 import type { Server } from 'node:http';
 import { analysisModelFrom } from './analysis.ts';
 import { routesFor, type Deps } from './wiring.ts';
@@ -24,7 +26,10 @@ export type Overrides = {
   readonly now?: () => Date;
   readonly sendEmail?: Deps['sendEmail'];
   readonly log?: (line: string) => void;
-  readonly fetcher?: typeof fetch;
+  /** @lian/push's own Fetcher, not the ambient `typeof fetch`: the DOM's
+   *  fetch and Node's differ in their overloads, and the client's typecheck
+   *  loads the DOM library. */
+  readonly fetcher?: Fetcher;
   readonly speech?: Deps['speech'];
 };
 

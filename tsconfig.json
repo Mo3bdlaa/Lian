@@ -55,6 +55,9 @@
       ],
       "@lian/http": [
         "./packages/http/src/index.ts"
+      ],
+      "@lian/design/server": [
+        "./packages/design/src/server.ts"
       ]
     },
     "baseUrl": "."

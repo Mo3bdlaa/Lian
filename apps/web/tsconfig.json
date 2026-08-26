@@ -5,10 +5,13 @@
     // code cannot reach `document` by accident: the DOM lib is loaded here
     // and nowhere else, and `npm run typecheck` runs both projects.
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "types": [],
+    // node types for the test files, which run in node:test; the DOM lib is
+    // what keeps the client honest, and node's globals do not undo that.
+    "types": ["node"],
     "paths": {
       "@lian/i18n": ["../../packages/i18n/src/index.ts"],
-      "@lian/domain": ["../../packages/domain/src/index.ts"]
+      "@lian/domain": ["../../packages/domain/src/index.ts"],
+      "@lian/design": ["../../packages/design/src/index.ts"]
     },
     "baseUrl": "."
   },

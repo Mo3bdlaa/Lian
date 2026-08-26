@@ -26,7 +26,7 @@ const ROOT = resolve(new URL('../../..', import.meta.url).pathname);
  * is the whole criterion, and it is checked rather than trusted — a package
  * that imports node: anything fails the walk with the file that did it.
  */
-const BROWSER_PACKAGES = new Set(['i18n', 'domain']);
+const BROWSER_PACKAGES = new Set(['i18n', 'domain', 'design']);
 
 /** Modules a browser must never receive, even from a whitelisted package. */
 const FORBIDDEN = /^\s*import[^\n]*['"]node:/m;

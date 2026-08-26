@@ -69,6 +69,13 @@ for (const file of files) {
     if (deep && deep[2] === 'test-fakes' && path.endsWith('.test.ts')) {
       continue;
     }
+    // The second sanctioned subpath: '@lian/<pkg>/server' is the part of a
+    // package that touches the filesystem, split out so the rest of the
+    // package can be served to a browser. It is declared in the package's
+    // exports map, so it is an entry point rather than a reach-in.
+    if (deep && deep[2] === 'server') {
+      continue;
+    }
     if (deep) {
       violations.push({ file: path, line, message: `deep import '${spec}' — import '@lian/${deep[1]}' by package name; internals are internal` });
       continue;

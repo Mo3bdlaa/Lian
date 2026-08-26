@@ -13,7 +13,7 @@
 // manifest names is missing.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { Browser, chromiumPath } from './browser.ts';
-import { brandColor } from '@lian/design';
+import { brandColor } from '@lian/design/server';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const OUT = `${ROOT}apps/web/icons`;
