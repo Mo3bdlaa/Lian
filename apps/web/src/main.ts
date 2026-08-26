@@ -26,6 +26,7 @@ import { tasksScreen, moneyScreen, storyScreen, type Task, type Note, type Money
 import { healthScreen, albumScreen, type Health, type Album } from './screens/album.ts';
 import { searchScreen, briefingScreen, profileScreen, type Search, type Briefing, type Profile } from './screens/find.ts';
 import { planScreen, type Plan } from './screens/plan.ts';
+import { identityScreen, dialsScreen, quietHoursScreen, assistantsScreen, type Settings } from './screens/her.ts';
 import { settingsScreen, securityScreen, dataScreen, notBuilt, type Security, type DataState } from './screens/trust.ts';
 import { correctionSheet, type Correcting, type CorrectKind } from './screens/correct.ts';
 
@@ -154,13 +155,13 @@ const screenData: {
   security: Security | null; data: DataState; correcting: Correcting | null;
   health: Health | null; album: Album | null; viewing: string | null;
   search: Search | null; briefing: Briefing | null; profile: Profile | null; savedSection: string | null;
-  plan: Plan | null;
+  plan: Plan | null; settings: Settings | null;
 } = {
   memories: [], query: '', filter: 'all', editing: null, deleting: null,
   tasks: { tasks: [], notes: [] }, money: null, story: null, security: null,
   data: { export: null, confirming: false, typed: '', busy: false }, correcting: null,
   health: null, album: null, viewing: null,
-  search: null, briefing: null, profile: null, savedSection: null, plan: null,
+  search: null, briefing: null, profile: null, savedSection: null, plan: null, settings: null,
 };
 
 const memoryState = (state: State, me: Snapshot): MemoryState => ({
@@ -181,6 +182,10 @@ function screenFor(screen: string, state: State, me: Snapshot): Html {
     case 'search': return searchScreen(me, screenData.search);
     case 'briefing': return screenData.briefing === null ? html`` : briefingScreen(me, screenData.briefing);
     case 'profile': return screenData.profile === null ? html`` : profileScreen(me, screenData.profile, screenData.savedSection);
+    case 'identity': return screenData.settings === null ? html`` : identityScreen(me, screenData.settings);
+    case 'personality': return screenData.settings === null ? html`` : dialsScreen(me, screenData.settings);
+    case 'quietHours': return screenData.settings === null ? html`` : quietHoursScreen(me, screenData.settings);
+    case 'assistants': return screenData.settings === null ? html`` : assistantsScreen(me, screenData.settings);
     case 'subscription': return screenData.plan === null ? html`` : planScreen(me, screenData.plan, new URLSearchParams(location.search).get('checkout') === 'done');
     case 'album': return screenData.album === null ? html`` : albumScreen(me, screenData.album, screenData.viewing);
     case 'soon': return notBuilt(me);
@@ -232,6 +237,9 @@ async function load(path: string): Promise<void> {
     else if (screen === 'album') { screenData.album = await get('/api/album'); screenData.viewing = null; }
     else if (screen === 'briefing') screenData.briefing = await get('/api/briefing');
     else if (screen === 'subscription') screenData.plan = await get('/api/subscription');
+    else if (screen === 'identity' || screen === 'personality' || screen === 'quietHours' || screen === 'assistants') {
+      screenData.settings = await get('/api/settings');
+    }
     else if (screen === 'profile') { screenData.profile = await get('/api/profile'); screenData.savedSection = null; }
     else if (screen === 'search' && screenData.search === null) screenData.search = { query: '', conversations: [], memories: [] };
   } finally {
@@ -283,6 +291,16 @@ async function goToStripe(route: string): Promise<void> {
         : t('error.send_failed', me.user.language, me.assistant.gender),
     });
   }
+}
+
+/** One patch, then re-read: the server is what decides what a setting IS,
+ *  and a client that guessed would drift from it silently. */
+async function saveSetting(patch: Record<string, unknown>): Promise<void> {
+  await patch_('/api/settings', patch);
+  screenData.settings = await get<Settings>('/api/settings');
+  // /api/me carries her name, her gender and the language — all three change
+  // what the rest of the app renders, so the snapshot is re-read too.
+  set({ me: await get<Snapshot>('/api/me') });
 }
 
 async function saveProfileSection(section: string, body: string): Promise<void> {
@@ -468,6 +486,16 @@ document.addEventListener('click', (event) => {
   } else if (action === 'consent-agree') {
     consentState.agreed = !consentState.agreed;
     set({});
+  } else if (action === 'set-gender') {
+    void saveSetting({ assistantGender: actor.dataset['key'] });
+  } else if (action === 'set-dial') {
+    void saveSetting({ personality: { [actor.dataset['key']!]: actor.dataset['stop'] } });
+  } else if (action === 'toggle-quiet') {
+    void saveSetting({ quietHours: { enabled: !(screenData.settings?.quietHours.enabled ?? false) } });
+  } else if (action === 'set-quiet-start') {
+    void saveSetting({ quietHours: { startHour: Number(actor.dataset['key']) } });
+  } else if (action === 'set-quiet-end') {
+    void saveSetting({ quietHours: { endHour: Number(actor.dataset['key']) } });
   } else if (action === 'upgrade') {
     void goToStripe('/api/subscription/checkout');
   } else if (action === 'manage-plan') {
@@ -563,6 +591,16 @@ document.addEventListener('click', (event) => {
     draw(current());
   } else if (action === 'notifications') {
     void enableNotifications();
+  } else if (action === 'set-gender') {
+    void saveSetting({ assistantGender: actor.dataset['key'] });
+  } else if (action === 'set-dial') {
+    void saveSetting({ personality: { [actor.dataset['key']!]: actor.dataset['stop'] } });
+  } else if (action === 'toggle-quiet') {
+    void saveSetting({ quietHours: { enabled: !(screenData.settings?.quietHours.enabled ?? false) } });
+  } else if (action === 'set-quiet-start') {
+    void saveSetting({ quietHours: { startHour: Number(actor.dataset['key']) } });
+  } else if (action === 'set-quiet-end') {
+    void saveSetting({ quietHours: { endHour: Number(actor.dataset['key']) } });
   } else if (action === 'upgrade') {
     void goToStripe('/api/subscription/checkout');
   } else if (action === 'manage-plan') {
@@ -620,6 +658,14 @@ document.addEventListener('submit', (event) => {
     event.preventDefault();
     const confirm = String(new FormData(deleteForm).get('confirm') ?? '');
     void post('/api/data/delete', { confirm }).then(() => { location.href = '/welcome'; });
+    return;
+  }
+  const settingForm = target.closest('[data-action="save-setting"]') as HTMLFormElement | null;
+  if (settingForm !== null) {
+    event.preventDefault();
+    const field = settingForm.dataset['field']!;
+    const value = String(new FormData(settingForm).get('value') ?? '').trim();
+    if (value !== '') void saveSetting({ [field]: value });
     return;
   }
   const profileForm = target.closest('[data-action="save-profile"]') as HTMLFormElement | null;

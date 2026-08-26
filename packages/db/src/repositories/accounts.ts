@@ -152,6 +152,22 @@ export async function setAssistantName(
   );
 }
 
+/** Q13: the five dials, as named stops. Written whole rather than merged in
+ *  SQL, so a partial patch cannot leave a dial with no value. */
+export async function setPersonality(scope: AssistantScope, personality: Personality, sql: Sql = db()): Promise<void> {
+  await sql.query(
+    `UPDATE assistants SET personality = $3 WHERE user_id = $1 AND id = $2`,
+    [scope.userId, scope.assistantId, JSON.stringify(personality)],
+  );
+}
+
+export async function setAssistantGender(scope: AssistantScope, gender: AssistantGender, sql: Sql = db()): Promise<void> {
+  await sql.query(
+    `UPDATE assistants SET gender = $3 WHERE user_id = $1 AND id = $2`,
+    [scope.userId, scope.assistantId, gender],
+  );
+}
+
 export async function setThemePreference(
   scope: UserScope, preference: 'auto' | 'always-light' | 'always-dark', sql: Sql = db(),
 ): Promise<void> {

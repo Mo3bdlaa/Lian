@@ -537,7 +537,9 @@ body {
 .composer__recording { display: flex; align-items: center; gap: var(--s-8); color: var(--text); font-variant-numeric: tabular-nums; }
 
 /* --- chips (filters, choices) -------------------------------------------- */
-.chips { display: flex; flex-wrap: wrap; gap: var(--s-8); }
+.chips { display: flex; flex-wrap: wrap; gap: var(--s-8); padding-inline: var(--s-16); }
+/* Twenty-four hours do not fit on a phone in one row. */
+.chips--wrap { max-width: 100%; }
 .chip {
   min-height: var(--tap-min);
   padding: var(--s-8) var(--s-14);

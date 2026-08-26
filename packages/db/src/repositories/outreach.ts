@@ -11,7 +11,7 @@
 // the user asked for are invisible to backoff.
 import type { Sql } from '../client.ts';
 import { db } from '../client.ts';
-import type { AssistantScope } from '../scope.ts';
+import type { AssistantScope, UserScope } from '../scope.ts';
 
 export type OutreachKind = 'follow_up' | 'reminder' | 'habit' | 'unfinished' | 'briefing' | 'pattern' | 'security';
 
@@ -162,6 +162,27 @@ export async function quietHoursFor(userId: string, sql: Sql = db()): Promise<{
   // No row means never set, which is not the same as "quiet from 22:00".
   if (row === undefined) return { enabled: false, startHour: 22, endHour: 8, days: [], allowSecurity: true };
   return { enabled: row.enabled, startHour: row.start_hour, endHour: row.end_hour, days: row.days, allowSecurity: row.allow_security };
+}
+
+/**
+ * Set quiet hours (UI-UX §23 / PRD §9).
+ *
+ * `allow_security` is separate from `enabled` and defaults to true: quiet
+ * hours are about her chatting, not about a stranger signing in to your
+ * account. Someone who silenced her at night still wants to hear about that.
+ */
+export async function setQuietHours(
+  scope: UserScope,
+  input: { enabled: boolean; startHour: number; endHour: number; days: number[]; allowSecurity: boolean },
+  sql: Sql = db(),
+): Promise<void> {
+  await sql.query(
+    `INSERT INTO quiet_hours (user_id, enabled, start_hour, end_hour, days, allow_security)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (user_id) DO UPDATE SET
+       enabled = $2, start_hour = $3, end_hour = $4, days = $5, allow_security = $6`,
+    [scope.userId, input.enabled, input.startHour, input.endHour, input.days, input.allowSecurity],
+  );
 }
 
 export async function daysSinceLastReachOut(scope: AssistantScope, now: Date, sql: Sql = db()): Promise<number> {

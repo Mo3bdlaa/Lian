@@ -17,6 +17,7 @@ import { memoryScreen } from './screens/memory.ts';
 import { tasksScreen, moneyScreen, storyScreen } from './screens/life.ts';
 import { settingsScreen, securityScreen, dataScreen } from './screens/trust.ts';
 import { healthScreen, albumScreen, type Health, type Album } from './screens/album.ts';
+import { dialsScreen, quietHoursScreen, DIALS, STOPS, type Settings } from './screens/her.ts';
 import { initial, type Message, type Snapshot, type State } from './state.ts';
 import { t } from './copy.ts';
 
@@ -342,5 +343,65 @@ describe('the album (UI-UX §27)', () => {
     assert.ok(!one.includes('data-action="album-older"'));
     const more = render(albumScreen(me(), { items: [item()], hasOlder: true }, null));
     assert.ok(more.includes('data-action="album-older"'));
+  });
+});
+
+// ── her dials (Q13) ────────────────────────────────────────────────────────
+describe('personality is five named stops, never a number', () => {
+  const settings = (personality: Record<string, string> = {}): Settings => ({
+    user: { name: 'Adam' },
+    assistant: { name: 'Lian', gender: 'female', personality },
+    quietHours: { enabled: false, startHour: 22, endHour: 8, days: [], allowSecurity: true },
+    assistants: [{ id: 'a-1', name: 'Lian', gender: 'female', current: true }],
+  });
+
+  test('there is no slider, no percentage and no score anywhere on it', () => {
+    // Q13's rule, and LESSONS §6's: a slider is a number wearing a costume,
+    // and a number is what this product promises not to show about how
+    // somebody is with you.
+    const markup = render(dialsScreen(me(), settings({ warmth: 'high' })));
+    assert.ok(!markup.includes('type="range"'));
+    assert.ok(!markup.includes('%'));
+    for (const banned of ['score', 'Score', 'level', 'Level', 'rating', 'Rating']) {
+      assert.ok(!markup.includes(banned), `${banned} appeared on the dials screen`);
+    }
+    assert.ok(!/\bdata-stop="[0-9]/.test(markup), 'a stop is a word, not a number');
+  });
+
+  test('every dial offers exactly five stops, and the current one is marked', () => {
+    const markup = render(dialsScreen(me(), settings({ warmth: 'high' })));
+    for (const dial of DIALS) {
+      const offered = [...markup.matchAll(new RegExp(`data-key="${dial}" data-stop="([a-z]+)"`, 'g'))].map((m) => m[1]);
+      assert.deepEqual(offered, [...STOPS], `${dial} must offer all five stops`);
+    }
+    assert.match(markup, /chip--on"\s*\n?\s*data-action="set-dial" data-key="warmth" data-stop="high"/);
+  });
+
+  test('a dial with nothing stored shows the middle rather than nothing', () => {
+    const markup = render(dialsScreen(me(), settings()));
+    assert.ok(markup.includes('data-key="warmth" data-stop="mid"'));
+    assert.match(markup, /chip--on"\s*\n?\s*data-action="set-dial" data-key="warmth" data-stop="mid"/);
+  });
+});
+
+describe('quiet hours', () => {
+  const settings = (quiet: Partial<Settings['quietHours']> = {}): Settings => ({
+    user: { name: null },
+    assistant: { name: 'Lian', gender: 'female', personality: {} },
+    quietHours: { enabled: false, startHour: 22, endHour: 8, days: [], allowSecurity: true, ...quiet },
+    assistants: [{ id: 'a-1', name: 'Lian', gender: 'female', current: true }],
+  });
+
+  test('the hours only appear once quiet hours are on', () => {
+    assert.ok(!render(quietHoursScreen(me(), settings())).includes('data-action="set-quiet-start"'));
+    assert.ok(render(quietHoursScreen(me(), settings({ enabled: true }))).includes('data-action="set-quiet-start"'));
+  });
+
+  test('it says plainly that a security message still reaches you', () => {
+    // Quiet hours are about her chatting. Somebody signing in to your account
+    // at 3am is the one thing worth waking you for, and the screen should not
+    // let anyone believe otherwise.
+    const markup = render(quietHoursScreen(me(), settings({ enabled: true })));
+    assert.ok(markup.includes(t('quiet.security_always', 'en')));
   });
 });

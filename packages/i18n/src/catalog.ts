@@ -348,6 +348,39 @@ export const CATALOG = {
   'app.outage_title': { en: 'I cannot reach everything', ar: 'مش قادرة أوصل لكل حاجة', arMale: 'مش قادر أوصل لكل حاجة', addressee: 'none' },
   'app.retry': { en: 'Try again', ar: 'إعادة المحاولة', addressee: 'none' },
 
+  // ── her identity, her dials, quiet hours (UI-UX §15, §23, Q13) ──────────
+  'identity.title': { en: 'Who she is', ar: 'مين هي', arMale: 'مين هو', addressee: 'none' },
+  'identity.her_name': { en: 'What she is called', ar: 'اسمها', arMale: 'اسمه', addressee: 'none' },
+  'identity.your_name': { en: 'What she calls you', ar: 'بتناديك بإيه', arMale: 'بيناديك بإيه', addressee: 'none' },
+  'identity.gender': { en: 'How she refers to herself', ar: 'بتتكلم عن نفسها إزاي', arMale: 'بيتكلم عن نفسه إزاي', addressee: 'none' },
+  'identity.female': { en: 'She', ar: 'مؤنث', addressee: 'none' },
+  'identity.male': { en: 'He', ar: 'مذكر', addressee: 'none' },
+
+  'dials.title': { en: 'How she is with you', ar: 'أسلوبها معاك', arMale: 'أسلوبه معاك', addressee: 'none' },
+  'dials.lede': { en: 'Five things, five settings each. No sliders and no numbers — each one is a way of being, not an amount.', ar: 'خمس حاجات، لكل واحدة خمس اختيارات. من غير أرقام — كل اختيار طريقة، مش مقدار.', addressee: 'none' },
+  'dials.warmth': { en: 'Warmth', ar: 'الدفء', addressee: 'none' },
+  'dials.playfulness': { en: 'Playfulness', ar: 'الخفة', addressee: 'none' },
+  'dials.proactivity': { en: 'Initiative', ar: 'المبادرة', addressee: 'none' },
+  'dials.directness': { en: 'Directness', ar: 'الصراحة', addressee: 'none' },
+  'dials.encouragement': { en: 'Encouragement', ar: 'التشجيع', addressee: 'none' },
+  'dials.least': { en: 'Least', ar: 'الأقل', addressee: 'none' },
+  'dials.low': { en: 'Less', ar: 'أقل', addressee: 'none' },
+  'dials.mid': { en: 'Middle', ar: 'وسط', addressee: 'none' },
+  'dials.high': { en: 'More', ar: 'أكتر', addressee: 'none' },
+  'dials.most': { en: 'Most', ar: 'الأكتر', addressee: 'none' },
+
+  'quiet.title': { en: 'Quiet hours', ar: 'ساعات الهدوء', addressee: 'none' },
+  'quiet.lede': { en: 'She will not reach out during these. Something wrong with your account still will.', ar: 'مش هتتواصل في الوقت ده. لو في حاجة غلط في الحساب، دي بتوصل برضه.', arMale: 'مش هيتواصل في الوقت ده. لو في حاجة غلط في الحساب، دي بتوصل برضه.', addressee: 'none' },
+  'quiet.on': { en: 'Quiet hours', ar: 'ساعات الهدوء', addressee: 'none' },
+  'quiet.from': { en: 'From', ar: 'من', addressee: 'none' },
+  'quiet.to': { en: 'Until', ar: 'لحد', addressee: 'none' },
+  'quiet.every_day': { en: 'Every day', ar: 'كل يوم', addressee: 'none' },
+  'quiet.security_always': { en: 'Anything about your account reaches you whatever this says.', ar: 'أي حاجة تخص الحساب بتوصلك مهما كان الإعداد ده.', addressee: 'none' },
+
+  'assistants.title': { en: 'Who you talk to', ar: 'اللي بتتكلم معاه', addressee: 'none' },
+  'assistants.only_one': { en: 'One, for now. More than one is built into how this works, and there is nothing here yet worth splitting.', ar: 'واحدة دلوقتي. أكتر من واحدة مبنية في التصميم، بس لسه مفيش حاجة تستاهل التقسيم.', arMale: 'واحد دلوقتي. أكتر من واحد مبني في التصميم، بس لسه مفيش حاجة تستاهل التقسيم.', addressee: 'none' },
+  'assistants.current': { en: 'Who you are talking to', ar: 'اللي بتتكلم معاه دلوقتي', addressee: 'none' },
+
   // ── subscription (UI-UX §18) ────────────────────────────────────────────
   //
   // One plan, and the price is stated once. The upgrade action is SECONDARY

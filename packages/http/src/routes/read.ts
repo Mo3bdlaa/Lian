@@ -118,6 +118,16 @@ export type BriefingView = {
   money: { outMinor: number; currency: string } | null;
 };
 
+/** The settings sub-screens (UI-UX §15, §23, Q13). */
+export type SettingsView = {
+  user: { name: string | null };
+  assistant: { name: string; gender: 'female' | 'male'; personality: Record<string, string> };
+  quietHours: { enabled: boolean; startHour: number; endHour: number; days: number[]; allowSecurity: boolean };
+  /** Every assistant on the account (UI-UX §15). One today; the schema
+   *  allows more, and the screen says which is which rather than assuming. */
+  assistants: { id: string; name: string; gender: 'female' | 'male'; current: boolean }[];
+};
+
 /** UI-UX §12: what the USER says about themselves, in their own words. */
 export type ProfileView = { sections: { section: string; body: string }[] };
 
@@ -145,6 +155,7 @@ export type ReadPorts = MiddlewarePorts & {
   search(input: { userId: string; query: string }): Promise<SearchView>;
   briefing(userId: string): Promise<BriefingView>;
   profile(userId: string): Promise<ProfileView>;
+  settings(userId: string): Promise<SettingsView>;
   saveProfile(input: { userId: string; section: string; body: string }): Promise<{ ok: boolean; reason?: string }>;
   album(input: { userId: string; before: string | null }): Promise<AlbumView>;
   security(input: { userId: string; deviceId: string | null }): Promise<SecurityView>;
@@ -259,6 +270,15 @@ export function readRoutes(ports: ReadPorts): { method: 'GET' | 'POST' | 'PATCH'
         const session = await requireSession(context, ports, ports.now());
         await enforceRate({ bucket: `read:${session.userId}`, rule: RATE_RULES.read, now: ports.now() }, ports);
         return { status: 200, json: await ports.briefing(session.userId) };
+      },
+    },
+    {
+      method: 'GET',
+      pattern: '/api/settings',
+      handler: async (context) => {
+        const session = await requireSession(context, ports, ports.now());
+        await enforceRate({ bucket: `read:${session.userId}`, rule: RATE_RULES.read, now: ports.now() }, ports);
+        return { status: 200, json: await ports.settings(session.userId) };
       },
     },
     {

@@ -858,6 +858,24 @@ export function readPorts(deps: Deps): ReadPorts {
       };
     },
 
+    async settings(userId) {
+      const user = await db.accounts.getUser({ userId });
+      const assistants = await db.accounts.listAssistants({ userId });
+      const current = assistants[0];
+      const quiet = await db.outreach.quietHoursFor(userId);
+      return {
+        user: { name: user?.displayName ?? null },
+        assistant: {
+          name: current?.name ?? '', gender: current?.gender ?? 'female',
+          personality: current?.personality ?? {},
+        },
+        quietHours: quiet,
+        assistants: assistants.map((row, index) => ({
+          id: row.id, name: row.name, gender: row.gender, current: index === 0,
+        })),
+      };
+    },
+
     async profile(userId) {
       return { sections: (await db.profile.list({ userId })).map((row) => ({ section: row.section, body: row.body })) };
     },
@@ -977,6 +995,55 @@ export function readPorts(deps: Deps): ReadPorts {
       if (typeof assistantName === 'string' && assistantName.trim() !== '') {
         const assistant = await assistantOf(userId);
         if (assistant !== null) await db.accounts.setAssistantName({ userId, assistantId: assistant.id }, assistantName.trim(), true);
+      }
+      const userName = patch['userName'];
+      if (typeof userName === 'string' && userName.trim() !== '') {
+        await db.accounts.setUserName({ userId }, userName.trim().slice(0, NAME_LIMIT));
+      }
+      const assistantGender = patch['assistantGender'];
+      if (assistantGender === 'female' || assistantGender === 'male') {
+        const assistant = await assistantOf(userId);
+        if (assistant !== null) await db.accounts.setAssistantGender({ userId, assistantId: assistant.id }, assistantGender);
+      }
+
+      // Q13: five dials, five NAMED stops each. A number would be exactly
+      // what the product promises not to be, so an unknown stop is refused
+      // rather than clamped into one.
+      const personality = patch['personality'];
+      if (typeof personality === 'object' && personality !== null) {
+        const assistant = await assistantOf(userId);
+        if (assistant === null) return { ok: false, reason: 'I cannot find that' };
+        const current = await db.accounts.getAssistant({ userId, assistantId: assistant.id });
+        if (current === null) return { ok: false, reason: 'I cannot find that' };
+        const next = { ...current.personality };
+        for (const [dial, stop] of Object.entries(personality as Record<string, unknown>)) {
+          if (!PERSONALITY_DIALS.includes(dial as 'warmth')) return { ok: false, reason: 'that is not one of the dials' };
+          if (!PERSONALITY_STOPS.includes(stop as 'mid')) return { ok: false, reason: 'that is not one of the settings' };
+          next[dial as 'warmth'] = stop as 'mid';
+        }
+        await db.accounts.setPersonality({ userId, assistantId: assistant.id }, next);
+      }
+
+      const quietHours = patch['quietHours'];
+      if (typeof quietHours === 'object' && quietHours !== null) {
+        const input = quietHours as Record<string, unknown>;
+        const hour = (value: unknown, fallback: number): number =>
+          typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 23 ? value : fallback;
+        const existing = await db.outreach.quietHoursFor(userId);
+        const days = Array.isArray(input['days'])
+          ? (input['days'] as unknown[]).filter((day): day is number => typeof day === 'number' && Number.isInteger(day) && day >= 1 && day <= 7)
+          : existing.days;
+        await db.outreach.setQuietHours({ userId }, {
+          enabled: typeof input['enabled'] === 'boolean' ? input['enabled'] : existing.enabled,
+          startHour: hour(input['startHour'], existing.startHour),
+          endHour: hour(input['endHour'], existing.endHour),
+          days,
+          // Deliberately NOT settable to false from here yet: quiet hours are
+          // about her chatting, and somebody signing in to your account at
+          // 3am is the one thing worth waking you for. When there is a screen
+          // that makes that trade explicit, this is where it goes.
+          allowSecurity: true,
+        });
       }
       return { ok: true };
     },
@@ -1339,6 +1406,14 @@ export function billingPorts(deps: Deps): BillingPorts {
  * they live under one fixed key and the counter moves in both directions.
  */
 export const STORAGE_PERIOD = 'held';
+
+/** Q13's five dials and their five stops. Named here so a patch that invents
+ *  a sixth is refused rather than stored. */
+const PERSONALITY_DIALS = ['warmth', 'playfulness', 'proactivity', 'directness', 'encouragement'] as const;
+const PERSONALITY_STOPS = ['least', 'low', 'mid', 'high', 'most'] as const;
+
+/** A display name is a label, not an essay. */
+const NAME_LIMIT = 60;
 
 /** One screen of album, before it asks for more. */
 const ALBUM_PAGE = 60;
