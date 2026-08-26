@@ -300,3 +300,30 @@ what separates them.
   something else is a gate that still has not been shown to run.
 - One case per rule, not per gate. A gate with five rules and one test
   has four rules nobody has checked.
+
+## 16. A batch job that filters after its limit starves its tail
+
+**A `LIMIT` with no `ORDER BY` is an arbitrary sample, and a filter
+applied after a limit is a filter applied to the wrong rows.**
+
+`assistantsActiveOn` selected two hundred active accounts with no
+ordering. `runReflections` took fifty of them and then the scheduler
+filtered those fifty down to the time zones that had reached the hour.
+On a deployment with more than fifty active accounts, the same people
+get a diary every night and nobody past them ever does — and the report
+says `considered: 50`, which looks exactly like health.
+
+It is the same shape as §15: sound code, wrong scope, indistinguishable
+from working. What makes it worse is that the failure is invisible from
+inside. Nothing errors, nothing retries, and the only symptom is on
+somebody else's phone, not happening.
+
+- A batch is a PAGE, not a sample: order it, and give the caller a
+  cursor. A caller that ignores the cursor gets the first page and
+  knows it, which is the honest shape.
+- Keep the cursor SEPARATE from the rows. A wrapper that filters the
+  rows must not also decide where the next page starts, or it skips
+  everything it filtered out.
+- If a bound is real and cannot be paged, say what was dropped. Silent
+  truncation reads as full coverage.
+

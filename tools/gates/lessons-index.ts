@@ -102,6 +102,12 @@ const COVERAGE: Record<string, Coverage[]> = {
     { where: 'tools/gates/boundaries.ts', marker: /composes INTO the prompt/ },
     { where: 'packages/capabilities/src/capabilities.test.ts', marker: /adding a capability stayed cheap/ },
   ],
+  '16': [
+    { where: 'packages/db/src/repositories/outreach.ts', marker: /ORDER BY is not decoration/ },
+    { where: 'packages/jobs/src/reflect.ts', marker: /applied after a LIMIT is how a job silently serves/ },
+    { where: 'packages/jobs/src/candidates.test.ts', marker: /a filter after a LIMIT starves the tail/ },
+    { where: 'packages/jobs/src/candidates.test.ts', marker: /does not move the cursor past what it dropped/ },
+  ],
   '15': [
     // The lesson is the test file, so the marker is the failing case itself.
     { where: 'tools/gates/gates.test.ts', marker: /PASSED a deliberate violation/ },

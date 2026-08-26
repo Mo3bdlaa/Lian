@@ -81,7 +81,8 @@ is tested as an attack, not a shape.
 filtered the result **after** the limit. Together: a busy deployment serves
 the same first fifty accounts every night, nobody past them ever gets a
 diary, and the report says `considered: 50` and looks healthy. Same shape as
-the gate bugs — sound code, wrong scope, indistinguishable from working.
+the gate bugs — sound code, wrong scope, indistinguishable from working. It
+is **LESSONS §16** now, with the two halves of the fix pinned by tests.
 
 ---
 
