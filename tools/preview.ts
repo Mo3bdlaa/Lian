@@ -16,8 +16,17 @@ import { migrate } from '@lian/db';
 
 const port = Number(process.argv[2] ?? '8790');
 
-/** Her replies, in order, cycling. Written to exercise the screen: a capture
- *  row, a long paragraph, a short one. */
+/** Her replies, keyed by what was said to her — so a preview session behaves
+ *  the same however many sessions came before it. */
+const KEYED: [RegExp, string][] = [
+  [/adam|call me/i, 'Noted. <call_me>{"name":"Adam"}</call_me> Which language suits you better?'],
+  [/english|arabic|language/i, 'English it is. <language>{"style":"en"}</language> Tell me what your week looks like.'],
+  [/run|morning/i, "I'll remember that you run every morning before work. That's the sort of thing I keep."],
+  [/gym|paid|400/i, 'Okay, logged AED 400 for the gym today. <spend>{"amount":400,"currency":"AED","category":"gym"}</spend>'],
+  [/task|remind|call the bank/i, "I'll remind you. <todo>{\"title\":\"call the bank\"}</todo>"],
+  [/name you|noor|your name/i, 'Then I am Lian. <my_name>{"name":"Lian","chosenByThem":true}</my_name>'],
+];
+
 const REPLIES = [
   "Good to meet you. I'm a secretary, more or less — I keep track of what you tell me. What should I call you?",
   'Noted. <call_me>{"name":"Adam"}</call_me> Which language suits you better?',
@@ -29,13 +38,27 @@ const REPLIES = [
   "You said the commute was the part you dreaded. Start there: if the new place fixes that, the rest is negotiable.",
 ];
 
+/**
+ * The person's own words, out of the final turn.
+ *
+ * The turn the model receives is `<<context>>…<</context>>` then the message
+ * then the repeated directive (LESSONS §1). A fake that matches against the
+ * whole thing matches the environment block — which is how "Hello" came back
+ * as the reply to a question about language.
+ */
+function saidByUser(content: string): string {
+  const afterContext = content.includes('<</context>>') ? content.split('<</context>>')[1]! : content;
+  return afterContext.split('\n\n').filter((part) => part.trim() !== '')[0] ?? '';
+}
+
 let turn = 0;
 const provider: Provider = {
   id: 'preview',
   capabilities: () => ({ streaming: true, toolCalling: false, vision: false, contextTokens: 200_000, maxOutputTokens: 4_000 }),
   async stream(request, onDelta) {
     if (request.model === DEFAULT_MODEL) {
-      const reply = REPLIES[turn++ % REPLIES.length]!;
+      const said = saidByUser(request.messages.at(-1)?.content ?? '');
+      const reply = KEYED.find(([pattern]) => pattern.test(said))?.[1] ?? REPLIES[turn++ % REPLIES.length]!;
       // In chunks, so streaming looks like streaming.
       for (let index = 0; index < reply.length; index += 12) {
         onDelta(reply.slice(index, index + 12));

@@ -21,6 +21,14 @@ export type Entry = {
 };
 
 export const CATALOG = {
+  // ── permissions and install (UI-UX §41, PRD §16) ────────────────────────
+  'permission.pre_prompt': { en: "If you let me, I can reach you even when you haven't opened the app — to follow up, remind you, or check in when it matters.", ar: 'لو سمحت لي، أقدر أوصلك حتى لو التطبيق مش مفتوح — أتابع، أفكّر، أو أسأل لما يكون فيه سبب.', arMale: 'لو سمحت لي، أقدر أوصلك حتى لو التطبيق مش مفتوح — أتابع، أفكّر، أو أسأل لما يكون فيه سبب.', addressee: 'user' },
+  'permission.pre_prompt_detail': { en: 'Once a day on the free plan. Quiet hours are yours to set, and you can turn this off later without losing anything.', ar: 'مرة في اليوم في الخطة المجانية. ساعات الهدوء بإعدادك، والإيقاف متاح بعدين بدون أي خسارة.', addressee: 'none' },
+  'permission.allow': { en: 'Let her reach me', ar: 'السماح لها بالتواصل', arMale: 'السماح له بالتواصل', addressee: 'none' },
+  'install.title': { en: 'Keep me one tap away.', ar: 'على بعد ضغطة واحدة.', addressee: 'none' },
+  'install.detail': { en: 'On your home screen I open instantly, work offline, and can reach you properly.', ar: 'على الشاشة الرئيسية بفتح فوراً، وأشتغل بدون نت، وأقدر أوصلك صح.', arMale: 'على الشاشة الرئيسية بفتح فوراً، وأشتغل بدون نت، وأقدر أوصلك صح.', addressee: 'user' },
+  'install.action': { en: 'Add to home screen', ar: 'إضافة للشاشة الرئيسية', addressee: 'none' },
+
   // ── memory (UI-UX §5) ───────────────────────────────────────────────────
   'memory.title': { en: 'Memory', ar: 'الذاكرة', addressee: 'none' },
   'memory.search': { en: 'Search what I remember', ar: 'البحث في الذاكرة', addressee: 'none' },

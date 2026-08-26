@@ -22,8 +22,13 @@ export function manifestJson(themeColor: string): string {
     background_color: themeColor,
     theme_color: themeColor,
     icons: [
-      { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+      { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      // Android crops an icon to whatever shape the launcher uses; a
+      // maskable pair keeps the mark inside the safe zone rather than
+      // letting the corners be sliced off.
+      { src: '/icons/icon-192-maskable.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+      { src: '/icons/icon-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
   });
 }
@@ -62,8 +67,8 @@ self.addEventListener('push', (event) => {
       body: payload.body || '',
       tag: payload.tag || 'lian',
       renotify: false,
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
       data: { url: payload.url || '/' },
     })
   );
@@ -90,9 +95,11 @@ self.addEventListener('notificationclick', (event) => {
 `.trim();
 
 /**
- * The shell page. It registers the worker and does nothing else — the screens
- * are a separate piece of work, and a placeholder that looked like a product
- * would be worse than one that plainly does not.
+ * A minimal shell, kept for a deployment that serves the API without the
+ * app (and for the test that proves the worker and the permission helper are
+ * wired). The application's real document is composed in
+ * apps/server/src/shell.ts, which can reach the design package for the
+ * pre-hydration script.
  */
 export function shellHtml(themeColor: string): string {
   return `<!doctype html>

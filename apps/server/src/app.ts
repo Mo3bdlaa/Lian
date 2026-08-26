@@ -10,6 +10,7 @@ import { brandColor, resolveTheme } from '@lian/design';
 import { clientModules, stylesheets, icons, version } from './assets.ts';
 import { shell } from './shell.ts';
 import type { JobDeps } from '@lian/jobs';
+import { httpSpeechProvider, DEFAULT_SPEECH } from '@lian/voice';
 import type { Server } from 'node:http';
 import { analysisModelFrom } from './analysis.ts';
 import { routesFor, type Deps } from './wiring.ts';
@@ -24,6 +25,7 @@ export type Overrides = {
   readonly sendEmail?: Deps['sendEmail'];
   readonly log?: (line: string) => void;
   readonly fetcher?: typeof fetch;
+  readonly speech?: Deps['speech'];
 };
 
 export type Application = {
@@ -41,7 +43,7 @@ export type Application = {
  * a screen works on first load rather than 404ing before the client can
  * route it.
  */
-export function assets(): Record<string, { contentType: string; body: string }> {
+export function assets(): Record<string, { contentType: string; body: string | Uint8Array }> {
   const themeColor = brandColor('brand-cream');
   const v = version(['apps/web', 'design-system/lian-tokens.css', 'packages/i18n/src', 'packages/domain/src']);
   // The unauthenticated default: day, ltr. The pre-hydration script corrects
@@ -62,17 +64,17 @@ export function assets(): Record<string, { contentType: string; body: string }> 
 }
 
 /** The same map, rebuilt when it is stale. Only for development. */
-export function liveAssets(): Record<string, { contentType: string; body: string }> {
+export function liveAssets(): Record<string, { contentType: string; body: string | Uint8Array }> {
   let built = assets();
   let builtAt = 0;
-  const fresh = (): Record<string, { contentType: string; body: string }> => {
+  const fresh = (): Record<string, { contentType: string; body: string | Uint8Array }> => {
     if (Date.now() - builtAt > 250) {
       built = assets();
       builtAt = Date.now();
     }
     return built;
   };
-  return new Proxy({} as Record<string, { contentType: string; body: string }>, {
+  return new Proxy({} as Record<string, { contentType: string; body: string | Uint8Array }>, {
     get: (_target, key) => (typeof key === 'string' ? fresh()[key] : undefined),
     has: (_target, key) => typeof key === 'string' && key in fresh(),
     ownKeys: () => Reflect.ownKeys(fresh()),
@@ -108,6 +110,13 @@ export function createApplication(config: Config, overrides: Overrides = {}): Ap
 
   const deps: Deps = {
     config, provider, analysisModel, embedder, now, log,
+    // Voice is unavailable rather than broken when there is no key: the
+    // route says so, and the client falls back to text with her line.
+    speech: overrides.speech !== undefined
+      ? overrides.speech
+      : config.speechApiKey === null
+        ? null
+        : httpSpeechProvider({ ...DEFAULT_SPEECH, apiKey: config.speechApiKey }),
     sendEmail: overrides.sendEmail ?? null,
     runTick: runSchedule,
   };
@@ -120,7 +129,7 @@ export function createApplication(config: Config, overrides: Overrides = {}): Ap
   const server = createLianServer({
     routes: routesFor(deps),
     staticFiles: files,
-    appShell: files['/']!.body,
+    appShell: String(files['/']!.body),
     onError: (error, path) => { log(`unhandled error on ${path}: ${String(error)}`); },
   });
 

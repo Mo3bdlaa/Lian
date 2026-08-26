@@ -12,7 +12,8 @@ import {
 export type ServerOptions = {
   readonly routes: readonly Route[];
   /** Static files: the PWA shell, the manifest, the service worker. */
-  readonly staticFiles?: Readonly<Record<string, { contentType: string; body: string }>>;
+  /** A body may be binary — the app icons are PNGs. */
+  readonly staticFiles?: Readonly<Record<string, { contentType: string; body: string | Uint8Array }>>;
   /**
    * What to serve for a path that is neither an API route nor a file — a deep
    * link into a screen. The client routes it once it loads; without this the

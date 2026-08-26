@@ -20,6 +20,7 @@ import {
 } from '@lian/runtime';
 import { DEFAULT_MODEL, type Provider } from '@lian/llm';
 import { verifyTick } from '@lian/jobs';
+import { transcribeVoiceNote } from '@lian/voice';
 import { localDayKey, localHour, limitsFor, messageBudget, nextStep } from '@lian/domain';
 import { moodPhrase, t } from '@lian/i18n';
 import { describeCaptures, LANGUAGE_STYLES } from '@lian/capabilities';
@@ -47,6 +48,9 @@ export type Deps = {
    *  running a model. */
   readonly runTick: (now: Date) => Promise<unknown>;
   readonly log: (line: string) => void;
+  /** Null when no speech key is configured: voice reports that plainly
+   *  rather than failing as if something went wrong. */
+  readonly speech: { transcribe(input: { audio: Uint8Array; contentType: string; languageHint: string | null }): Promise<{ text: string; language: string | null }> } | null;
 };
 
 const dayKeyFor = (timeZone: string, now: Date): string => localDayKey(now, timeZone);
@@ -599,6 +603,30 @@ export function readPorts(deps: Deps): ReadPorts {
         if (assistant !== null) await db.accounts.setAssistantName({ userId, assistantId: assistant.id }, assistantName.trim(), true);
       }
       return { ok: true };
+    },
+
+    async transcribe({ userId, audio, contentType, durationSeconds }) {
+      if (deps.speech === null) return { status: 'unconfigured' as const };
+      const user = await db.accounts.getUser({ userId });
+      if (user === null) return { status: 'failed' as const, reason: 'no account' };
+      const localDay = dayKeyFor(user.timeZone, deps.now());
+      const result = await transcribeVoiceNote(
+        {
+          userId, audio: Buffer.from(audio, 'base64'), contentType,
+          durationSeconds, month: localDay.slice(0, 7),
+          secondsCeiling: limitsFor(user.plan).sttSecondsPerMonth,
+          languageHint: languageOf(user.languageStyle),
+        },
+        {
+          speech: deps.speech,
+          usage: {
+            async reserveSeconds(forUserId, month, ceiling, seconds) {
+              return (await db.usage.reserve({ userId: forUserId }, 'stt_seconds', month, ceiling, seconds)).granted;
+            },
+          },
+        },
+      );
+      return result.status === 'transcribed' ? { status: 'transcribed' as const, text: result.text } : result;
     },
 
     async revokeDevice({ userId, deviceId }) {

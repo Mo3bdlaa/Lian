@@ -69,6 +69,15 @@ export type ReadPorts = MiddlewarePorts & {
   security(input: { userId: string; deviceId: string | null }): Promise<SecurityView>;
   revokeDevice(input: { userId: string; deviceId: string }): Promise<boolean>;
   updateSettings(input: { userId: string; patch: Record<string, unknown> }): Promise<{ ok: boolean; reason?: string }>;
+  /**
+   * A voice note, transcribed. The transcript IS the message — there is no
+   * object storage yet, so the audio is not kept, and a message whose body
+   * is a transcript is one the whole product can already read, search and
+   * remember.
+   */
+  transcribe(input: { userId: string; audio: string; contentType: string; durationSeconds: number }): Promise<
+    { status: 'transcribed'; text: string } | { status: 'ceiling_reached' } | { status: 'unconfigured' } | { status: 'failed'; reason: string }
+  >;
   now(): Date;
 };
 
@@ -161,6 +170,31 @@ export function readRoutes(ports: ReadPorts): { method: 'GET' | 'POST' | 'PATCH'
         await enforceRate({ bucket: `write:${session.userId}`, rule: RATE_RULES.write, now: ports.now() }, ports);
         const result = await withIdempotency({ context, userId: session.userId, route: 'revoke-device' }, ports, async () => {
           return { status: 200, json: { revoked: await ports.revokeDevice({ userId: session.userId, deviceId: context.params['id']! }) } };
+        });
+        return { status: result.status, json: result.json };
+      },
+    },
+    {
+      method: 'POST',
+      pattern: '/api/voice',
+      handler: async (context) => {
+        const session = await requireSession(context, ports, ports.now());
+        // Its own bucket: transcription costs money per second and a stuck
+        // client retrying is the shape that runs a bill up.
+        await enforceRate({ bucket: `chat:${session.userId}`, rule: RATE_RULES.chat, now: ports.now() }, ports);
+        const body = context.body<{ audio?: string; contentType?: string; durationSeconds?: number }>();
+        if (typeof body.audio !== 'string' || body.audio === '') throw new HttpError(400, 'no_audio', 'there was nothing to listen to');
+        const result = await withIdempotency({ context, userId: session.userId, route: 'voice' }, ports, async () => {
+          const outcome = await ports.transcribe({
+            userId: session.userId,
+            audio: body.audio!,
+            contentType: body.contentType ?? 'audio/webm',
+            durationSeconds: Number(body.durationSeconds ?? 0),
+          });
+          if (outcome.status === 'unconfigured') throw new HttpError(503, 'voice_unconfigured', 'this deployment has no speech key configured');
+          if (outcome.status === 'ceiling_reached') throw new HttpError(429, 'voice_ceiling', 'that is all the voice I can do this month');
+          if (outcome.status === 'failed') throw new HttpError(422, 'voice_failed', outcome.reason);
+          return { status: 200, json: { text: outcome.text } };
         });
         return { status: result.status, json: result.json };
       },

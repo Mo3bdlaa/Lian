@@ -113,10 +113,11 @@ export class Browser {
     });
   }
 
-  async setViewport(width: number, height: number, scale = 2): Promise<void> {
-    await this.send('Emulation.setDeviceMetricsOverride', {
-      width, height, deviceScaleFactor: scale, mobile: true,
-    });
+  /** `mobile` controls the emulated viewport: on for phone screens, off when
+   *  the page is a fixed-size canvas (an icon), where mobile emulation would
+   *  lay the page out at 980px and scale it down. */
+  async setViewport(width: number, height: number, scale = 2, mobile = true): Promise<void> {
+    await this.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: scale, mobile });
   }
 
   async goto(url: string): Promise<void> {
@@ -152,6 +153,12 @@ export class Browser {
       if (Date.now() - started > timeoutMs) throw new Error(`timed out waiting for: ${expression}`);
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
+  }
+
+  /** Set a cookie for the page's origin — how a test starts signed in
+   *  without driving the sign-up form for the tenth time in a minute. */
+  async setCookie(input: { name: string; value: string; url: string }): Promise<void> {
+    await this.send('Network.setCookie', { name: input.name, value: input.value, url: input.url, path: '/' });
   }
 
   async click(selector: string): Promise<void> {

@@ -18,7 +18,7 @@ import { t } from './copy.ts';
 import { head } from './components/head.ts';
 import { nav } from './components/nav.ts';
 import { drawer } from './components/drawer.ts';
-import { chatScreen, composer, actionSheet, deleteSheet, thinking } from './screens/chat.ts';
+import { chatScreen, composer, recorder, actionSheet, deleteSheet, thinking, permissionCard, installCard } from './screens/chat.ts';
 import { welcome, signUp, signIn, heldDevice } from './screens/entry.ts';
 import { memoryScreen, memoryEditor, memoryDeleteSheet, type Memory, type MemoryState } from './screens/memory.ts';
 import { tasksScreen, moneyScreen, storyScreen, type Task, type Note, type Money, type Story } from './screens/life.ts';
@@ -75,6 +75,13 @@ function draw(state: State): void {
   if (screen === 'chat' && state.busy && state.messages.some((message) => message.pending === 'sending')) {
     where.screen.insertAdjacentHTML('beforeend', render(thinking(me)));
   }
+  if (screen === 'chat' && me.onboarding?.step === 'ask_notification_permission' && !dismissed.permission) {
+    where.screen.insertAdjacentHTML('beforeend', render(permissionCard(me)));
+  } else if (screen === 'chat' && installPrompt !== null && !dismissed.install) {
+    // One at a time: the permission comes first, and the install prompt waits
+    // until it is answered.
+    where.screen.insertAdjacentHTML('beforeend', render(installCard(me)));
+  }
 
   // The composer belongs to the conversation and nowhere else.
   if (screen !== 'chat') {
@@ -84,7 +91,10 @@ function draw(state: State): void {
   // It is only re-rendered when its own shape changes, so typing survives a
   // message arriving.
   const composerKey = screen === 'chat' ? `chat:${state.replyTo?.id ?? ''}` : 'none';
-  if (screen === 'chat' && where.composer.dataset['key'] !== composerKey) {
+  if (screen === 'chat' && recording !== null) {
+    paint(where.composer, recorder(state, Math.floor((Date.now() - recording.startedAt) / 1000)));
+    where.composer.dataset['key'] = 'recording';
+  } else if (screen === 'chat' && where.composer.dataset['key'] !== composerKey) {
     const value = (where.composer.querySelector('.composer__input') as HTMLInputElement | null)?.value ?? '';
     paint(where.composer, composer(state));
     where.composer.dataset['key'] = composerKey;
@@ -141,6 +151,18 @@ function screenFor(screen: string, state: State, me: Snapshot): Html {
     default: return chatScreen(state);
   }
 }
+
+/** Prompts the person has waved away this session. */
+const dismissed = { permission: false, install: false };
+
+/** The browser's install event, kept until they ask for it (UI-UX §41: the
+ *  prompt is offered in her voice, not fired at them on load). */
+let installPrompt: { prompt(): Promise<void> } | null = null;
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  installPrompt = event as unknown as { prompt(): Promise<void> };
+  draw(current());
+});
 
 subscribe(draw);
 
@@ -306,6 +328,25 @@ document.addEventListener('click', (event) => {
     set({ acting: { id, mode: 'delete' as 'sheet' } });
   } else if (action === 'confirm-delete') {
     void deleteMessage(id, actor.dataset['keep'] === 'true');
+  } else if (action === 'voice') {
+    void startRecording();
+  } else if (action === 'stop-voice') {
+    void stopRecording(true);
+  } else if (action === 'cancel-voice') {
+    void stopRecording(false);
+  } else if (action === 'permission-yes') {
+    void enableNotifications();
+  } else if (action === 'permission-no') {
+    dismissed.permission = true;
+    // Recorded, not just hidden: onboarding does not move on until the
+    // question has been ASKED, and a person who says no has answered it.
+    void post('/api/push/prompted', { outcome: 'dismissed' }).then(refresh);
+  } else if (action === 'install-yes') {
+    void installPrompt?.prompt();
+    dismissed.install = true;
+  } else if (action === 'install-no') {
+    dismissed.install = true;
+    draw(current());
   } else if (action === 'memory-filter') {
     screenData.filter = actor.dataset['key'] ?? 'all';
     draw(current());
@@ -381,6 +422,70 @@ document.addEventListener('submit', (event) => {
   void send(text);
 });
 
+// ── voice notes (UI-UX §34) ───────────────────────────────────────────────
+//
+// The transcript is the message. There is no object storage yet, so the audio
+// is not kept — which also means a voice note is searchable, correctable and
+// rememberable like everything else she is told.
+
+let recording: { recorder: MediaRecorder; chunks: Blob[]; startedAt: number; timer: number } | null = null;
+
+async function startRecording(): Promise<void> {
+  const me = current().me;
+  if (me === null) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const media = new MediaRecorder(stream);
+    const chunks: Blob[] = [];
+    media.addEventListener('dataavailable', (event) => { if (event.data.size > 0) chunks.push(event.data); });
+    media.start();
+    recording = {
+      recorder: media, chunks, startedAt: Date.now(),
+      // The counter is the only moving part on the bar; a second is enough.
+      timer: setInterval(() => draw(current()), 1000) as unknown as number,
+    };
+    draw(current());
+  } catch {
+    // No microphone, or permission refused. Nothing to say about it: the
+    // text field is right there.
+    recording = null;
+  }
+}
+
+async function stopRecording(send_: boolean): Promise<void> {
+  const active = recording;
+  const me = current().me;
+  if (active === null || me === null) return;
+  clearInterval(active.timer);
+  recording = null;
+  const seconds = Math.round((Date.now() - active.startedAt) / 1000);
+  const finished = new Promise<Blob>((resolve) => {
+    active.recorder.addEventListener('stop', () => resolve(new Blob(active.chunks, { type: active.recorder.mimeType })), { once: true });
+  });
+  active.recorder.stop();
+  for (const track of active.recorder.stream.getTracks()) track.stop();
+  const audio = await finished;
+  draw(current());
+  if (!send_ || seconds < 1) return;
+
+  set({ busy: true });
+  try {
+    const buffer = new Uint8Array(await audio.arrayBuffer());
+    let binary = '';
+    for (const byte of buffer) binary += String.fromCharCode(byte);
+    const { text } = await post<{ text: string }>('/api/voice', {
+      audio: btoa(binary), contentType: audio.type || 'audio/webm', durationSeconds: seconds,
+    });
+    set({ busy: false });
+    await send(text);
+  } catch (error) {
+    // UI-UX §20: she says it, rather than an error toast.
+    set({ busy: false, error: error instanceof ApiError && error.code === 'voice_unconfigured'
+      ? t('error.voice_fallback', me.user.language, me.assistant.gender)
+      : t('error.voice_fallback', me.user.language, me.assistant.gender) });
+  }
+}
+
 async function removeMemory(id: string): Promise<void> {
   screenData.deleting = null;
   await remove(`/api/memories/${id}`);
@@ -433,6 +538,7 @@ async function prepareExport(): Promise<void> {
 async function enableNotifications(): Promise<void> {
   const push = (window as unknown as { lianPush?: { enable(key: string): Promise<string> } }).lianPush;
   if (push === undefined) return;
+  dismissed.permission = true;
   await push.enable(newKey());
   await refresh();
 }
@@ -510,6 +616,13 @@ async function submitCredentials(form: HTMLFormElement, route: 'sign-up' | 'sign
       : t('error.send_failed', language);
     set({ busy: false, error: message });
   }
+}
+
+// The worker is what receives a push and draws the notification — the
+// product's defining behaviour. Registered after boot rather than in the
+// document, so a failure to register cannot stop the app from rendering.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => { void navigator.serviceWorker.register('/sw.js'); });
 }
 
 window.addEventListener('online', () => set({ offline: false }));

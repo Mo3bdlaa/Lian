@@ -40,6 +40,7 @@ export function shell(options: ShellOptions): string {
 <link rel="stylesheet" href="/css/app.css?v=${v}">
 <script>${preHydrationScript(options.theme, options.direction)}</script>
 <script src="/lian-defs.js?v=${v}" defer></script>
+<script src="/push.js?v=${v}" defer></script>
 </head>
 <body>
 <div id="app" class="app"></div>

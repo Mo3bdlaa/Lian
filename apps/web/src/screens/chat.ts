@@ -52,6 +52,14 @@ export function chatScreen(state: State): Html {
     rows.push(bubble(message, me, state));
   }
 
+  if (state.error !== null) {
+    // UI-UX §20: what went wrong arrives as something she says, in the
+    // conversation, not as a toast over it.
+    rows.push(html`<div class="chat__group chat__group--hers">
+      <div class="bubble bubble--hers bubble--notice">${state.error}</div>
+    </div>`);
+  }
+
   if (state.limitLine !== null) {
     // PRD §11: her line, in the conversation, in her voice. Not a modal, not
     // a countdown, not an upsell.
@@ -198,4 +206,49 @@ export function deleteSheet(state: State, message: Message): Html {
       </button>`}
       <button class="sheet__action" data-action="close-sheet">${t('action.cancel', language, gender)}</button>
     </div>`;
+}
+
+/**
+ * The permission ask, in the conversation (PRD §8, UI-UX §41).
+ *
+ * It appears only after she has remembered something — the server decides
+ * that, and says so by putting `ask_notification_permission` in the snapshot.
+ * The client never decides when to ask, because the ordering is a product
+ * rule rather than a UI preference.
+ *
+ * Both buttons answer the server: "Not now" is an answer, and recording it is
+ * what stops her asking again into a dialogue the browser will not re-show.
+ */
+export function permissionCard(me: Snapshot): Html {
+  const language = me.user.language;
+  const gender = me.assistant.gender;
+  return html`<div class="chat__group chat__group--hers">
+    <div class="card permission">
+      <p class="permission__line">${t('permission.pre_prompt', language, gender)}</p>
+      <p class="permission__detail">${t('permission.pre_prompt_detail', language, gender)}</p>
+      <div class="sheet__row">
+        <button class="button button--plain" data-action="permission-no">${t('action.not_now', language, gender)}</button>
+        <button class="button" data-action="permission-yes">${t('permission.allow', language, gender)}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/** The install prompt (UI-UX §41), shown when the browser offers one. */
+export function installCard(me: Snapshot): Html {
+  const language = me.user.language;
+  const gender = me.assistant.gender;
+  // Its own class, not the permission card's: they are different offers, and
+  // a test that cannot tell them apart is a test that passes when she asks
+  // for the wrong one.
+  return html`<div class="chat__group chat__group--hers">
+    <div class="card install">
+      <p class="install__line">${t('install.title', language, gender)}</p>
+      <p class="install__detail">${t('install.detail', language, gender)}</p>
+      <div class="sheet__row">
+        <button class="button button--plain" data-action="install-no">${t('action.not_now', language, gender)}</button>
+        <button class="button" data-action="install-yes">${t('install.action', language, gender)}</button>
+      </div>
+    </div>
+  </div>`;
 }

@@ -15,7 +15,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { dirname, join, relative, resolve } from 'node:path';
 
-export type Asset = { contentType: string; body: string };
+export type Asset = { contentType: string; body: string | Uint8Array };
 
 const ROOT = resolve(new URL('../../..', import.meta.url).pathname);
 
@@ -104,9 +104,16 @@ export function stylesheets(): Record<string, Asset> {
   return sheets;
 }
 
-/** The icon sprite, injected once per document. */
+/** The icon sprite, and the app icons the manifest names. */
 export function icons(): Record<string, Asset> {
-  return { '/lian-defs.js': file('design-system/lian-defs.js', 'text/javascript; charset=utf-8') };
+  const out: Record<string, Asset> = {
+    '/lian-defs.js': file('design-system/lian-defs.js', 'text/javascript; charset=utf-8'),
+  };
+  const dir = resolve(ROOT, 'apps/web/icons');
+  for (const name of readdirSync(dir)) {
+    if (name.endsWith('.png')) out[`/icons/${name}`] = { contentType: 'image/png', body: readFileSync(join(dir, name)) };
+  }
+  return out;
 }
 
 export const APP_CSS_ORDER = ['/css/lian-tokens.css', '/css/lian-type-roles.css', '/css/app.css'] as const;
