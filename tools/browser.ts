@@ -155,6 +155,19 @@ export class Browser {
     }
   }
 
+  /** Headers added to every request the page makes — a test uses this to
+   *  look like a different client address, the way a proxy would. */
+  async setExtraHeaders(headers: Record<string, string>): Promise<void> {
+    await this.send('Network.setExtraHTTPHeaders', { headers });
+  }
+
+  /** Pretend to be a different browser — which is what makes a device look
+   *  new to the server, and is the only way to reach the new-device hold in
+   *  a test. */
+  async setUserAgent(userAgent: string): Promise<void> {
+    await this.send('Network.setUserAgentOverride', { userAgent });
+  }
+
   /** Set a cookie for the page's origin — how a test starts signed in
    *  without driving the sign-up form for the tenth time in a minute. */
   async setCookie(input: { name: string; value: string; url: string }): Promise<void> {

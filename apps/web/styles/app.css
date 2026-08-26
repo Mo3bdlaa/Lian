@@ -176,6 +176,7 @@ body {
   font: inherit;
   font-weight: var(--t-body-strong-fw);
   cursor: pointer;
+  white-space: nowrap;
   transition: opacity var(--dur-fast) var(--ease-standard);
 }
 .button:hover { opacity: .92; }
@@ -560,9 +561,13 @@ body {
 .stage__prose { margin: 0; color: var(--muted); }
 
 /* --- sheets ------------------------------------------------------------- */
-.sheet__row { display: flex; gap: var(--s-8); justify-content: flex-end; }
+.sheet__row { display: flex; gap: var(--s-8); justify-content: flex-end; flex-wrap: wrap; }
 
 /* --- permission and install cards (UI-UX §41) ---------------------------- */
 .permission, .install { display: flex; flex-direction: column; gap: var(--s-8); max-width: 92%; }
 .permission__line, .install__line { margin: 0; }
 .permission__detail, .install__detail { margin: 0; color: var(--muted); font-size: var(--t-body-sm-fs); line-height: var(--t-body-sm-lh); }
+
+/* --- correcting a capture (UI-UX §4) ------------------------------------- */
+.correct { gap: var(--s-12); max-height: 80dvh; overflow-y: auto; }
+.correct .field { gap: var(--s-4); }

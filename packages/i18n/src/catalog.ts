@@ -29,6 +29,31 @@ export const CATALOG = {
   'install.detail': { en: 'On your home screen I open instantly, work offline, and can reach you properly.', ar: 'على الشاشة الرئيسية بفتح فوراً، وأشتغل بدون نت، وأقدر أوصلك صح.', arMale: 'على الشاشة الرئيسية بفتح فوراً، وأشتغل بدون نت، وأقدر أوصلك صح.', addressee: 'user' },
   'install.action': { en: 'Add to home screen', ar: 'إضافة للشاشة الرئيسية', addressee: 'none' },
 
+  // ── correcting a capture (UI-UX §4, §22) ────────────────────────────────
+  'correct.title_task': { en: 'Task', ar: 'مهمة', addressee: 'none' },
+  'correct.title_transaction': { en: 'Transaction', ar: 'حركة', addressee: 'none' },
+  'correct.title_note': { en: 'Note', ar: 'ملاحظة', addressee: 'none' },
+  'correct.title_health': { en: 'Health', ar: 'صحة', addressee: 'none' },
+  'correct.field_title': { en: 'Title', ar: 'العنوان', addressee: 'none' },
+  'correct.field_amount': { en: 'Amount', ar: 'المبلغ', addressee: 'none' },
+  'correct.field_category': { en: 'Category', ar: 'البند', addressee: 'none' },
+  'correct.field_date': { en: 'Date', ar: 'التاريخ', addressee: 'none' },
+  'correct.field_direction': { en: 'Direction', ar: 'النوع', addressee: 'none' },
+  'correct.field_note': { en: 'Note', ar: 'ملاحظة', addressee: 'none' },
+  'correct.field_body': { en: 'What to keep', ar: 'اللي يتحفظ', addressee: 'none' },
+  'correct.direction_out': { en: 'Money out', ar: 'خارج', addressee: 'none' },
+  'correct.direction_in': { en: 'Money in', ar: 'داخل', addressee: 'none' },
+  'correct.delete_task': { en: 'Delete this task', ar: 'حذف المهمة', addressee: 'none' },
+  'correct.delete_transaction': { en: 'Delete this transaction', ar: 'حذف الحركة', addressee: 'none' },
+  'correct.delete_note': { en: 'Delete this note', ar: 'حذف الملاحظة', addressee: 'none' },
+  'correct.from_chat': { en: 'She wrote this down from what you said.', ar: 'دي اتكتبت من كلامك.', arMale: 'دي اتكتبت من كلامك.', addressee: 'user' },
+
+  // A screen the product will have and this build does not. Stated plainly
+  // rather than hidden: a drawer item that silently shows the conversation is
+  // worse than one that says what it is.
+  'screen.not_built': { en: 'This part is not built yet.', ar: 'الجزء ده لسه ما اتبنى.', addressee: 'none' },
+  'screen.back_to_chat': { en: 'Back to the conversation', ar: 'رجوع للمحادثة', addressee: 'none' },
+
   // ── memory (UI-UX §5) ───────────────────────────────────────────────────
   'memory.title': { en: 'Memory', ar: 'الذاكرة', addressee: 'none' },
   'memory.search': { en: 'Search what I remember', ar: 'البحث في الذاكرة', addressee: 'none' },

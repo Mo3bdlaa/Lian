@@ -10,7 +10,7 @@
 // is replaced wholesale from state; the composer keeps its own input value
 // across renders, because replacing a field somebody is typing into is the
 // thing this approach gets wrong if nobody says so.
-import { get, patch, post, remove, stream, newKey, ApiError } from './api.ts';
+import { get, patch as patch_, post, remove, stream, newKey, ApiError } from './api.ts';
 import { current, set, subscribe, type Message, type Snapshot, type State } from './state.ts';
 import { match, tabFor } from './router.ts';
 import { html, render, type Html } from './dom.ts';
@@ -23,7 +23,8 @@ import { chatScreen, composer, recorder, actionSheet, deleteSheet, thinking, per
 import { welcome, signUp, signIn, heldDevice } from './screens/entry.ts';
 import { memoryScreen, memoryEditor, memoryDeleteSheet, type Memory, type MemoryState } from './screens/memory.ts';
 import { tasksScreen, moneyScreen, storyScreen, type Task, type Note, type Money, type Story } from './screens/life.ts';
-import { settingsScreen, securityScreen, dataScreen, type Security, type DataState } from './screens/trust.ts';
+import { settingsScreen, securityScreen, dataScreen, notBuilt, type Security, type DataState } from './screens/trust.ts';
+import { correctionSheet, type Correcting, type CorrectKind } from './screens/correct.ts';
 
 const root = document.getElementById('app')!;
 
@@ -107,6 +108,7 @@ function draw(state: State): void {
 
   const overlays: string[] = [];
   if (state.drawerOpen) overlays.push(render(drawer(me)));
+  if (screenData.correcting !== null) overlays.push(render(correctionSheet(me, screenData.correcting)));
   if (screenData.editing !== null) overlays.push(render(memoryEditor(memoryState(state, me))));
   if (screenData.deleting !== null) overlays.push(render(memoryDeleteSheet(memoryState(state, me))));
   if (state.acting !== null) {
@@ -128,11 +130,11 @@ function draw(state: State): void {
 const screenData: {
   memories: Memory[]; query: string; filter: string; editing: Memory | null; deleting: Memory | null;
   tasks: { tasks: Task[]; notes: Note[] }; money: Money | null; story: Story | null;
-  security: Security | null; data: DataState;
+  security: Security | null; data: DataState; correcting: Correcting | null;
 } = {
   memories: [], query: '', filter: 'all', editing: null, deleting: null,
   tasks: { tasks: [], notes: [] }, money: null, story: null, security: null,
-  data: { export: null, confirming: false, typed: '', busy: false },
+  data: { export: null, confirming: false, typed: '', busy: false }, correcting: null,
 };
 
 const memoryState = (state: State, me: Snapshot): MemoryState => ({
@@ -149,6 +151,7 @@ function screenFor(screen: string, state: State, me: Snapshot): Html {
     case 'settings': return settingsScreen(me);
     case 'security': return screenData.security === null ? html`` : securityScreen(me, screenData.security);
     case 'data': return dataScreen(me, screenData.data);
+    case 'soon': return notBuilt(me);
     default: return chatScreen(state);
   }
 }
@@ -308,7 +311,7 @@ document.addEventListener('click', (event) => {
   const action = actor.dataset['action']!;
   const id = actor.dataset['id'] ?? '';
 
-  if (action === 'close-sheet') { screenData.editing = null; screenData.deleting = null; }
+  if (action === 'close-sheet') { screenData.editing = null; screenData.deleting = null; screenData.correcting = null; }
   if (action === 'drawer') set({ drawerOpen: true });
   else if (action === 'close-drawer') set({ drawerOpen: false });
   else if (action === 'close-sheet') set({ acting: null });
@@ -348,6 +351,42 @@ document.addEventListener('click', (event) => {
   } else if (action === 'install-no') {
     dismissed.install = true;
     draw(current());
+  } else if (action === 'open-task') {
+    const task = screenData.tasks.tasks.find((candidate) => candidate.id === id);
+    if (task !== undefined) {
+      screenData.correcting = { kind: 'tasks', id, values: { title: task.title, dueOn: task.dueOn ?? '' } };
+      draw(current());
+    }
+  } else if (action === 'open-note') {
+    const note = screenData.tasks.notes.find((candidate) => candidate.id === id);
+    if (note !== undefined) {
+      screenData.correcting = { kind: 'notes', id, values: { title: note.title ?? '', body: note.body } };
+      draw(current());
+    }
+  } else if (action === 'open-money') {
+    const transaction = screenData.money?.recent.find((candidate) => candidate.id === id);
+    if (transaction !== undefined) {
+      screenData.correcting = {
+        kind: 'transactions', id,
+        values: {
+          // Minor units are what the server keeps; the field shows what a
+          // person would type.
+          amountMinor: String(transaction.amountMinor / 100),
+          category: transaction.line, occurredOn: transaction.occurredOn, direction: transaction.direction,
+        },
+      };
+      draw(current());
+    }
+  } else if (action === 'correct-choice') {
+    if (screenData.correcting !== null) {
+      screenData.correcting = {
+        ...screenData.correcting,
+        values: { ...screenData.correcting.values, [actor.dataset['name']!]: actor.dataset['value']! },
+      };
+      draw(current());
+    }
+  } else if (action === 'correct-delete') {
+    void correctDelete(actor.dataset['kind'] as CorrectKind, id);
   } else if (action === 'memory-filter') {
     screenData.filter = actor.dataset['key'] ?? 'all';
     draw(current());
@@ -398,6 +437,12 @@ document.addEventListener('submit', (event) => {
   if (credentials !== null) {
     event.preventDefault();
     void submitCredentials(credentials, credentials.dataset['action'] as 'sign-up' | 'sign-in');
+    return;
+  }
+  const correctForm = target.closest('[data-action="correct-save"]') as HTMLFormElement | null;
+  if (correctForm !== null) {
+    event.preventDefault();
+    void correctSave(correctForm.dataset['kind'] as CorrectKind, correctForm.dataset['id']!, correctForm);
     return;
   }
   const memoryForm = target.closest('[data-action="memory-save"]') as HTMLFormElement | null;
@@ -487,6 +532,29 @@ async function stopRecording(send_: boolean): Promise<void> {
   }
 }
 
+async function correctSave(kind: CorrectKind, id: string, form: HTMLFormElement): Promise<void> {
+  const values = Object.fromEntries(new FormData(form).entries());
+  const patch: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(values)) {
+    const text = String(value).trim();
+    if (name === 'amountMinor') patch[name] = Math.round(Number(text) * 100);
+    else if (name === 'durationMinutes') patch[name] = text === '' ? null : Number(text);
+    else if (name === 'dueOn' || name === 'occurredOn') patch[name] = text === '' ? null : text;
+    else patch[name] = text === '' ? null : text;
+  }
+  const chosen = screenData.correcting?.values['direction'];
+  if (kind === 'transactions' && chosen !== undefined) patch['direction'] = chosen;
+  screenData.correcting = null;
+  await patch_(`/api/${kind}/${id}`, patch);
+  await load(current().path);
+}
+
+async function correctDelete(kind: CorrectKind, id: string): Promise<void> {
+  screenData.correcting = null;
+  await remove(`/api/${kind}/${id}`);
+  await load(current().path);
+}
+
 async function removeMemory(id: string): Promise<void> {
   screenData.deleting = null;
   await remove(`/api/memories/${id}`);
@@ -496,7 +564,7 @@ async function removeMemory(id: string): Promise<void> {
 
 async function saveMemory(id: string, statement: string): Promise<void> {
   screenData.editing = null;
-  await patch(`/api/memories/${id}`, { statement });
+  await patch_(`/api/memories/${id}`, { statement });
   screenData.memories = screenData.memories.map((memory) => (memory.id === id ? { ...memory, statement } : memory));
   draw(current());
 }
@@ -504,7 +572,7 @@ async function saveMemory(id: string, statement: string): Promise<void> {
 async function setAppearance(preference: string): Promise<void> {
   // The theme is DECIDED by the server (LESSONS §7). The client sends the
   // preference and re-reads what was decided; it never picks a palette.
-  await patch('/api/settings', { themePreference: preference });
+  await patch_('/api/settings', { themePreference: preference });
   await refresh();
   applyTheme();
 }

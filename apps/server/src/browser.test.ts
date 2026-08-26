@@ -95,10 +95,16 @@ describe('the app, in a browser', { skip: SKIP }, () => {
    *  conversation, which is correct behaviour and makes a second sign-up in
    *  one profile impossible. */
   const extra: Browser[] = [];
+  let addresses = 0;
 
   async function freshBrowser(): Promise<Browser> {
     const page = await Browser.launch();
     await page.setViewport(390, 844);
+    // Its own client address. Sign-up and sign-in are rate limited per
+    // address (ten a minute), which is correct and which a test file driving
+    // several accounts from one loopback address would otherwise trip — the
+    // limiter would be the thing under test.
+    await page.setExtraHeaders({ 'x-forwarded-for': `203.0.113.${(addresses += 1) % 90}` });
     extra.push(page);
     return page;
   }
@@ -118,6 +124,7 @@ describe('the app, in a browser', { skip: SKIP }, () => {
     close = () => new Promise<void>((resolve) => { server.closeAllConnections(); server.close(() => resolve()); });
     browser = await Browser.launch();
     await browser.setViewport(390, 844);
+    await browser.setExtraHeaders({ 'x-forwarded-for': '203.0.113.250' });
   });
 
   after(async () => {
@@ -136,7 +143,6 @@ describe('the app, in a browser', { skip: SKIP }, () => {
    * five times would be testing the limiter. The one test that IS about the
    * form drives the form.
    */
-  let addresses = 0;
   async function signUp(page: Browser, language: 'en' | 'ar' = 'en'): Promise<string> {
     const email = `browser-${Date.now()}-${Math.random().toString(36).slice(2)}@example.test`;
     const response = await fetch(`${base}/api/auth/sign-up`, {
@@ -145,7 +151,8 @@ describe('the app, in a browser', { skip: SKIP }, () => {
         'content-type': 'application/json',
         'idempotency-key': `signup-${email}`,
         // A distinct address per account: these are different people.
-        'x-forwarded-for': `198.51.100.${(addresses += 1) % 250}`,
+        // 203.0.113.0/24 belongs to this file (see onboarding.test.ts).
+        'x-forwarded-for': `203.0.113.${100 + ((addresses += 1) % 100)}`,
       },
       body: JSON.stringify({ email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai' }),
     });
@@ -288,6 +295,107 @@ describe('the app, in a browser', { skip: SKIP }, () => {
       'getComputedStyle(document.documentElement).getPropertyValue("--fw-600").trim()',
     );
     assert.equal(weight, '700');
+  });
+
+  test('sign out everywhere, then sign in again from the same device', async () => {
+    // The account is created IN this browser: a device is recognised by what
+    // the browser sends, so an account made with a different client would be
+    // held on sign-in — which is the next test, deliberately.
+    const page = await freshBrowser();
+    const email = `again-${Date.now()}@example.test`;
+    await page.goto(`${base}/sign-up`);
+    await page.waitFor('document.querySelector("#email")');
+    await page.type('#email', email);
+    await page.type('#password', 'a-long-enough-password');
+    await page.click('button[type="submit"]');
+    await page.waitFor('location.pathname === "/chat"', 15_000);
+    const { rows } = await db().query<{ id: string }>(`SELECT id FROM users WHERE email = $1`, [email]);
+    created.push(rows[0]!.id);
+
+    await page.goto(`${base}/security`);
+    await page.waitFor('!!document.querySelector(`[data-action="sign-out-everywhere"]`)', 10_000);
+    await page.click('[data-action="sign-out-everywhere"]');
+    await page.waitFor('location.pathname === "/welcome"', 10_000);
+
+    await page.goto(`${base}/sign-in`);
+    await page.waitFor('document.querySelector("#email")');
+    await page.type('#email', email);
+    await page.type('#password', 'a-long-enough-password');
+    await page.click('button[type="submit"]');
+    try {
+      await page.waitFor('location.pathname === "/chat"', 15_000);
+    } catch (error) {
+      throw new Error(`sign-in did not land in the conversation: ${await page.evaluate<string>('document.body.innerText.slice(0, 200)')}`);
+    }
+    assert.deepEqual(await page.errors(), []);
+  });
+
+  test('a wrong password says so, in her words, without saying which half was wrong', async () => {
+    const page = await freshBrowser();
+    await page.goto(`${base}/sign-in`);
+    await page.waitFor('document.querySelector("#email")');
+    await page.type('#email', `nobody-${Date.now()}@example.test`);
+    await page.type('#password', 'not-the-right-password');
+    await page.click('button[type="submit"]');
+    await page.waitFor('!!document.querySelector(".field__error")', 10_000);
+    const message = await page.evaluate<string>('document.querySelector(".field__error").textContent.trim()');
+    // Deliberately the same message for a wrong password and an unknown
+    // address: the difference is an account-enumeration oracle.
+    assert.equal(message, "That password doesn't match this email.");
+  });
+
+  test('a correct password from a new device is HELD, and says so calmly', async () => {
+    const page = await freshBrowser();
+    const email = `held-${Date.now()}@example.test`;
+    const signedUp = await fetch(`${base}/api/auth/sign-up`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json', 'idempotency-key': `su-${email}`,
+        'x-forwarded-for': '203.0.113.241', 'user-agent': 'the-first-device',
+      },
+      body: JSON.stringify({ email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai' }),
+    });
+    created.push(((await signedUp.json()) as { userId: string }).userId);
+
+    // A different browser is a different device (Q10).
+    await page.setUserAgent('Mozilla/5.0 (SomewhereElse) Lian-Test');
+    await page.goto(`${base}/sign-in`);
+    await page.waitFor('document.querySelector("#email")');
+    await page.type('#email', email);
+    await page.type('#password', 'a-long-enough-password');
+    await page.click('button[type="submit"]');
+    try {
+      await page.waitFor('location.pathname === "/confirm-device"', 10_000);
+    } catch {
+      throw new Error(`the hold did not happen: ${await page.evaluate<string>('document.body.innerText.slice(0, 200)')}`);
+    }
+    const text = await page.evaluate<string>('document.body.innerText');
+    // Nothing went wrong, and the screen does not shout.
+    assert.match(text, /confirm this device/i);
+    assert.ok(!/error|failed|denied/i.test(text));
+  });
+
+  test('export and deletion, end to end, on the routes they belong to', async () => {
+    const page = await freshBrowser();
+    const userId = await signUp(page);
+    await say(page, 'I paid the gym 400 today');
+
+    await page.goto(`${base}/data`);
+    await page.waitFor('!!document.querySelector(`[data-action="export"]`)', 10_000);
+    await page.click('[data-action="export"]');
+    await page.waitFor('!!document.querySelector(`[data-action="download"]`)', 20_000);
+    const filename = await page.evaluate<string>('document.querySelector(`[data-action="download"]`).getAttribute("download")');
+    assert.match(filename, /^lian-export-\d{4}-\d{2}-\d{2}\.json$/);
+
+    // Deleting asks for the word, and the word is checked on the server too.
+    await page.click('[data-action="delete-confirm"]');
+    await page.waitFor('!!document.querySelector("#confirm")');
+    await page.type('#confirm', 'DELETE');
+    await page.evaluate('document.querySelector(`[data-action="delete-everything"]`).requestSubmit()');
+    await page.waitFor('location.pathname === "/welcome"', 15_000);
+
+    const { rows } = await db().query<{ n: number }>(`SELECT count(*)::int AS n FROM users WHERE id = $1`, [userId]);
+    assert.equal(rows[0]!.n, 0, 'deleting is real (LESSONS §11)');
   });
 
   test('the PWA is installable: manifest, icons, worker', async () => {

@@ -144,3 +144,13 @@ export function dataScreen(me: Snapshot, state: DataState): Html {
         </button>`}
   `;
 }
+
+/** A screen the product will have and this build does not. */
+export function notBuilt(me: Snapshot): Html {
+  const language = me.user.language;
+  const gender = me.assistant.gender;
+  return html`<div class="empty">
+    <div class="empty__line">${t('screen.not_built', language, gender)}</div>
+    <a class="button button--quiet" href="/chat" data-link>${t('screen.back_to_chat', language, gender)}</a>
+  </div>`;
+}

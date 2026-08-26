@@ -1,5 +1,10 @@
 // Onboarding, end to end, through the real HTTP layer.
 //
+// Client addresses here are in 192.0.2.0/24 and nowhere else in the suite:
+// sign-up is rate limited per address, so two test files sharing one address
+// make the limiter the thing under test — and only when they happen to run in
+// the same minute, which is the worst kind of failure to chase.
+//
 // PRD §8: onboarding is a conversation whose emotional goal is "she remembers
 // me". There is no wizard, no form and no step counter — the state is the set
 // of facts she has, and the next question is whichever one is missing.
@@ -107,7 +112,7 @@ describe('onboarding, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not set
         method: 'POST',
         headers: {
           'content-type': 'application/json', authorization: `Bearer ${token}`,
-          'idempotency-key': `ob-${Date.now()}-${++key}`, 'x-forwarded-for': `198.51.100.${key}`,
+          'idempotency-key': `ob-${Date.now()}-${++key}`, 'x-forwarded-for': `192.0.2.${key}`,
         },
         body: JSON.stringify({ message }),
       });
@@ -118,7 +123,7 @@ describe('onboarding, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not set
     const email = `ob-${Date.now()}@example.test`;
     const signUp = await fetch(`${base}/api/auth/sign-up`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'idempotency-key': `su-${Date.now()}`, 'x-forwarded-for': '198.51.100.200' },
+      headers: { 'content-type': 'application/json', 'idempotency-key': `su-${Date.now()}`, 'x-forwarded-for': '192.0.2.100' },
       body: JSON.stringify({ email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai' }),
     });
     const account = (await signUp.json()) as { userId: string; sessionToken: string };
@@ -169,7 +174,7 @@ describe('onboarding, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not set
       method: 'POST',
       headers: {
         'content-type': 'application/json', authorization: `Bearer ${account.sessionToken}`,
-        'idempotency-key': `np-${Date.now()}`, 'x-forwarded-for': '198.51.100.201',
+        'idempotency-key': `np-${Date.now()}`, 'x-forwarded-for': '192.0.2.101',
       },
       body: JSON.stringify({ outcome: 'denied' }),
     });
@@ -214,7 +219,7 @@ describe('onboarding, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not set
     const signUpOne = async () => {
       const response = await fetch(`${base}/api/auth/sign-up`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json', 'idempotency-key': `su-${Date.now()}-${Math.random()}`, 'x-forwarded-for': '198.51.100.210' },
+        headers: { 'content-type': 'application/json', 'idempotency-key': `su-${Date.now()}-${Math.random()}`, 'x-forwarded-for': '192.0.2.110' },
         body: JSON.stringify({ email: `perm-${Date.now()}-${Math.random()}@example.test`, password: 'a-long-enough-password', timeZone: 'UTC' }),
       });
       const account = (await response.json()) as { userId: string; sessionToken: string };
@@ -227,7 +232,7 @@ describe('onboarding, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not set
       method: 'POST',
       headers: {
         'content-type': 'application/json', authorization: `Bearer ${granting.sessionToken}`,
-        'idempotency-key': `sub-${Date.now()}`, 'x-forwarded-for': '198.51.100.211',
+        'idempotency-key': `sub-${Date.now()}`, 'x-forwarded-for': '192.0.2.111',
       },
       body: JSON.stringify({ endpoint: 'https://push.example.test/abc', keys: { p256dh: 'BPk', auth: 'xyz' } }),
     });
@@ -238,7 +243,7 @@ describe('onboarding, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not set
       method: 'POST',
       headers: {
         'content-type': 'application/json', authorization: `Bearer ${declining.sessionToken}`,
-        'idempotency-key': `np-${Date.now()}`, 'x-forwarded-for': '198.51.100.212',
+        'idempotency-key': `np-${Date.now()}`, 'x-forwarded-for': '192.0.2.112',
       },
       body: JSON.stringify({ outcome: 'denied' }),
     });

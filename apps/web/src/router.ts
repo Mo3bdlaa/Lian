@@ -18,7 +18,22 @@ export const ROUTES: readonly Route[] = [
   { pattern: '/memory', screen: 'memory' },
   { pattern: '/security', screen: 'security' },
   { pattern: '/data', screen: 'data' },
-  { pattern: '/profile', screen: 'profile' },
+  { pattern: '/profile', screen: 'soon' },
+  // In the drawer (PRD §13) and in the specs, and not built in this run.
+  // They are routes so that tapping one says so, rather than quietly
+  // rendering the conversation.
+  { pattern: '/search', screen: 'soon' },
+  { pattern: '/album', screen: 'soon' },
+  { pattern: '/briefing', screen: 'soon' },
+  { pattern: '/health', screen: 'soon' },
+  { pattern: '/assistants', screen: 'soon' },
+  { pattern: '/subscription', screen: 'soon' },
+  { pattern: '/settings/identity', screen: 'soon' },
+  { pattern: '/settings/personality', screen: 'soon' },
+  { pattern: '/settings/quiet-hours', screen: 'soon' },
+  { pattern: '/tasks/:id', screen: 'tasks' },
+  { pattern: '/money/:id', screen: 'money' },
+  { pattern: '/notes/:id', screen: 'tasks' },
   { pattern: '/welcome', screen: 'welcome' },
   { pattern: '/sign-in', screen: 'signIn' },
   { pattern: '/sign-up', screen: 'signUp' },
