@@ -113,6 +113,17 @@ export async function appendMessage(
   return toMessage(rows[0]!);
 }
 
+/** One message, by id. Scoped like everything else: a message id from
+ *  another account resolves to nothing rather than to a 403. */
+export async function getMessage(scope: AssistantScope, messageId: string, sql: Sql = db()): Promise<Message | null> {
+  const { rows } = await sql.query<MessageRow>(
+    `SELECT ${M_COLUMNS} FROM messages
+     WHERE assistant_id = $1 AND id = $2 AND deleted_at IS NULL`,
+    [scope.assistantId, messageId],
+  );
+  return rows[0] === undefined ? null : toMessage(rows[0]);
+}
+
 /** The bounded window: newest first, then reversed for display. */
 export async function recentWindow(
   scope: AssistantScope,

@@ -15,12 +15,12 @@ import {
 } from '@lian/auth';
 import {
   runTurn, promptPorts, capabilityPorts, turnPorts, absorbPort, ownershipPorts,
-  summaryPorts, moodPorts, maybeRollSummary, refreshMood, exportEverything,
+  summaryPorts, moodPorts, maybeRollSummary, refreshMood, exportEverything, speakForTurn,
   deleteEverything, serializeArchive, relationshipView, type TurnSink,
 } from '@lian/runtime';
 import { DEFAULT_MODEL, turnCostMicros, type Provider } from '@lian/llm';
 import { verifyTick } from '@lian/jobs';
-import { transcribeVoiceNote } from '@lian/voice';
+import { transcribeVoiceNote, hashText, type SpeechProvider } from '@lian/voice';
 import { localDayKey, localHour, limitsFor, messageBudget, nextStep, DEFAULT_CURRENCY } from '@lian/domain';
 import { moodPhrase, t } from '@lian/i18n';
 import { describeCaptures, LANGUAGE_STYLES } from '@lian/capabilities';
@@ -34,7 +34,7 @@ import {
   readRoutes, attachmentRoutes, type AttachmentPorts,
 } from '@lian/http';
 import {
-  attachmentKey, kindOf, ACCEPTED, MAX_ATTACHMENT_BYTES,
+  attachmentKey, voiceKey, kindOf, ACCEPTED, MAX_ATTACHMENT_BYTES,
   UPLOAD_URL_SECONDS, DOWNLOAD_URL_SECONDS, type ObjectStore,
 } from '@lian/storage';
 import { VISION_MODEL } from './analysis.ts';
@@ -57,11 +57,23 @@ export type Deps = {
    *  rather than failing halfway through. */
   readonly store: ObjectStore | null;
   /** Null when no speech key is configured: voice reports that plainly
-   *  rather than failing as if something went wrong. */
-  readonly speech: { transcribe(input: { audio: Uint8Array; contentType: string; languageHint: string | null }): Promise<{ text: string; language: string | null }> } | null;
+   *  rather than failing as if something went wrong. Both directions come
+   *  from one provider — a voice note in, her sentence out. */
+  readonly speech: SpeechProvider | null;
 };
 
 const dayKeyFor = (timeZone: string, now: Date): string => localDayKey(now, timeZone);
+
+/**
+ * Which voice speaks.
+ *
+ * ASSUMPTION: the default speech provider's named voices, chosen for register
+ * rather than for accent — 'shimmer' and 'onyx' are the warmest of the set.
+ * Neither is an Egyptian-Arabic voice; the provider does not publish one, and
+ * HANDOFF records that as the reason to swap to Azure Speech if dialect
+ * quality turns out to be the binding constraint (see providers/speech.ts).
+ */
+const VOICE_ID: Record<'female' | 'male', string> = { female: 'shimmer', male: 'onyx' };
 const languageOf = (style: string): 'en' | 'ar' => (style.startsWith('ar') ? 'ar' : 'en');
 
 /** The user's assistant.  One per account today; the schema allows more, so
@@ -601,6 +613,12 @@ export function readPorts(deps: Deps): ReadPorts {
 
       const ids = window.map((message) => message.id);
       const reactions = await db.conversations.reactionsFor({ userId }, ids);
+      const attached = new Map<string, { id: string; kind: string; contentType: string }[]>();
+      for (const row of await db.attachments.forMessages({ userId }, ids)) {
+        const list = attached.get(row.messageId!) ?? [];
+        list.push({ id: row.id, kind: row.kind, contentType: row.contentType });
+        attached.set(row.messageId!, list);
+      }
       const quoted = await db.conversations.quotedLines(
         scope,
         window.map((message) => message.replyToId).filter((id): id is string => id !== null),
@@ -636,6 +654,7 @@ export function readPorts(deps: Deps): ReadPorts {
           reaction: reactions[message.id] ?? null,
           replyTo: message.replyToId === null ? null : quoted[message.replyToId] ?? null,
           memoriesDerived: derived.length,
+          attachments: attached.get(message.id) ?? [],
         });
       }
 
@@ -760,28 +779,72 @@ export function readPorts(deps: Deps): ReadPorts {
       return { ok: true };
     },
 
-    async transcribe({ userId, audio, contentType, durationSeconds }) {
+    /**
+     * Her sentence, spoken — on demand, never ahead of time.
+     *
+     * On demand because pre-generating every reply is the version that runs a
+     * TTS bill up on messages nobody plays, and because LESSONS §8's own
+     * story is a pre-generation path that looked fixed and was not. There is
+     * one write point (packages/voice/src/speak.ts) and it decides whether
+     * anything is cached from the conversation's retention, not from a flag
+     * a caller passes.
+     */
+    async speakMessage({ userId, messageId }) {
       if (deps.speech === null) return { status: 'unconfigured' as const };
+      if (deps.store === null) return { status: 'unconfigured' as const };
+      const speech = deps.speech;
+      const store = deps.store;
+
       const user = await db.accounts.getUser({ userId });
-      if (user === null) return { status: 'failed' as const, reason: 'no account' };
+      const assistant = await assistantOf(userId);
+      if (user === null || assistant === null) return { status: 'failed' as const, reason: 'no account' };
+      const scope = { userId, assistantId: assistant.id };
+
+      const message = await db.conversations.getMessage(scope, messageId);
+      // Only ever her own words: asking the product to read the user's
+      // message back to them is a different feature, and this is not it.
+      if (message === null || message.role !== 'assistant' || message.body.trim() === '') {
+        return { status: 'failed' as const, reason: 'nothing to say' };
+      }
+      const conversation = await db.conversations.getConversation(scope, message.conversationId);
+      if (conversation === null) return { status: 'failed' as const, reason: 'nothing to say' };
+
+      const voiceId = VOICE_ID[assistant.gender];
       const localDay = dayKeyFor(user.timeZone, deps.now());
-      const result = await transcribeVoiceNote(
+      const spoken = await speakForTurn(
         {
-          userId, audio: Buffer.from(audio, 'base64'), contentType,
-          durationSeconds, month: localDay.slice(0, 7),
-          secondsCeiling: limitsFor(user.plan).sttSecondsPerMonth,
-          languageHint: languageOf(user.languageStyle),
+          userId, text: message.body, voiceId, plan: user.plan,
+          month: localDay.slice(0, 7),
+          // From the conversation row, never from the request.
+          retention: conversation.kind === 'incognito' ? 'ephemeral' : 'persist',
         },
         {
-          speech: deps.speech,
+          cache: db.voice,
           usage: {
-            async reserveSeconds(forUserId, month, ceiling, seconds) {
-              return (await db.usage.reserve({ userId: forUserId }, 'stt_seconds', month, ceiling, seconds)).granted;
+            async reserveCharacters(forUserId, month, ceiling, characters) {
+              return (await db.usage.reserve({ userId: forUserId }, 'tts_chars', month, ceiling, characters)).granted;
+            },
+          },
+          synthesiser: {
+            async synthesise({ text, voiceId: voice }) {
+              const audio = await speech.synthesise({ text, voiceId: voice });
+              const key = voiceKey({
+                textHash: hashText(text), voiceId: voice,
+                extension: EXTENSIONS[audio.contentType] ?? 'mp3',
+              });
+              await store.put({ key, bytes: audio.audio, contentType: audio.contentType });
+              return { storageKey: key, bytes: audio.audio.byteLength };
             },
           },
         },
       );
-      return result.status === 'transcribed' ? { status: 'transcribed' as const, text: result.text } : result;
+
+      if (spoken.status !== 'ready') return spoken;
+      return {
+        status: 'ready' as const,
+        url: await store.presignGet({ key: spoken.storageKey, expiresIn: DOWNLOAD_URL_SECONDS, contentType: 'audio/mpeg' }),
+        cached: spoken.cached,
+      };
     },
 
     async revokeDevice({ userId, deviceId }) {

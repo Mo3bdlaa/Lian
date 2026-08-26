@@ -156,11 +156,32 @@ async function activeAssistants(now: Date): Promise<{ assistantId: string; userI
   const today = now.toISOString().slice(0, 10);
   const yesterday = dayBefore(today);
   const rows = [
-    ...(await db.outreach.assistantsActiveOn(yesterday, BATCH)),
-    ...(await db.outreach.assistantsActiveOn(today, BATCH)),
+    ...(await allActiveOn(yesterday)),
+    ...(await allActiveOn(today)),
   ];
   const seen = new Set<string>();
   return rows.filter((row) => (seen.has(row.assistantId) ? false : (seen.add(row.assistantId), true)));
+}
+
+/**
+ * Every active assistant on one day, paged.
+ *
+ * The repository query is a keyset page, not a sample: a LIMIT with no cursor
+ * would hand back the same first BATCH rows on every tick, so the two-hundred
+ * and first account would never get a diary and nothing would say so. Paging
+ * to exhaustion is bounded — the page is a database round trip per BATCH
+ * accounts active on a day, and the tick already does one per account.
+ */
+async function allActiveOn(localDay: string): Promise<{ assistantId: string; userId: string; timeZone: string; conversationId: string }[]> {
+  const all: { assistantId: string; userId: string; timeZone: string; conversationId: string }[] = [];
+  let after: string | null = null;
+  for (;;) {
+    const page: { assistantId: string; userId: string; timeZone: string; conversationId: string }[] =
+      await db.outreach.assistantsActiveOn(localDay, BATCH, after);
+    all.push(...page);
+    if (page.length < BATCH) return all;
+    after = page[page.length - 1]!.assistantId;
+  }
 }
 
 /** The reflection jobs batch by one local day; this keeps a run to the
@@ -169,9 +190,11 @@ function restrictedTo(ports: ReflectPorts, assistantIds: readonly string[]): Ref
   const allowed = new Set(assistantIds);
   return {
     ...ports,
-    async dueForReflection(kind, localDay, limit) {
-      const due = await ports.dueForReflection(kind, localDay, limit);
-      return due.filter((row) => allowed.has(row.assistantId));
+    async dueForReflection(kind, localDay, limit, after) {
+      const page = await ports.dueForReflection(kind, localDay, limit, after);
+      // Rows filtered, cursor untouched: this restriction must not move the
+      // page forward past the assistants it just dropped.
+      return { rows: page.rows.filter((row) => allowed.has(row.assistantId)), next: page.next };
     },
   };
 }

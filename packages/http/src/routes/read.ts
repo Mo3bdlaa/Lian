@@ -37,6 +37,10 @@ export type MessageView = {
   replyTo: { id: string; role: string; body: string } | null;
   /** UI-UX §39: "this message helped me remember 2 things". */
   memoriesDerived: number;
+  /** What came with it. The bytes are fetched separately, through
+   *  /api/attachments/:id, which redirects to a short-lived signed URL —
+   *  nothing here is a durable link. */
+  attachments: { id: string; kind: string; contentType: string }[];
 };
 
 export type MemoryView = {
@@ -75,13 +79,19 @@ export type ReadPorts = MiddlewarePorts & {
   revokeDevice(input: { userId: string; deviceId: string }): Promise<boolean>;
   updateSettings(input: { userId: string; patch: Record<string, unknown> }): Promise<{ ok: boolean; reason?: string }>;
   /**
-   * A voice note, transcribed. The transcript IS the message — there is no
-   * object storage yet, so the audio is not kept, and a message whose body
-   * is a transcript is one the whole product can already read, search and
-   * remember.
+   * Her sentence, spoken.
+   *
+   * A voice note FROM the user does not come through here: it is uploaded as
+   * an attachment and transcribed on the way into the turn, because the
+   * transcript is the message body (Q14) and a second route that produced a
+   * transcript would be a second path to the same thing.
    */
-  transcribe(input: { userId: string; audio: string; contentType: string; durationSeconds: number }): Promise<
-    { status: 'transcribed'; text: string } | { status: 'ceiling_reached' } | { status: 'unconfigured' } | { status: 'failed'; reason: string }
+  speakMessage(input: { userId: string; messageId: string }): Promise<
+    | { status: 'ready'; url: string; cached: boolean }
+    | { status: 'ceiling_reached' }
+    | { status: 'not_on_this_plan' }
+    | { status: 'unconfigured' }
+    | { status: 'failed'; reason: string }
   >;
   now(): Date;
 };
@@ -184,25 +194,20 @@ export function readRoutes(ports: ReadPorts): { method: 'GET' | 'POST' | 'PATCH'
     },
     {
       method: 'POST',
-      pattern: '/api/voice',
+      pattern: '/api/messages/:id/voice',
       handler: async (context) => {
         const session = await requireSession(context, ports, ports.now());
-        // Its own bucket: transcription costs money per second and a stuck
-        // client retrying is the shape that runs a bill up.
+        // The chat bucket rather than the read one: synthesis costs money per
+        // character, and a stuck client retrying is the shape that runs a
+        // bill up.
         await enforceRate({ bucket: `chat:${session.userId}`, rule: RATE_RULES.chat, now: ports.now() }, ports);
-        const body = context.body<{ audio?: string; contentType?: string; durationSeconds?: number }>();
-        if (typeof body.audio !== 'string' || body.audio === '') throw new HttpError(400, 'no_audio', 'there was nothing to listen to');
-        const result = await withIdempotency({ context, userId: session.userId, route: 'voice' }, ports, async () => {
-          const outcome = await ports.transcribe({
-            userId: session.userId,
-            audio: body.audio!,
-            contentType: body.contentType ?? 'audio/webm',
-            durationSeconds: Number(body.durationSeconds ?? 0),
-          });
+        const result = await withIdempotency({ context, userId: session.userId, route: 'speak' }, ports, async () => {
+          const outcome = await ports.speakMessage({ userId: session.userId, messageId: context.params['id']! });
           if (outcome.status === 'unconfigured') throw new HttpError(503, 'voice_unconfigured', 'this deployment has no speech key configured');
+          if (outcome.status === 'not_on_this_plan') throw new HttpError(402, 'voice_not_on_plan', 'her voice comes with the paid plan');
           if (outcome.status === 'ceiling_reached') throw new HttpError(429, 'voice_ceiling', 'that is all the voice I can do this month');
           if (outcome.status === 'failed') throw new HttpError(422, 'voice_failed', outcome.reason);
-          return { status: 200, json: { text: outcome.text } };
+          return { status: 200, json: { url: outcome.url, cached: outcome.cached } };
         });
         return { status: result.status, json: result.json };
       },

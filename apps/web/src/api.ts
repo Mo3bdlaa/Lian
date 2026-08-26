@@ -114,3 +114,28 @@ export function parseEvent(chunk: string): StreamEvent | null {
     return null;
   }
 }
+
+/**
+ * The three-step upload, as one call.
+ *
+ * The bytes go BROWSER → STORAGE, never through the app server: step 2 is a
+ * PUT to a signed URL that the server handed back and cannot read. Which is
+ * also why step 3 exists — the server asks storage how large the object
+ * actually is rather than believing anything said here.
+ */
+export async function upload(
+  file: Blob,
+  input: { kind: 'image' | 'audio' | 'receipt'; contentType: string; conversationId: string | null },
+): Promise<{ id: string; bytes: number }> {
+  const begun = await post<{ id: string; url: string; method: string; headers: Record<string, string> }>(
+    '/api/attachments',
+    { kind: input.kind, contentType: input.contentType, conversationId: input.conversationId },
+  );
+  const put = await fetch(begun.url, {
+    method: begun.method,
+    headers: { ...begun.headers, 'content-type': input.contentType },
+    body: file,
+  });
+  if (!put.ok) throw new ApiError(put.status, 'upload_failed', 'that did not upload');
+  return post<{ id: string; bytes: number }>(`/api/attachments/${begun.id}/complete`);
+}

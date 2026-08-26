@@ -28,6 +28,7 @@ describe('§1 the non-voice path carries no persona', () => {
     // path under, so the list is asserted exactly rather than by count.
     assert.deepEqual([...ANALYSIS_PROMPTS], [
       'memory_extraction', 'canon_extraction', 'conversation_title', 'conversation_summary',
+      'receipt_reading',
     ]);
   });
 

@@ -42,3 +42,20 @@ export function kindOf(value: string): AttachmentKind | null {
 export function attachmentKey(input: { userId: string; kind: AttachmentKind; attachmentId: string; extension: string }): string {
   return `u/${input.userId}/${input.kind}/${input.attachmentId}.${input.extension}`;
 }
+
+/**
+ * Where a synthesised sentence lives.
+ *
+ * Deliberately NOT user-prefixed, and that is a decision rather than an
+ * oversight: the TTS cache is keyed by content hash and holds no user
+ * reference (packages/db/src/scope.ts records it as unscoped for the same
+ * reason), so the KEY must not reintroduce the reference the row avoids.
+ * The trade-off is stated in HANDOFF: deleting an account does not remove
+ * cached audio, because there is nothing in it that says whose it was.
+ *
+ * Incognito never reaches here at all — LESSONS §8 puts that branch at the
+ * single write point in packages/voice/src/speak.ts.
+ */
+export function voiceKey(input: { textHash: string; voiceId: string; extension: string }): string {
+  return `voice/${input.voiceId}/${input.textHash}.${input.extension}`;
+}

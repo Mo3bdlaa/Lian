@@ -405,6 +405,31 @@ body {
   font-family: inherit;
 }
 .bubble--mine { background: var(--bubble-mine); }
+
+/* What came with a message.  A photograph is content, so it gets the bubble's
+   corner radius and its width cap rather than a card of its own. */
+.bubble__photo {
+  display: block;
+  max-width: 78%;
+  border-radius: var(--r-panel);
+  overflow: hidden;
+}
+.bubble__photo img { width: 100%; height: auto; display: block; }
+.bubble__audio { width: 78%; height: var(--h-44); }
+/* Asked for, not offered: a quiet control under her message, at the tap
+   minimum like everything else that can be pressed. */
+.bubble__speak {
+  align-self: start;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .bubble--thinking { display: flex; gap: var(--s-4); align-items: center; min-height: var(--h-44); }
 .bubble--limit { background: var(--surface); }
 .bubble--notice { background: var(--surface); color: var(--muted); }

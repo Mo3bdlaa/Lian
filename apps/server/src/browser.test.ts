@@ -221,7 +221,15 @@ describe('the app, in a browser', { skip: SKIP }, () => {
     assert.equal(await page.evaluate('location.pathname'), '/chat');
     // PRD §8: onboarding is a conversation. There is no setup form on the
     // way in, and this is the assertion that keeps it that way.
-    assert.equal(await page.evaluate('document.querySelectorAll("form input").length'), 1, 'only the message field');
+    // PRD §8's rule is "nothing to fill in", so the count is of fields a
+    // person types into. The photo control is a hidden file input that opens
+    // the camera — it is a button wearing an <input>, and both halves of that
+    // are asserted rather than assumed.
+    assert.equal(
+      await page.evaluate('document.querySelectorAll(\'form input:not([type="file"])\').length'),
+      1, 'only the message field',
+    );
+    assert.equal(await page.evaluate('document.querySelectorAll(\'form input[type="file"]:not([hidden])\').length'), 0);
     assert.ok(await page.evaluate('!!document.querySelector(".composer__input")'));
   });
 

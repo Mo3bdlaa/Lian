@@ -28,6 +28,9 @@ export type Message = {
   reaction: string | null;
   replyTo: { id: string; role: string; body: string } | null;
   memoriesDerived: number;
+  /** What came with it. The bytes are fetched from /api/attachments/:id,
+   *  which redirects to a URL that expires — there is no durable link. */
+  attachments: { id: string; kind: string; contentType: string }[];
   /** Client-only, while a turn is in flight. */
   pending?: 'sending' | 'streaming' | 'failed' | undefined;
 };

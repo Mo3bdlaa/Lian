@@ -184,8 +184,11 @@ export function candidatePorts(): CandidatePorts {
 
 export function reflectPorts(deps: JobDeps): ReflectPorts {
   return {
-    async dueForReflection(_kind, localDay, limit) {
-      return db.outreach.assistantsActiveOn(localDay, limit);
+    async dueForReflection(_kind, localDay, limit, after) {
+      const rows = await db.outreach.assistantsActiveOn(localDay, limit, after);
+      // A short page is the end. A full one might not be, so the cursor is
+      // the last id rather than null.
+      return { rows, next: rows.length < limit ? null : rows[rows.length - 1]!.assistantId };
     },
     async alreadyReflected(assistantId, kind: ReflectionKind, localDay) {
       const owner = await db.outreach.ownerOf(assistantId);

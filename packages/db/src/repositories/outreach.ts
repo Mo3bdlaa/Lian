@@ -192,9 +192,24 @@ export async function cancel(outreachId: string, reason: string, sql: Sql = db()
 }
 
 /** Assistants whose user was active on a given local day — the reflection jobs' input. */
-export async function assistantsActiveOn(localDay: string, limit: number, sql: Sql = db()): Promise<{
+/**
+ * Everyone who used the app on a given local day, one batch at a time.
+ *
+ * `after` is a keyset cursor over assistant id: pass the last id of the
+ * previous page to get the next one. A caller that ignores it gets the first
+ * batch and nothing else — which is the honest shape, because the alternative
+ * (an unordered LIMIT) looks like full coverage and is not.
+ */
+export async function assistantsActiveOn(localDay: string, limit: number, after: string | null = null, sql: Sql = db()): Promise<{
   assistantId: string; userId: string; timeZone: string; conversationId: string;
 }[]> {
+  // ORDER BY is not decoration. A LIMIT with no ORDER BY returns an ARBITRARY
+  // subset, so a batch job over more rows than the batch could hand back the
+  // same people every tick and never reach the rest — a diary nobody past the
+  // two-hundredth account ever gets, and nothing in the logs to say so. The
+  // order is deterministic and the caller pages with `after`, so the batch is
+  // a page rather than a sample.
+  //
   // db-scoping:allow-unscoped — a batch job over every user by definition.
   // It returns the user_id for each row so everything downstream is scoped.
   const { rows } = await sql.query<{ assistant_id: string; user_id: string; time_zone: string; conversation_id: string }>(
@@ -207,8 +222,10 @@ export async function assistantsActiveOn(localDay: string, limit: number, sql: S
      JOIN messages m ON m.assistant_id = a.id
      WHERE a.archived_at IS NULL AND u.deleted_at IS NULL AND m.deleted_at IS NULL
        AND m.created_at >= $1::date AND m.created_at < ($1::date + interval '1 day')
+       AND ($3::uuid IS NULL OR a.id > $3::uuid)
+     ORDER BY a.id
      LIMIT $2`,
-    [localDay, limit],
+    [localDay, limit, after ?? null],
   );
   return rows
     .filter((row) => row.conversation_id !== null)

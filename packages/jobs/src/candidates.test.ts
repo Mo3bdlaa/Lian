@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { proposeOutreach, MAX_PENDING_ASSISTANT_INITIATED, BRIEFING_HOUR, type CandidatePorts } from './candidates.ts';
 import { localHour } from '@lian/domain';
-import { runReflections, type ReflectPorts } from './reflect.ts';
+import { runReflections, REFLECT_BATCH, type ReflectPorts } from './reflect.ts';
 import type { OutreachCandidate } from '@lian/domain';
 
 const NOW = new Date('2026-05-18T10:00:00Z');
@@ -131,7 +131,9 @@ describe('dreams and diary', () => {
     const stored: string[] = [];
     const reflected: string[] = [];
     const ports: ReflectPorts = {
-      async dueForReflection() { return [{ assistantId: 'a-1', userId: 'u-1', timeZone: 'Asia/Dubai', conversationId: 'c-1' }]; },
+      async dueForReflection() {
+        return { rows: [{ assistantId: 'a-1', userId: 'u-1', timeZone: 'Asia/Dubai', conversationId: 'c-1' }], next: null };
+      },
       async alreadyReflected() { return false; },
       async reflect(i) { reflected.push(i.assistantId); return 'It was a heavier week than they let on.'; },
       async store(_a, i) { stored.push(i.body); return true; },
@@ -159,6 +161,57 @@ describe('dreams and diary', () => {
     const fake = reflectPorts({ async reflect() { return '  '; } });
     assert.equal((await runReflections({ kind: 'dream', localDay: '2026-05-18' }, fake.ports)).written, 0);
     assert.equal(fake.stored.length, 0);
+  });
+
+  test('everyone active is considered, not just the first batch (a filter after a LIMIT starves the tail)', async () => {
+    // The bug this pins: dueForReflection returns a page, the SCHEDULER
+    // filters that page down to the time zones that have reached the hour,
+    // and a caller that stopped after one page would serve the same first
+    // REFLECT_BATCH accounts forever while nobody else ever got a diary —
+    // with a report that says "considered: 50" and looks healthy.
+    const everyone = Array.from({ length: REFLECT_BATCH * 2 + 7 }, (_unused, index) => ({
+      assistantId: `a-${String(index).padStart(4, '0')}`, userId: `u-${index}`,
+      timeZone: 'Asia/Dubai', conversationId: `c-${index}`,
+    }));
+    const asked: (string | null)[] = [];
+    const fake = reflectPorts({
+      async dueForReflection(_kind, _localDay, limit, after) {
+        asked.push(after);
+        const from = after === null ? 0 : everyone.findIndex((row) => row.assistantId === after) + 1;
+        const rows = everyone.slice(from, from + limit);
+        return { rows, next: rows.length < limit ? null : rows[rows.length - 1]!.assistantId };
+      },
+    });
+    const report = await runReflections({ kind: 'diary', localDay: '2026-05-18' }, fake.ports);
+    assert.equal(report.considered, everyone.length);
+    assert.equal(fake.stored.length, everyone.length, 'the last account gets a diary too');
+    assert.deepEqual(asked, [null, 'a-0049', 'a-0099'], 'it paged with the cursor rather than re-reading the first page');
+  });
+
+  test('a filtered page does not move the cursor past what it dropped', async () => {
+    // The wrapper in apps/server/src/schedule.ts filters rows and passes the
+    // cursor through untouched. If it derived the cursor from what SURVIVED
+    // the filter, the next page would begin after the last row it kept and
+    // skip everything between.
+    const everyone = Array.from({ length: REFLECT_BATCH + 3 }, (_unused, index) => ({
+      assistantId: `a-${String(index).padStart(4, '0')}`, userId: `u-${index}`,
+      timeZone: 'Asia/Dubai', conversationId: `c-${index}`,
+    }));
+    const fake = reflectPorts({
+      async dueForReflection(_kind, _localDay, limit, after) {
+        const from = after === null ? 0 : everyone.findIndex((row) => row.assistantId === after) + 1;
+        const rows = everyone.slice(from, from + limit);
+        return {
+          // Only the first of every page survives the filter — the shape the
+          // scheduler's time-zone restriction produces on a busy hour.
+          rows: rows.slice(0, 1),
+          next: rows.length < limit ? null : rows[rows.length - 1]!.assistantId,
+        };
+      },
+    });
+    const report = await runReflections({ kind: 'diary', localDay: '2026-05-18' }, fake.ports);
+    assert.equal(report.considered, 2, 'one from each full page, and the source still ran to the end');
+    assert.deepEqual(fake.reflected, ['a-0000', 'a-0050']);
   });
 
   test('nothing written here is delivered — there is no sink to deliver to', () => {

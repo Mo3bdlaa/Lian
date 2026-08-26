@@ -83,8 +83,11 @@ function bubble(message: Message, me: Snapshot, state: State): Html {
       <span class="bubble__quote-who">${t('chat.replying_to', language, gender)} ${message.replyTo.role === 'user' ? (me.user.name ?? '') : me.assistant.name}</span>
       <span class="bubble__quote-line">${message.replyTo.body}</span>
     </div>`}
+    ${message.attachments.map((attachment) => attachmentView(attachment, me))}
     <button class="bubble ${mine ? 'bubble--mine' : 'bubble--hers'}" data-action="message-actions" data-id="${message.id}"
       >${message.body}${message.pending === 'streaming' ? html`<span class="caret" aria-hidden="true"></span>` : ''}</button>
+    ${mine || message.pending !== undefined || me.user.plan !== 'paid' ? '' : html`<button class="bubble__speak" data-action="speak" data-id="${message.id}"
+      aria-label="${t('chat.play', language, gender)}">${icon('i-play', 'sm', 'icon--muted')}</button>`}
     ${message.reaction === null ? '' : html`<span class="reaction" data-action="message-actions" data-id="${message.id}">
       ${icon(REACTION_ICONS[message.reaction] ?? 'i-heart', 'sm')}
     </span>`}
@@ -102,6 +105,27 @@ function bubble(message: Message, me: Snapshot, state: State): Html {
           : time(message.at, language, me.user.timeZone)}
     </div>
   </div>`;
+}
+
+/**
+ * What came with a message.
+ *
+ * Both go through /api/attachments/:id, which redirects to a URL that expires
+ * in minutes — so the markup holds no durable link to anybody's photograph,
+ * and a copied page source is worth nothing an hour later.
+ */
+function attachmentView(attachment: { id: string; kind: string; contentType: string }, me: Snapshot): Html {
+  const language = me.user.language;
+  const gender = me.assistant.gender;
+  if (attachment.kind === 'audio') {
+    // The native player: it already knows about scrubbing, the lock screen
+    // and the system volume, and a hand-built one would know none of it.
+    return html`<audio class="bubble__audio" controls preload="none"
+      src="/api/attachments/${attachment.id}" aria-label="${t('chat.voice_note', language, gender)}"></audio>`;
+  }
+  return html`<a class="bubble__photo" href="/api/attachments/${attachment.id}" target="_blank" rel="noreferrer">
+    <img src="/api/attachments/${attachment.id}" alt="${t('chat.photo_alt', language, gender)}" loading="lazy">
+  </a>`;
 }
 
 /** The dots, while she is thinking and before the first delta (UI-UX §37). */
@@ -127,6 +151,10 @@ export function composer(state: State): Html {
       <input class="composer__input" name="message" autocomplete="off"
         placeholder="${t('chat.input_placeholder', language, gender)}"
         aria-label="${t('chat.input_placeholder', language, gender)}">
+      <label class="composer__icon" aria-label="${t('chat.photo', language, gender)}">
+        ${icon('i-photo')}
+        <input type="file" class="composer__file" accept="image/*" data-action="photo" hidden>
+      </label>
       <button type="button" class="composer__icon" data-action="voice" aria-label="${t('chat.voice', language, gender)}">${icon('i-mic')}</button>
       <button type="submit" class="composer__icon composer__send" aria-label="${t('chat.send', language, gender)}">${icon('i-send', 'md', 'icon--flip')}</button>
     </form>

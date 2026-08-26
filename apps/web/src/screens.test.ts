@@ -33,7 +33,7 @@ const me = (overrides: Partial<Snapshot> = {}): Snapshot => ({
 const message = (overrides: Partial<Message> = {}): Message => ({
   id: 'm-1', role: 'assistant', body: 'Okay, logged AED 400 for the gym today.',
   at: '2026-05-18T09:30:00.000Z', surface: 'chat', captures: [], reaction: null, replyTo: null,
-  memoriesDerived: 0, ...overrides,
+  memoriesDerived: 0, attachments: [], ...overrides,
 });
 
 const state = (overrides: Partial<State> = {}): State => ({ ...initial, me: me(), path: '/chat', ...overrides });

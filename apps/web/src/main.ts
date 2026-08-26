@@ -10,7 +10,7 @@
 // is replaced wholesale from state; the composer keeps its own input value
 // across renders, because replacing a field somebody is typing into is the
 // thing this approach gets wrong if nobody says so.
-import { get, patch as patch_, post, remove, stream, newKey, ApiError } from './api.ts';
+import { get, patch as patch_, post, remove, stream, upload, newKey, ApiError } from './api.ts';
 import { current, set, subscribe, type Message, type Snapshot, type State } from './state.ts';
 import { match, tabFor } from './router.ts';
 import { html, render, type Html } from './dom.ts';
@@ -275,21 +275,24 @@ document.addEventListener('visibilitychange', () => {
 
 // ── a turn ────────────────────────────────────────────────────────────────
 
-async function send(text: string): Promise<void> {
+async function send(text: string, attachment: { id: string; kind: string; contentType: string } | null = null): Promise<void> {
   const state = current();
   const me = state.me!;
-  if (me.conversation === null || text.trim() === '') return;
+  // A photograph with no words is a whole message; empty is only empty when
+  // there is nothing attached either.
+  if (me.conversation === null || (text.trim() === '' && attachment === null)) return;
 
   const clientId = newKey();
   const mine: Message = {
     id: clientId, role: 'user', body: text, at: new Date().toISOString(), surface: null,
     captures: [], reaction: null, memoriesDerived: 0,
+    attachments: attachment === null ? [] : [attachment],
     replyTo: state.replyTo === null ? null : { id: state.replyTo.id, role: state.replyTo.role, body: state.replyTo.body },
     pending: 'sending',
   };
   const hers: Message = {
     id: `${clientId}-hers`, role: 'assistant', body: '', at: new Date().toISOString(), surface: null,
-    captures: [], reaction: null, replyTo: null, memoriesDerived: 0, pending: 'streaming',
+    captures: [], reaction: null, replyTo: null, memoriesDerived: 0, attachments: [], pending: 'streaming',
   };
   set({ messages: [...state.messages, mine], replyTo: null, busy: true, limitLine: null });
 
@@ -297,7 +300,7 @@ async function send(text: string): Promise<void> {
   try {
     await stream(
       `/api/conversations/${me.conversation.id}/messages`,
-      { message: text, clientId, replyToId: state.replyTo?.id ?? null },
+      { message: text, clientId, replyToId: state.replyTo?.id ?? null, attachmentId: attachment?.id ?? null },
       clientId,
       (event) => {
         if (event.event === 'text') {
@@ -311,6 +314,10 @@ async function send(text: string): Promise<void> {
           hers.captures = [...hers.captures, event.data as unknown as Message['captures'][number]];
         } else if (event.event === 'limit') {
           set({ limitLine: String(event.data['line'] ?? '') });
+        } else if (event.event === 'attachment_failed') {
+          // Her sentence, in the conversation. Nothing was charged and no
+          // message was written, so the composer comes back.
+          set({ error: String(event.data['line'] ?? '') });
         } else if (event.event === 'error') {
           throw new Error(String(event.data['message'] ?? 'error'));
         }
@@ -383,6 +390,8 @@ document.addEventListener('click', (event) => {
     set({ acting: { id, mode: 'delete' as 'sheet' } });
   } else if (action === 'confirm-delete') {
     void deleteMessage(id, actor.dataset['keep'] === 'true');
+  } else if (action === 'speak') {
+    void playMessage(id);
   } else if (action === 'voice') {
     void startRecording();
   } else if (action === 'stop-voice') {
@@ -519,11 +528,23 @@ document.addEventListener('submit', (event) => {
   void send(text);
 });
 
+// The photo control is a file input, so it reports through 'change' rather
+// than the click listener above.
+document.addEventListener('change', (event) => {
+  const input = event.target as HTMLInputElement;
+  if (input.dataset['action'] !== 'photo') return;
+  const file = input.files?.[0];
+  // Cleared immediately so choosing the same picture twice fires again.
+  input.value = '';
+  if (file !== undefined) void sendPhoto(file);
+});
+
 // ── voice notes (UI-UX §34) ───────────────────────────────────────────────
 //
-// The transcript is the message. There is no object storage yet, so the audio
-// is not kept — which also means a voice note is searchable, correctable and
-// rememberable like everything else she is told.
+// The recording is uploaded as an attachment and the server transcribes it on
+// the way into the turn, so the TRANSCRIPT is the message body (Q14) and the
+// AUDIO is kept beside it. That is one path: there is no separate transcribe
+// endpoint that would produce a message body a second way.
 
 let recording: { recorder: MediaRecorder; chunks: Blob[]; startedAt: number; timer: number } | null = null;
 
@@ -567,19 +588,68 @@ async function stopRecording(send_: boolean): Promise<void> {
 
   set({ busy: true });
   try {
-    const buffer = new Uint8Array(await audio.arrayBuffer());
-    let binary = '';
-    for (const byte of buffer) binary += String.fromCharCode(byte);
-    const { text } = await post<{ text: string }>('/api/voice', {
-      audio: btoa(binary), contentType: audio.type || 'audio/webm', durationSeconds: seconds,
+    const contentType = audio.type === '' ? 'audio/webm' : audio.type.split(';')[0]!;
+    const uploaded = await upload(audio, {
+      kind: 'audio', contentType,
+      conversationId: current().me?.conversation?.id ?? null,
     });
     set({ busy: false });
-    await send(text);
+    // No text: the transcript becomes the body server-side.
+    await send('', { id: uploaded.id, kind: 'audio', contentType });
   } catch (error) {
     // UI-UX §20: she says it, rather than an error toast.
-    set({ busy: false, error: error instanceof ApiError && error.code === 'voice_unconfigured'
-      ? t('error.voice_fallback', me.user.language, me.assistant.gender)
+    set({
+      busy: false,
+      error: error instanceof ApiError && error.code !== 'upload_failed'
+        ? error.message
+        : t('error.voice_fallback', me.user.language, me.assistant.gender),
+    });
+  }
+}
+
+/**
+ * Her sentence, spoken — asked for, never pushed.
+ *
+ * Synthesis happens when the button is pressed and not before: pre-generating
+ * every reply bills for audio nobody plays, and LESSONS §8's own story is a
+ * pre-generation path that looked fixed and was not.
+ */
+async function playMessage(messageId: string): Promise<void> {
+  const me = current().me;
+  if (me === null) return;
+  try {
+    const { url } = await post<{ url: string }>(`/api/messages/${messageId}/voice`);
+    await new Audio(url).play();
+  } catch (error) {
+    // UI-UX §20: "The voice note didn't work, so I'll say it here instead."
+    // Her words are already on screen, which is exactly what that line means.
+    set({ error: error instanceof ApiError && error.code === 'voice_not_on_plan'
+      ? error.message
       : t('error.voice_fallback', me.user.language, me.assistant.gender) });
+  }
+}
+
+// ── photographs (PRD §6.5) ────────────────────────────────────────────────
+//
+// One control, and it does not ask what the picture is: the server reads
+// every image as a possible receipt, because asking someone to classify their
+// own photograph is a form, and this product does not have forms.
+async function sendPhoto(file: File): Promise<void> {
+  const me = current().me;
+  if (me === null) return;
+  set({ busy: true });
+  try {
+    const uploaded = await upload(file, {
+      kind: 'image', contentType: file.type === '' ? 'image/jpeg' : file.type,
+      conversationId: me.conversation?.id ?? null,
+    });
+    set({ busy: false });
+    await send('', { id: uploaded.id, kind: 'image', contentType: file.type });
+  } catch (error) {
+    set({
+      busy: false,
+      error: error instanceof ApiError ? error.message : t('error.attachment_failed', me.user.language, me.assistant.gender),
+    });
   }
 }
 
