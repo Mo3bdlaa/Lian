@@ -104,6 +104,7 @@ export function shellHtml(themeColor: string): string {
 <meta name="theme-color" content="${themeColor}">
 </head><body>
 <noscript>Lian needs JavaScript.</noscript>
+<script src="/push.js"></script>
 <script type="module">
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
@@ -112,9 +113,82 @@ export function shellHtml(themeColor: string): string {
 </body></html>`;
 }
 
+/**
+ * The notification permission, client side.
+ *
+ * Not a screen — a function the conversation calls when she has just
+ * remembered something and asked (PRD §8). It is here rather than in a UI
+ * bundle because the ordering rule is a product decision, and because both
+ * answers have to reach the server: granted subscribes, and refused still
+ * tells the server it was ASKED, so she does not ask again into a dialogue
+ * the browser will never show twice.
+ *
+ * Written as a classic script assigning one global, so it can be run in a
+ * test with fake browser objects rather than trusted by inspection.
+ */
+export const PUSH_CLIENT = `
+window.lianPush = {
+  supported: function () {
+    return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  },
+
+  // Returns 'granted' | 'denied' | 'dismissed' | 'unsupported' | 'unconfigured'.
+  enable: async function (idempotencyKey) {
+    var post = function (path, body) {
+      return fetch(path, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'idempotency-key': idempotencyKey },
+        body: JSON.stringify(body),
+        credentials: 'same-origin',
+      });
+    };
+
+    if (!this.supported()) {
+      await post('/api/push/prompted', { outcome: 'unsupported' });
+      return 'unsupported';
+    }
+
+    var keyResponse = await fetch('/api/push/key', { credentials: 'same-origin' });
+    if (!keyResponse.ok) {
+      // A deployment with no VAPID keys cannot send anything. Do NOT record
+      // this as asked: nothing was asked, and the person should be asked
+      // once the deployment can actually deliver.
+      return 'unconfigured';
+    }
+    var publicKey = (await keyResponse.json()).publicKey;
+
+    var permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      await post('/api/push/prompted', { outcome: permission === 'denied' ? 'denied' : 'dismissed' });
+      return permission === 'denied' ? 'denied' : 'dismissed';
+    }
+
+    var registration = await navigator.serviceWorker.ready;
+    var subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: window.lianPush.decodeKey(publicKey),
+    });
+    var raw = subscription.toJSON();
+    await post('/api/push/subscribe', { endpoint: raw.endpoint, keys: { p256dh: raw.keys.p256dh, auth: raw.keys.auth } });
+    return 'granted';
+  },
+
+  // base64url to the Uint8Array applicationServerKey expects.
+  decodeKey: function (base64url) {
+    var padded = base64url.replace(/-/g, '+').replace(/_/g, '/');
+    while (padded.length % 4 !== 0) padded += '=';
+    var binary = atob(padded);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  },
+};
+`;
+
 export function staticFiles(themeColor: string): Record<string, { contentType: string; body: string }> {
   return {
     '/': { contentType: 'text/html; charset=utf-8', body: shellHtml(themeColor) },
+    '/push.js': { contentType: 'text/javascript; charset=utf-8', body: PUSH_CLIENT },
     '/manifest.webmanifest': { contentType: 'application/manifest+json; charset=utf-8', body: manifestJson(themeColor) },
     '/sw.js': { contentType: 'text/javascript; charset=utf-8', body: SERVICE_WORKER },
   };

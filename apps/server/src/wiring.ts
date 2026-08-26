@@ -20,7 +20,7 @@ import {
 } from '@lian/runtime';
 import { DEFAULT_MODEL, type Provider } from '@lian/llm';
 import { verifyTick } from '@lian/jobs';
-import { localDayKey } from '@lian/domain';
+import { localDayKey, nextStep } from '@lian/domain';
 
 import type { Embedder, AnalysisModel } from '@lian/analysis';
 import {
@@ -185,6 +185,13 @@ export function chatRoutePorts(deps: Deps): ChatRoutePorts {
       const assistant = await assistantOf(input.userId);
       if (user === null || assistant === null) return { status: 'no_assistant' };
 
+      // Onboarding is a SURFACE, not a screen (PRD §8) — the same route, the
+      // same turn function, one different value. It is chosen from the facts
+      // rather than from a flag on the account, so someone who answers two
+      // questions in one sentence moves two steps.
+      const facts = await db.accounts.onboardingFacts({ userId: input.userId, assistantId: assistant.id });
+      const surface = nextStep(facts) === 'done' ? 'chat' : 'onboarding';
+
       const sink: TurnSink = {
         text: (delta) => input.onText(delta),
         capture: (summary) => input.onCapture(summary),
@@ -195,7 +202,7 @@ export function chatRoutePorts(deps: Deps): ChatRoutePorts {
       const result = await runTurn(
         {
           userId: input.userId, assistantId: assistant.id, conversationId: input.conversationId,
-          surface: 'chat', plan: user.plan, timeZone: user.timeZone,
+          surface, plan: user.plan, timeZone: user.timeZone,
           language: languageOf(user.languageStyle), assistantGender: assistant.gender,
           model: DEFAULT_MODEL, now: deps.now(),
           userMessage: input.message, clientId: input.clientId, replacingMessageId: null,

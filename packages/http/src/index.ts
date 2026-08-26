@@ -5,4 +5,4 @@ export { authRoutes, fingerprintOf, type AuthRoutePorts } from './routes/auth.ts
 export { chatRoutes, MAX_MESSAGE_LENGTH, type ChatRoutePorts, type ChatTurn } from './routes/chat.ts';
 export { correctionRoutes, CORRECTION_KINDS, type CorrectionPorts, type CorrectionKind } from './routes/capture.ts';
 export { platformRoutes, DELETE_CONFIRMATION, type PlatformPorts } from './routes/platform.ts';
-export { staticFiles, manifestJson, shellHtml, SERVICE_WORKER } from './pwa.ts';
+export { staticFiles, manifestJson, shellHtml, SERVICE_WORKER, PUSH_CLIENT } from './pwa.ts';
