@@ -18,4 +18,8 @@ export type AuthPorts = {
   sendDeviceConfirmation(input: { userId: string; email: string; token: string; locationLabel: string | null; userAgent: string | null }): Promise<void>;
   /** Lets her raise it in chat, calmly (UI-UX §16).  Never a bank-style alert. */
   raiseSecurityEvent(input: { userId: string; kind: 'held_new_device'; locationLabel: string | null; confirmationId: string }): Promise<void>;
+  /** PRD §18's success metrics only exist if the events do.  Recorded here
+   *  rather than by the caller, because the caller is where one gets
+   *  forgotten. */
+  recordEvent(input: { name: 'account_created' | 'session_started'; userId: string }): Promise<void>;
 };

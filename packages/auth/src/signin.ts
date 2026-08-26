@@ -58,6 +58,10 @@ export async function signUp(
   const { token, hash } = newToken();
   await ports.createSession(user.id, { deviceId: device.id, tokenHash: hash, expiresAt: expiry(now, SESSION_TTL_DAYS) });
   await ports.recordAttempt({ userId: user.id, email: user.email, fingerprint: input.device.fingerprint, locationLabel: input.device.locationLabel, userAgent: input.device.userAgent, outcome: 'success' });
+  // Day 0 of this user's cohort. Without it there is no denominator, and
+  // every retention number afterwards is measuring a subset of the people it
+  // claims to.
+  await ports.recordEvent({ name: 'account_created', userId: user.id });
   return { userId: user.id, sessionToken: token };
 }
 
@@ -88,6 +92,8 @@ export async function signIn(
     const { token, hash } = newToken();
     await ports.createSession(user.id, { deviceId: known.id, tokenHash: hash, expiresAt: expiry(now, SESSION_TTL_DAYS) });
     await ports.recordAttempt({ userId: user.id, email, fingerprint: input.device.fingerprint, locationLabel: input.device.locationLabel, userAgent: input.device.userAgent, outcome: 'success' });
+    // A returning user's day-N event.
+    await ports.recordEvent({ name: 'session_started', userId: user.id });
     return { status: 'signed_in', userId: user.id, sessionToken: token };
   }
 

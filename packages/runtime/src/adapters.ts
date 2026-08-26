@@ -68,7 +68,19 @@ export function promptPorts(userId: string, embedder: Embedder | null = null): P
     async loadOnboarding(assistantId, forUserId) {
       const facts = await db.accounts.onboardingFacts({ userId: forUserId, assistantId });
       const step = nextStep(facts);
-      return step === 'done' ? null : { step, instruction: STEP_INSTRUCTION[step], userName: facts.userName };
+      if (step !== 'done') return { step, instruction: STEP_INSTRUCTION[step], userName: facts.userName };
+      // The moment it finishes is a funnel milestone (PRD §18), recorded once
+      // — markOnboarded coalesces, and the event is only written on the
+      // transition.
+      const user = await db.accounts.getUser({ userId: forUserId });
+      if (user !== null && user.onboardedAt === null) {
+        await db.accounts.markOnboarded({ userId: forUserId });
+        await db.events.record({
+          name: 'onboarding_completed', userId: forUserId, assistantId,
+          dayKey: new Intl.DateTimeFormat('en-CA', { timeZone: user.timeZone }).format(new Date()),
+        });
+      }
+      return null;
     },
     async loadCanon(assistantId) {
       const rows = await db.canon.all(scopeFor(assistantId));

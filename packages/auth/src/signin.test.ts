@@ -62,6 +62,7 @@ function fakePorts() {
       return { userId: found.userId, deviceId: found.deviceId };
     },
     async sendDeviceConfirmation(input) { emails.push({ email: input.email, token: input.token }); },
+    async recordEvent(input) { attempts.push({ outcome: input.name, userId: input.userId }); },
     async raiseSecurityEvent(input) { raised.push({ userId: input.userId, kind: input.kind }); },
   };
   return { ports, sessions, attempts, emails, raised, devices };
@@ -72,6 +73,17 @@ async function withAccount() {
   const { userId } = await signUp({ email: 'a@example.test', password: 'correct horse battery', timeZone: 'Asia/Dubai', device: LAPTOP }, fake.ports, NOW);
   return { ...fake, userId };
 }
+
+describe('PRD §18 the cohort has a day 0', () => {
+  test('signing up records account_created, and signing in records a session', async () => {
+    // Without these there is no denominator, and every retention number
+    // afterwards measures a subset of the people it claims to.
+    const fake = await withAccount();
+    assert.ok(fake.attempts.some((a) => a.outcome === 'account_created'));
+    await signIn({ email: 'a@example.test', password: 'correct horse battery', device: LAPTOP }, fake.ports, NOW);
+    assert.ok(fake.attempts.some((a) => a.outcome === 'session_started'));
+  });
+});
 
 describe('Q10 a new device is held, not merely logged', () => {
   test('a known device signs in', async () => {
