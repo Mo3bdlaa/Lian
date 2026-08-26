@@ -283,6 +283,26 @@ export const CATALOG = {
   'error.outage': { en: "I'm having trouble reaching everything right now. I'll come back as soon as I can.", ar: 'في مشكلة في الوصول لكل حاجة دلوقتي. هرجع أول ما أقدر.', addressee: 'user' },
   'error.not_found': { en: "I can't find that page.", ar: 'مش لاقية الصفحة دي.', arMale: 'مش لاقي الصفحة دي.', addressee: 'user' },
 
+  // ── health (UI-UX §26) ──────────────────────────────────────────────────
+  // No calories, no macros, no score, no rings, no grades. There is no key
+  // here that could carry one, which is the point.
+  'health.title': { en: 'Health', ar: 'الصحة', addressee: 'none' },
+  'health.this_week': { en: 'This week', ar: 'الأسبوع ده', addressee: 'none' },
+  'health.habits': { en: 'Habits', ar: 'العادات', addressee: 'none' },
+  'health.days_count': { en: '{n} days', ar: '{n} أيام', addressee: 'none' },
+  'health.not_a_tracker': { en: 'This is context, not tracking. No numbers to hit.', ar: 'ده سياق، مش متابعة. مفيش أرقام لازم تتحقق.', addressee: 'none' },
+
+  // ── album (UI-UX §27) ───────────────────────────────────────────────────
+  'album.title': { en: 'Album', ar: 'الألبوم', addressee: 'none' },
+  'album.from_you': { en: 'You sent this', ar: 'صورة مرسلة منك', addressee: 'none' },
+  // Her NAME, not the word 'Lian': she can be renamed (PRD §8, the my_name
+  // tag), so a hardcoded name would be wrong for anyone who renamed her. The
+  // Arabic verb agrees with HER gender, which is what arMale is for.
+  'album.from_her': { en: '{name} sent this', ar: '{name} بعتت دي', arMale: '{name} بعت دي', addressee: 'none' },
+  'album.open_in_chat': { en: 'Open in conversation', ar: 'فتح في المحادثة', addressee: 'none' },
+  'album.more': { en: 'Older', ar: 'أقدم', addressee: 'none' },
+  'album.close': { en: 'Close', ar: 'إغلاق', addressee: 'none' },
+
   // ── free limits (UI-UX §19, §50) ────────────────────────────────────────
   'limit.approaching': { en: "We've only got a few messages left today.", ar: 'فاضل كام رسالة بس النهاردة.', addressee: 'user' },
   'limit.reached': { en: "That's my limit for today. I'll still be here tomorrow, and I'll keep what we talked about.", ar: 'ده حدي النهاردة. هفضل هنا بكرة، واللي اتكلمنا فيه محفوظ.', addressee: 'user' },

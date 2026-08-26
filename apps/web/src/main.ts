@@ -23,6 +23,7 @@ import { chatScreen, composer, recorder, actionSheet, deleteSheet, thinking, per
 import { welcome, signUp, signIn, heldDevice } from './screens/entry.ts';
 import { memoryScreen, memoryEditor, memoryDeleteSheet, type Memory, type MemoryState } from './screens/memory.ts';
 import { tasksScreen, moneyScreen, storyScreen, type Task, type Note, type Money, type Story } from './screens/life.ts';
+import { healthScreen, albumScreen, type Health, type Album } from './screens/album.ts';
 import { settingsScreen, securityScreen, dataScreen, notBuilt, type Security, type DataState } from './screens/trust.ts';
 import { correctionSheet, type Correcting, type CorrectKind } from './screens/correct.ts';
 
@@ -140,10 +141,12 @@ const screenData: {
   memories: Memory[]; query: string; filter: string; editing: Memory | null; deleting: Memory | null;
   tasks: { tasks: Task[]; notes: Note[] }; money: Money | null; story: Story | null;
   security: Security | null; data: DataState; correcting: Correcting | null;
+  health: Health | null; album: Album | null; viewing: string | null;
 } = {
   memories: [], query: '', filter: 'all', editing: null, deleting: null,
   tasks: { tasks: [], notes: [] }, money: null, story: null, security: null,
   data: { export: null, confirming: false, typed: '', busy: false }, correcting: null,
+  health: null, album: null, viewing: null,
 };
 
 const memoryState = (state: State, me: Snapshot): MemoryState => ({
@@ -160,6 +163,8 @@ function screenFor(screen: string, state: State, me: Snapshot): Html {
     case 'settings': return settingsScreen(me);
     case 'security': return screenData.security === null ? html`` : securityScreen(me, screenData.security);
     case 'data': return dataScreen(me, screenData.data);
+    case 'health': return screenData.health === null ? html`` : healthScreen(me, screenData.health);
+    case 'album': return screenData.album === null ? html`` : albumScreen(me, screenData.album, screenData.viewing);
     case 'soon': return notBuilt(me);
     default: return chatScreen(state);
   }
@@ -205,6 +210,8 @@ async function load(path: string): Promise<void> {
     else if (screen === 'money') screenData.money = await get('/api/money');
     else if (screen === 'story') screenData.story = await get('/api/story');
     else if (screen === 'security') screenData.security = await get('/api/security');
+    else if (screen === 'health') screenData.health = await get('/api/health');
+    else if (screen === 'album') { screenData.album = await get('/api/album'); screenData.viewing = null; }
   } finally {
     set({ busy: false });
   }
@@ -229,6 +236,17 @@ async function loadOlder(): Promise<void> {
   set({ messages: [...page.messages, ...state.messages], hasOlder: page.hasOlder });
   // UI-UX §38: preserve the exact position, never jump to the top.
   where.scrollTop = where.scrollHeight - before;
+}
+
+/** The next page of the album, appended rather than replacing — scrolling
+ *  back through a year of pictures should not lose where you were. */
+async function loadOlderPhotos(): Promise<void> {
+  const album = screenData.album;
+  const oldest = album?.items.at(-1);
+  if (album === null || album === undefined || oldest === undefined) return;
+  const page = await get<Album>(`/api/album?before=${encodeURIComponent(oldest.at)}`);
+  screenData.album = { items: [...album.items, ...page.items], hasOlder: page.hasOlder };
+  set({});
 }
 
 // ── she speaks first (PRD §9) ─────────────────────────────────────────────
@@ -390,6 +408,14 @@ document.addEventListener('click', (event) => {
     set({ acting: { id, mode: 'delete' as 'sheet' } });
   } else if (action === 'confirm-delete') {
     void deleteMessage(id, actor.dataset['keep'] === 'true');
+  } else if (action === 'open-photo') {
+    screenData.viewing = id;
+    set({});
+  } else if (action === 'close-photo') {
+    screenData.viewing = null;
+    set({});
+  } else if (action === 'album-older') {
+    void loadOlderPhotos();
   } else if (action === 'speak') {
     void playMessage(id);
   } else if (action === 'voice') {

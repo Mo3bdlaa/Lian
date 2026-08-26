@@ -55,6 +55,32 @@ export type MoneyView = {
   categories: { category: string; totalMinor: number }[];
   recent: { id: string; line: string; amountMinor: number; direction: 'in' | 'out'; occurredOn: string; fromReceipt: boolean }[];
 };
+/**
+ * The week (UI-UX §26.2).
+ *
+ * What is NOT here is the specification: no calories, no macros, no score, no
+ * rings, no streak. There is nowhere to put a number, which is a stronger
+ * guarantee than a rule saying not to — a screen cannot render a field the
+ * view does not have.
+ */
+export type HealthView = {
+  /** The local day the week starts on. */
+  from: string;
+  /** One line in her voice, from arithmetic over what was logged — never a
+   *  model's opinion about somebody's health (PRD §19). null when there is
+   *  not enough to notice. */
+  observation: string | null;
+  days: { day: string; label: string; entries: { id: string; kind: 'meal' | 'workout' | 'medication'; line: string; icon: string }[] }[];
+  /** §26.2 combines habits into the week. Done, not a streak. */
+  habits: { id: string; title: string; doneThisWeek: number }[];
+};
+
+/** The album (UI-UX §27). Pictures shared in either direction, newest first. */
+export type AlbumView = {
+  items: { id: string; at: string; source: 'user' | 'assistant'; conversationId: string | null; messageId: string }[];
+  hasOlder: boolean;
+};
+
 export type StoryView = { now: string; footer: string; stages: { key: string; name: string; prose: string; current: boolean }[] };
 export type SecurityView = {
   devices: { id: string; label: string; lastSeen: string | null; current: boolean }[];
@@ -75,6 +101,8 @@ export type ReadPorts = MiddlewarePorts & {
   tasks(userId: string): Promise<{ tasks: TaskView[]; notes: NoteView[] }>;
   money(input: { userId: string; month: string | null }): Promise<MoneyView>;
   story(userId: string): Promise<StoryView>;
+  health(userId: string): Promise<HealthView>;
+  album(input: { userId: string; before: string | null }): Promise<AlbumView>;
   security(input: { userId: string; deviceId: string | null }): Promise<SecurityView>;
   revokeDevice(input: { userId: string; deviceId: string }): Promise<boolean>;
   updateSettings(input: { userId: string; patch: Record<string, unknown> }): Promise<{ ok: boolean; reason?: string }>;
@@ -169,6 +197,24 @@ export function readRoutes(ports: ReadPorts): { method: 'GET' | 'POST' | 'PATCH'
         const session = await requireSession(context, ports, ports.now());
         await enforceRate({ bucket: `read:${session.userId}`, rule: RATE_RULES.read, now: ports.now() }, ports);
         return { status: 200, json: await ports.story(session.userId) };
+      },
+    },
+    {
+      method: 'GET',
+      pattern: '/api/health',
+      handler: async (context) => {
+        const session = await requireSession(context, ports, ports.now());
+        await enforceRate({ bucket: `read:${session.userId}`, rule: RATE_RULES.read, now: ports.now() }, ports);
+        return { status: 200, json: await ports.health(session.userId) };
+      },
+    },
+    {
+      method: 'GET',
+      pattern: '/api/album',
+      handler: async (context) => {
+        const session = await requireSession(context, ports, ports.now());
+        await enforceRate({ bucket: `read:${session.userId}`, rule: RATE_RULES.read, now: ports.now() }, ports);
+        return { status: 200, json: await ports.album({ userId: session.userId, before: context.query.get('before') }) };
       },
     },
     {

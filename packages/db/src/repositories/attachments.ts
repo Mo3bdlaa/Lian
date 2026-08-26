@@ -11,7 +11,7 @@
 // an upload that never happened, and the tick sweeps it.
 import type { Sql } from '../client.ts';
 import { db } from '../client.ts';
-import type { UserScope } from '../scope.ts';
+import type { AssistantScope, UserScope } from '../scope.ts';
 
 export type AttachmentKind = 'image' | 'audio' | 'receipt';
 export type AttachmentStatus = 'pending' | 'ready';
@@ -133,6 +133,42 @@ export async function forConversation(scope: UserScope, conversationId: string, 
     [scope.userId, conversationId],
   );
   return rows.map(toAttachment);
+}
+
+/**
+ * The album (UI-UX §27): pictures shared in either direction.
+ *
+ * There is no upload form and no separate album store — an album item IS a
+ * picture that arrived in a conversation, which is why this reads from
+ * attachments joined to messages rather than from a table of its own. A
+ * photograph from an incognito thread never appears: `persist` is false on
+ * it, and that is the same flag the retention sweep reads.
+ */
+export async function album(
+  scope: AssistantScope,
+  input: { limit: number; before?: Date | null },
+  sql: Sql = db(),
+): Promise<{ id: string; contentType: string; at: Date; role: 'user' | 'assistant'; conversationId: string | null; messageId: string }[]> {
+  const { rows } = await sql.query<{
+    id: string; content_type: string; created_at: Date; role: 'user' | 'assistant';
+    conversation_id: string | null; message_id: string;
+  }>(
+    `SELECT a.id, a.content_type, a.created_at, m.role, m.conversation_id, m.id AS message_id
+     FROM attachments a
+     JOIN messages m ON m.id = a.message_id
+     WHERE a.user_id = $1 AND m.assistant_id = $4
+       AND a.deleted_at IS NULL AND m.deleted_at IS NULL
+       AND a.status = 'ready' AND a.persist = true
+       AND a.kind IN ('image', 'receipt')
+       AND ($3::timestamptz IS NULL OR a.created_at < $3::timestamptz)
+     ORDER BY a.created_at DESC, a.id DESC
+     LIMIT $2`,
+    [scope.userId, input.limit, input.before ?? null, scope.assistantId],
+  );
+  return rows.map((row) => ({
+    id: row.id, contentType: row.content_type, at: row.created_at,
+    role: row.role, conversationId: row.conversation_id, messageId: row.message_id,
+  }));
 }
 
 export async function purge(scope: UserScope, sql: Sql = db()): Promise<void> {

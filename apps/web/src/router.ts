@@ -23,9 +23,9 @@ export const ROUTES: readonly Route[] = [
   // They are routes so that tapping one says so, rather than quietly
   // rendering the conversation.
   { pattern: '/search', screen: 'soon' },
-  { pattern: '/album', screen: 'soon' },
+  { pattern: '/album', screen: 'album' },
   { pattern: '/briefing', screen: 'soon' },
-  { pattern: '/health', screen: 'soon' },
+  { pattern: '/health', screen: 'health' },
   { pattern: '/assistants', screen: 'soon' },
   { pattern: '/subscription', screen: 'soon' },
   { pattern: '/settings/identity', screen: 'soon' },

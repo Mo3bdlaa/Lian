@@ -596,3 +596,66 @@ body {
 /* --- correcting a capture (UI-UX §4) ------------------------------------- */
 .correct { gap: var(--s-12); max-height: 80dvh; overflow-y: auto; }
 .correct .field { gap: var(--s-4); }
+
+/* --- health and album (UI-UX §26, §27) ----------------------------------- */
+
+/* One observation in her voice. Set as prose rather than as a stat, because
+   it is a sentence she said and not a figure the week scored. */
+.observation {
+  margin: var(--s-8) var(--s-16) var(--s-16);
+  color: var(--text);
+  font-size: var(--t-body-fs);
+  line-height: var(--t-body-lh);
+  font-weight: var(--t-body-fw);
+}
+
+/* A grid of pictures, not a feed of cards: an album item has no caption row,
+   no author line and no actions (§27.4 lists likes and comments as things
+   NOT to build, and a card is where they would go). */
+.album {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s-2);
+  padding-inline: var(--s-16);
+}
+.album__cell {
+  aspect-ratio: 1;
+  border: 0;
+  padding: 0;
+  background: var(--surface);
+  border-radius: var(--r-2);
+  overflow: hidden;
+  cursor: pointer;
+}
+.album__cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Edge to edge (§27.4). Above the sheets, because it covers the screen. */
+.viewer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  /* The same ground the drawer's scrim uses, at full strength: a photograph
+     viewed edge to edge should sit on black, not on a dimmed screen. */
+  background: var(--os-black);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.viewer__image { width: 100%; height: auto; max-height: 100%; object-fit: contain; }
+.viewer__bar {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  padding: var(--s-16);
+  padding-bottom: max(var(--s-16), env(safe-area-inset-bottom));
+}
+.viewer__meta {
+  flex: 1;
+  color: var(--muted);
+  font-size: var(--t-body-sm-fs);
+  line-height: var(--t-body-sm-lh);
+  font-weight: var(--t-body-sm-fw);
+}

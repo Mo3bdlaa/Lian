@@ -23,7 +23,7 @@ import { verifyTick } from '@lian/jobs';
 import { transcribeVoiceNote, hashText, type SpeechProvider } from '@lian/voice';
 import { localDayKey, localHour, limitsFor, messageBudget, nextStep, DEFAULT_CURRENCY } from '@lian/domain';
 import { moodPhrase, t } from '@lian/i18n';
-import { describeCaptures, LANGUAGE_STYLES } from '@lian/capabilities';
+import { describeCaptures, observe, LANGUAGE_STYLES } from '@lian/capabilities';
 import { resolveTheme, timeBand } from '@lian/design';
 
 import { readReceipt, describeReading, type Embedder, type AnalysisModel } from '@lian/analysis';
@@ -31,7 +31,7 @@ import {
   authRoutes, chatRoutes, correctionRoutes, platformRoutes,
   type MiddlewarePorts, type AuthRoutePorts, type ChatRoutePorts,
   type CorrectionPorts, type PlatformPorts, type ReadPorts, type Route,
-  readRoutes, attachmentRoutes, type AttachmentPorts,
+  readRoutes, attachmentRoutes, type AttachmentPorts, type HealthView,
 } from '@lian/http';
 import {
   attachmentKey, voiceKey, kindOf, ACCEPTED, MAX_ATTACHMENT_BYTES,
@@ -669,6 +669,90 @@ export function readPorts(deps: Deps): ReadPorts {
       return { messages, hasOlder };
     },
 
+    /**
+     * The health week (UI-UX §26.2).
+     *
+     * The observation is `observe()` from the health capability — the same
+     * arithmetic she uses when she brings it up herself, so the screen and
+     * her sentence can never disagree about what the week looked like.
+     */
+    async health(userId) {
+      const user = await db.accounts.getUser({ userId });
+      const assistant = await assistantOf(userId);
+      if (user === null || assistant === null) return { from: '', observation: null, days: [], habits: [] };
+      const language = languageOf(user.languageStyle);
+      const localDay = dayKeyFor(user.timeZone, deps.now());
+      const from = startOfWeekDay(localDay);
+      const fromDate = new Date(`${from}T00:00:00Z`);
+      const toDate = new Date(fromDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+      const entries = await db.life.healthWeek({ userId }, fromDate, toDate);
+      const described = await describeCaptures(
+        entries.map((entry) => ({ capability: 'health', entityId: entry.id })),
+        {
+          userId, assistantId: assistant.id, surface: 'chat', localDay,
+          timeZone: user.timeZone, plan: user.plan, language,
+        },
+        capabilityPorts(userId),
+      );
+
+      const days: HealthView['days'] = [];
+      for (let index = 0; index < 7; index += 1) {
+        const day = new Date(fromDate.getTime() + index * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        const onDay = entries
+          .filter((entry) => entry.occurredAt.toISOString().slice(0, 10) === day)
+          .map((entry) => {
+            const summary = described[entry.id];
+            return {
+              id: entry.id, kind: entry.kind,
+              line: summary?.line ?? entry.description,
+              icon: summary?.icon ?? 'i-health',
+            };
+          });
+        if (onDay.length > 0) days.push({ day, label: day, entries: onDay });
+      }
+
+      // Habits belong to the week too (§26.2). A count of the days it
+      // happened — never a streak, which is the pressure §26.2 bans.
+      const tasks = await db.life.allTasks({ userId });
+      const completions = new Set<string>();
+      for (let index = 0; index < 7; index += 1) {
+        const day = new Date(fromDate.getTime() + index * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        for (const id of await db.life.completionsOn({ userId }, day)) completions.add(`${id}:${day}`);
+      }
+      const habits = tasks
+        .filter((task) => task.kind === 'habit')
+        .map((habit) => ({
+          id: habit.id, title: habit.title,
+          doneThisWeek: [...completions].filter((key) => key.startsWith(`${habit.id}:`)).length,
+        }));
+
+      return { from, observation: observe(entries, language), days, habits };
+    },
+
+    /**
+     * The album (UI-UX §27.1).
+     *
+     * There is no upload form and no album store: an item IS a picture that
+     * arrived in a conversation. Incognito photographs never appear — their
+     * rows carry persist=false, which is the same flag retention reads.
+     */
+    async album({ userId, before }) {
+      const assistant = await assistantOf(userId);
+      if (assistant === null) return { items: [], hasOlder: false };
+      const scope = { userId, assistantId: assistant.id };
+      const page = await db.attachments.album(scope, {
+        limit: ALBUM_PAGE + 1,
+        before: before === null ? null : new Date(before),
+      });
+      const items = page.slice(0, ALBUM_PAGE).map((row) => ({
+        id: row.id, at: row.at.toISOString(),
+        source: row.role === 'user' ? ('user' as const) : ('assistant' as const),
+        conversationId: row.conversationId, messageId: row.messageId,
+      }));
+      return { items, hasOlder: page.length > ALBUM_PAGE };
+    },
+
     async memories({ userId, query }) {
       const assistant = await assistantOf(userId);
       const user = await db.accounts.getUser({ userId });
@@ -1021,6 +1105,17 @@ export function attachmentPorts(deps: Deps): AttachmentPorts {
  * they live under one fixed key and the counter moves in both directions.
  */
 export const STORAGE_PERIOD = 'held';
+
+/** One screen of album, before it asks for more. */
+const ALBUM_PAGE = 60;
+
+/** The Monday of a local day's ISO week. The health capability computes the
+ *  same boundary; both are here rather than one guessing at the other. */
+function startOfWeekDay(localDay: string): string {
+  const day = new Date(`${localDay}T00:00:00Z`);
+  const isoWeekday = ((day.getUTCDay() + 6) % 7) + 1;
+  return new Date(day.getTime() - (isoWeekday - 1) * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
 
 async function conversationFor(userId: string, conversationId: string) {
   const assistant = await assistantOf(userId);

@@ -16,6 +16,7 @@ import { welcome, signIn } from './screens/entry.ts';
 import { memoryScreen } from './screens/memory.ts';
 import { tasksScreen, moneyScreen, storyScreen } from './screens/life.ts';
 import { settingsScreen, securityScreen, dataScreen } from './screens/trust.ts';
+import { healthScreen, albumScreen, type Health, type Album } from './screens/album.ts';
 import { initial, type Message, type Snapshot, type State } from './state.ts';
 import { t } from './copy.ts';
 
@@ -247,5 +248,99 @@ describe('what the screens must not contain (PRD §14, §10)', () => {
     const markup = render(dataScreen(me(), { export: null, confirming: true, typed: '', busy: false }));
     assert.ok(markup.includes(t('data.type_delete', 'en')));
     assert.ok(markup.includes('data-action="delete-everything"'));
+  });
+});
+
+// ── health and album (UI-UX §26, §27) ──────────────────────────────────────
+describe('health is context, not a tracker', () => {
+  const week = (overrides: Partial<Health> = {}): Health => ({
+    from: '2026-05-18', observation: null, days: [], habits: [], ...overrides,
+  });
+
+  test('nothing logged is an invitation, not an empty chart', () => {
+    const markup = render(healthScreen(me(), week()));
+    assert.ok(markup.includes(t('health.empty', 'en')));
+    assert.ok(!markup.includes('chart'));
+  });
+
+  test('§26.2 the banned vocabulary has nowhere to appear', () => {
+    // The strong version of this rule is structural: the view type has no
+    // field a number could arrive in. This asserts the rendered surface as
+    // well, because the type could grow one.
+    const markup = render(healthScreen(me(), week({
+      observation: 'You have been moving in the mornings this week.',
+      days: [{ day: '2026-05-18', label: '2026-05-18', entries: [
+        { id: 'h-1', kind: 'workout', line: '30 min · strength training', icon: 'i-workout' },
+      ] }],
+      habits: [{ id: 't-1', title: 'the gym', doneThisWeek: 3 }],
+    })));
+    for (const banned of ['calorie', 'Calorie', 'kcal', 'macro', 'Macro', 'score', 'Score', 'streak', 'Streak', 'grade', 'Grade']) {
+      assert.ok(!markup.includes(banned), `${banned} appeared on the health screen`);
+    }
+  });
+
+  test('an observation is rendered as her sentence when there is one, and not invented when there is not', () => {
+    const day = { day: '2026-05-18', label: '2026-05-18', entries: [{ id: 'h-1', kind: 'meal', line: 'salmon', icon: 'i-meal' }] };
+    const noticed = render(healthScreen(me(), week({ observation: 'You have been eating at home more this week.', days: [day] })));
+    assert.ok(noticed.includes('eating at home more'));
+    const quiet = render(healthScreen(me(), week({ days: [day] })));
+    assert.ok(quiet.includes(t('health.not_a_tracker', 'en')));
+  });
+
+  test('an entry is tappable, because every capture is correctable (UI-UX §4)', () => {
+    const markup = render(healthScreen(me(), week({
+      days: [{ day: '2026-05-18', label: '2026-05-18', entries: [{ id: 'h-1', kind: 'meal', line: 'salmon', icon: 'i-meal' }] }],
+    })));
+    assert.ok(markup.includes('data-action="open-health"'));
+    assert.ok(markup.includes('data-id="h-1"'));
+  });
+});
+
+describe('the album (UI-UX §27)', () => {
+  const item = (overrides: Partial<Album['items'][number]> = {}) => ({
+    id: 'att-1', at: '2026-05-18T09:00:00.000Z', source: 'user' as const,
+    conversationId: 'c-1', messageId: 'm-1', ...overrides,
+  });
+
+  test('there is no upload control anywhere on it (§27.2)', () => {
+    const markup = render(albumScreen(me(), { items: [item()], hasOlder: false }, null));
+    assert.ok(!markup.includes('type="file"'));
+    assert.ok(!markup.includes('data-action="photo"'));
+  });
+
+  test('a picture is fetched through the API, never from a durable URL', () => {
+    // /api/attachments/:id redirects to a signed URL that expires in minutes.
+    // A page source with a bucket link in it would outlive the session.
+    const markup = render(albumScreen(me(), { items: [item()], hasOlder: false }, null));
+    assert.ok(markup.includes('/api/attachments/att-1'));
+    assert.ok(!markup.includes('https://'), 'no storage URL should reach the markup');
+  });
+
+  test('the viewer says where it came from, and offers no social actions (§27.4)', () => {
+    const markup = render(albumScreen(me(), { items: [item()], hasOlder: false }, 'att-1'));
+    assert.ok(markup.includes(t('album.from_you', 'en')));
+    assert.ok(markup.includes(t('album.open_in_chat', 'en')));
+    for (const social of ['Like', 'like', 'Comment', 'comment', 'Share', 'share']) {
+      assert.ok(!markup.includes(social), `${social} appeared in the viewer`);
+    }
+  });
+
+  test('a photo she sent is attributed to HER NAME, not to the word Lian', () => {
+    // She can be renamed, so a hardcoded name would be wrong for anyone who
+    // did. The name comes from the snapshot.
+    const renamed = me();
+    const markup = render(albumScreen(
+      { ...renamed, assistant: { ...renamed.assistant, name: 'Noor' } },
+      { items: [item({ source: 'assistant' })], hasOlder: false },
+      'att-1',
+    ));
+    assert.ok(markup.includes('Noor sent this'));
+  });
+
+  test('older is offered only when there is older', () => {
+    const one = render(albumScreen(me(), { items: [item()], hasOlder: false }, null));
+    assert.ok(!one.includes('data-action="album-older"'));
+    const more = render(albumScreen(me(), { items: [item()], hasOlder: true }, null));
+    assert.ok(more.includes('data-action="album-older"'));
   });
 });
