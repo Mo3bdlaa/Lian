@@ -9,6 +9,25 @@ below was decided silently.
 
 ---
 
+## Which of these changed the specs
+
+Asked and answered on 2026-08-26: some of these were the SPECS being wrong,
+and the specs are what the next person reads. Of the thirteen:
+
+| # | Verdict |
+|---|---|
+| 1, 2, 4, 5, 7 | The build followed the specs. Nothing to change. |
+| **6** | **Spec amended** — UI-UX §5 now carries the capacity line's second sentence. The screens had it; the spec named only the first half. |
+| **9** | **Spec amended** — UI-UX §34.3. The waveform is a *may*. And the entry itself was out of date: storage shipped, so voice notes are real in both directions. Rewritten below. |
+| **10** | **Spec amended** — UI-UX §16. The device label and place are derived and approximate; the spec should not promise what a user-agent string cannot carry. |
+| **11** | **Spec amended** — UI-UX §4. "All structured captures" was written before anyone noticed the three identity tags share one row. |
+| 3 | Neither. `design.md` gives a RANGE (18–22px) and both tokens sit inside it — so nothing disagrees with the spec. What is wrong is the DESIGN SYSTEM: `--r-bubble` is named for a component and is not the value any bubble draws. Repoint it to 20 or delete it; an unused token named for the job is a trap for whoever reaches for it next. Left for a design decision, not taken here. |
+| 8 | Neither. Device chrome in a screen frame is not a spec statement. |
+| 12 | Neither — remaining work, not a disagreement. Shrinking as the coverage matrix is built out. |
+| **13** | **The entry was wrong, not the spec.** Corrected below. |
+
+---
+
 ## Type
 
 **1. The promise heading on the welcome screen.**
@@ -68,13 +87,24 @@ Every screen frame draws one (`LianStatus`: 9:41, signal, battery).
 set; the OS draws it. The app reserves the space instead
 (`env(safe-area-inset-top)`).
 
-**9. Voice notes as a waveform.**
+**9. Voice notes as a waveform.** *(Rewritten 2026-08-26 — the gap closed.)*
 The screens show a voice note as a bubble with a waveform and a duration.
-*Decision:* the transcript is the message. There is no object storage yet
-(HANDOFF has said so since the third run), so the audio has nowhere to live
-— and a transcript is searchable, correctable and rememberable, which the
-audio would not be. The recorder UI matches the screens; what it produces is
-text. **This is a gap, not a redesign.**
+
+Object storage now exists, so the gap this entry used to describe is gone:
+a voice note is uploaded, transcribed on the way into the turn, and the
+audio is kept beside the transcript. The transcript is still the message
+BODY — memory, search and the rolling summary all read bodies, so a message
+whose content is an opaque audio blob is one the product cannot think about
+— but the recording is no longer thrown away, and it plays back in the
+thread. Her own sentences are spoken on demand, from the same store.
+
+What remains a divergence, and is now a deliberate one: **there is no
+waveform.** Playback is the platform's own audio element. *Decision:* the
+spec is wrong here and has been amended (UI-UX §34.3). A hand-drawn player
+has to reimplement scrubbing, buffering, the lock screen, the system volume
+and the media session; trading those for a picture of a sound is worse for
+the person holding the phone. The recording state keeps an elapsed counter
+rather than a live waveform, which is the one part of §34 still owed.
 
 **10. Device names on the Security screen.**
 The screen shows "iPhone · this device". A browser does not tell a server
@@ -98,12 +128,33 @@ drawer, and are not built. *Decision:* they are routes that say "This part
 is not built yet." A drawer item that silently renders the conversation is
 worse than one that says what it is.
 
+## Attachments
+
+**14. A photograph is read by a model, and a model reads what is written on
+it.** *(Added 2026-08-26, with the vision path.)*
+PRD §6.5 wants a spend captured from a photographed receipt. Nothing in the
+specs says which model looks at the picture. *Decision:* the analysis path,
+never hers. An image is the most untrusted input in the product — anyone can
+write an instruction on a piece of paper and photograph it — so it goes to
+`@lian/analysis`, which may return exactly five validated fields, and what
+reaches her turn is one line composed from them. Capture still happens
+through her `<spend>` tag, so money keeps one write path and a misread
+receipt is corrected exactly like anything else. LESSONS §1a, applied to a
+channel that did not exist when §1a was written.
+
 ## Behaviour
 
-**13. Correction sheets are forms, and PRD §14 says no forms.**
-§14 says "no add buttons anywhere" and UI-UX §4 says every capture is
-tappable and correctable. *Decision:* the correction sheet is the only form
-in the product, and it can only ever CHANGE something she already wrote
-down. There is no route that creates a task, a transaction or a note — the
-server has no create endpoint at all, which is what makes this checkable
+**13. Correction sheets are forms.** *(Corrected 2026-08-26.)*
+This entry used to read "and PRD §14 says no forms". It does not: PRD §14 is
+Internationalization, and no spec anywhere says "no forms". The rules that
+do exist are UI-UX §7 ("No add button.") and UI-UX §4 ("No manual add-first
+flow", "must look like conversation metadata, not a form"), and both are
+about CREATING, not correcting.
+
+So there was never a disagreement to reconcile — which is worth leaving on
+the record, because an invented rule cited confidently is harder to catch
+than a real one applied wrongly. *Decision (unchanged, and now for the right
+reason):* the correction sheet can only ever change something she already
+wrote down. There is no route that creates a task, a transaction or a note —
+the server has no create endpoint at all, which is what makes this checkable
 rather than a habit.

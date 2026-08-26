@@ -109,6 +109,16 @@ Rules:
 - No "saved!" badge.
 - No manual add-first flow.
 
+**Amended 2026-08-26 (see docs/RECONCILIATIONS.md §11).** "All structured
+captures" is not quite all. The identity captures — what to call you, which
+language, what she is called — are the exception, and they have to be,
+because all three write to the same row on the account. A conversation
+re-read a week later cannot tell which of them a given row came from, so
+there is nothing for a row to correct. The identity confirmation is
+therefore a **moment**: shown live as it is captured, absent on re-read, and
+corrected in Settings, which is where it lives. Everything with its own
+record — money, tasks, notes, health — keeps the row permanently.
+
 ## 5. Memory
 
 ### Full state
@@ -134,6 +144,19 @@ Each memory row:
 - Memory statement.
 - Source/date.
 - Edit/delete.
+
+### Capacity line
+
+Two authored sentences, not one with a number in it:
+
+`I can keep up to 100 lasting memories on the free plan.`
+`{n} so far.`
+
+**Added 2026-08-26 (see docs/RECONCILIATIONS.md §6).** The screens show both
+halves and the spec named only the first. They are separate keys because
+only the count is substituted, and a count has no grammatical gender in
+either language — everything else about the sentence is authored in Arabic
+and in English independently.
 
 ### Empty state
 
@@ -408,6 +431,15 @@ Inline actions:
 - Lock all sessions.
 
 Tone: serious, calm, not bank-like.
+
+**Amended 2026-08-26 (see docs/RECONCILIATIONS.md §10).** The device label
+and the place are DERIVED and approximate, and the screen should not imply
+otherwise. A browser tells a server a user-agent string and arrives from an
+IP address; neither is "an iPhone 15 in Dubai Marina". So: a short label
+from the user-agent ("iPhone", "Mac · Safari"), a city at best from the
+address, and nothing stated more precisely than the request can carry. A
+made-up device name on a security screen is worse than a vague one, because
+it is the screen where being trusted matters most.
 
 ## 17. Data
 
@@ -890,6 +922,22 @@ Before Lian's audio arrives:
 `I’m putting this into words for you…`
 
 Then waveform appears.
+
+**Amended 2026-08-26 (see docs/RECONCILIATIONS.md §9).** The waveform in
+34.1 and 34.3 is now a *may*, not a *must*, and the built product does not
+draw one. A custom player has to reimplement scrubbing, buffering, the lock
+screen, the system volume and the media session, and every one of those is
+something the platform's own audio element already does correctly in both
+directions of text. Trading all of it for a drawn waveform is a worse
+product for the person holding the phone, not a more polished one. The live
+waveform while RECORDING (34.2) is a different question — nothing is lost by
+drawing it — but the elapsed counter is what ships today, and the recording
+state is otherwise as specified: cancel, send, no technical controls.
+
+Her audio is also generated **on demand**, when the play control is pressed,
+rather than ahead of every reply. So `I'm putting this into words for you…`
+is the state after that press, not something that appears under a message
+nobody asked to hear.
 
 # 35. Reply interaction
 
