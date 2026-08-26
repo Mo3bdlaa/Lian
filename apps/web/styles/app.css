@@ -720,3 +720,41 @@ body {
   line-height: var(--t-body-sm-lh);
   font-weight: var(--t-body-sm-fw);
 }
+
+/* --- consent (UI-UX §22) ------------------------------------------------- */
+/* Long-form: the legal text is on the screen, so the screen scrolls. */
+.entry--long { justify-content: flex-start; overflow-y: auto; }
+.consent__section { display: flex; flex-direction: column; gap: var(--s-4); }
+.consent__heading {
+  color: var(--text);
+  font-size: var(--t-h3-fs);
+  line-height: var(--t-h3-lh);
+  font-weight: var(--t-h3-fw);
+}
+.consent__body {
+  color: var(--muted);
+  font-size: var(--t-body-sm-fs);
+  line-height: var(--t-body-sm-lh);
+  font-weight: var(--t-body-sm-fw);
+}
+.consent__answers { display: flex; gap: var(--s-8); }
+.consent__answers .button { flex: 1; }
+/* The agreement is a button rather than a checkbox so the whole line is the
+   target — a 16px box is below the tap minimum and the label is the thing
+   people actually aim at. */
+.consent__agree {
+  display: flex;
+  align-items: center;
+  gap: var(--s-10);
+  min-height: var(--tap-min);
+  padding: var(--s-8) 0;
+  border: 0;
+  background: none;
+  text-align: start;
+  cursor: pointer;
+  color: var(--text);
+  font-size: var(--t-body-sm-fs);
+  line-height: var(--t-body-sm-lh);
+  font-weight: var(--t-body-sm-fw);
+}
+.button--disabled { opacity: .5; pointer-events: none; }

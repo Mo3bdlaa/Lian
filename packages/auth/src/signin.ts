@@ -37,15 +37,41 @@ function expiry(from: Date, days: number): Date {
   return new Date(from.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
+/** UI-UX §22, step 4: there is nothing to build for under-18 except a clear
+ *  no. Thrown before anything is created, so no row exists to clean up. */
+export class UnderageError extends Error {
+  constructor() {
+    super('this is not for under-18s');
+    this.name = 'UnderageError';
+  }
+}
+
+/** UI-UX §22: consent is not optional and not deferrable. */
+export class ConsentRequiredError extends Error {
+  constructor() {
+    super('an account cannot be made without agreeing');
+    this.name = 'ConsentRequiredError';
+  }
+}
+
 export async function signUp(
-  input: { email: string; password: string; timeZone: string; device: DeviceInfo },
+  input: {
+    email: string; password: string; timeZone: string; device: DeviceInfo;
+    consent: { isAdult: boolean; agreed: boolean; version: string };
+  },
   ports: AuthPorts,
   now: Date,
 ): Promise<{ userId: string; sessionToken: string }> {
+  // Checked HERE rather than at the route, so every caller of signUp is
+  // covered by it — including whatever calls it next.
+  if (!input.consent.isAdult) throw new UnderageError();
+  if (!input.consent.agreed) throw new ConsentRequiredError();
+
   const user = await ports.createUser({
     email: input.email.trim().toLowerCase(),
     passwordHash: await hashPassword(input.password),
     timeZone: input.timeZone,
+    consent: { isAdult: true, at: now, version: input.consent.version },
   });
   // The device someone signs up on is trusted by definition: it is the first
   // one, and there is nothing yet to protect it from.

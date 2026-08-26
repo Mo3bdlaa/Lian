@@ -19,7 +19,7 @@ export function welcome(state: EntryState): Html {
       <p class="entry__detail">${t('entry.detail', state.language)}</p>
     </div>
     <div class="entry__actions">
-      <a class="button button--block" href="/sign-up" data-link>${t('entry.create', state.language)}</a>
+      <a class="button button--block" href="/consent" data-link>${t('entry.create', state.language)}</a>
       <a class="button button--quiet button--block" href="/sign-in" data-link>${t('entry.have_one', state.language)}</a>
     </div>
   </div>`;
@@ -67,6 +67,105 @@ function credentials(
       ${options.footnote === null ? '' : html`<p class="entry__footnote">${options.footnote}</p>`}
       <a class="button button--plain button--block" href="${options.alternate.href}" data-link>${options.alternate.label}</a>
     </form>
+  </div>`;
+}
+
+/**
+ * Consent (UI-UX §22).
+ *
+ * The whole text is HERE, on the screen, before anything is agreed to —
+ * "do not bury legal text behind external links" is the spec's line, and a
+ * link to a page nobody opens is burying it with extra steps. Two answers,
+ * both required, and the under-18 answer is a plain no rather than a form
+ * that quietly refuses to submit.
+ */
+export function consent(state: EntryState & { adult: boolean | null; agreed: boolean }): Html {
+  if (state.adult === false) {
+    return html`<div class="entry">
+      <div class="entry__body">
+        ${icon('i-mark', 'lg')}
+        <p class="entry__detail">${t('consent.under_age', state.language)}</p>
+      </div>
+      <div class="entry__actions">
+        <a class="button button--quiet button--block" href="/welcome" data-link>${t('action.back', state.language)}</a>
+      </div>
+    </div>`;
+  }
+
+  const ready = state.adult === true && state.agreed;
+  return html`<div class="entry entry--long">
+    <div class="entry__body entry__form">
+      <h1 class="entry__promise">${t('consent.title', state.language)}</h1>
+
+      <div class="consent__section">
+        <h2 class="consent__heading">${t('consent.what_we_keep', state.language)}</h2>
+        <p class="consent__body">${t('consent.what_we_keep_body', state.language)}</p>
+      </div>
+      <div class="consent__section">
+        <h2 class="consent__heading">${t('consent.who_sees', state.language)}</h2>
+        <p class="consent__body">${t('consent.who_sees_body', state.language)}</p>
+      </div>
+      <div class="consent__section">
+        <h2 class="consent__heading">${t('consent.your_control', state.language)}</h2>
+        <p class="consent__body">${t('consent.your_control_body', state.language)}</p>
+      </div>
+
+      <div class="consent__section">
+        <h2 class="consent__heading">${t('consent.age_question', state.language)}</h2>
+        <div class="consent__answers">
+          <button class="button ${state.adult === true ? '' : 'button--quiet'}" data-action="consent-adult" data-value="yes">
+            ${t('consent.age_yes', state.language)}
+          </button>
+          <button class="button button--quiet" data-action="consent-adult" data-value="no">
+            ${t('consent.age_no', state.language)}
+          </button>
+        </div>
+      </div>
+
+      <button class="consent__agree" data-action="consent-agree" aria-pressed="${state.agreed ? 'true' : 'false'}">
+        ${icon(state.agreed ? 'i-check-circle' : 'i-dot', 'sm')}
+        <span>${t('consent.terms', state.language)}</span>
+      </button>
+
+      ${ready ? '' : html`<p class="entry__footnote">${t('consent.required', state.language)}</p>`}
+      <a class="button button--block ${ready ? '' : 'button--disabled'}"
+        href="${ready ? '/sign-up' : '/consent'}" ${ready ? html`data-link` : html`aria-disabled="true"`}>
+        ${t('consent.continue', state.language)}
+      </a>
+    </div>
+  </div>`;
+}
+
+/**
+ * Not found, and the outage state (coverage matrix).
+ *
+ * Both are her saying something rather than a status code: UI-UX §20's whole
+ * point is that what went wrong arrives in her voice. Neither offers a
+ * technical detail, because neither has one the person can use.
+ */
+export function notFound(state: EntryState): Html {
+  return html`<div class="entry">
+    <div class="entry__body">
+      ${icon('i-none', 'lg')}
+      <h1 class="entry__promise">${t('app.not_found_title', state.language)}</h1>
+      <p class="entry__detail">${t('error.not_found', state.language)}</p>
+    </div>
+    <div class="entry__actions">
+      <a class="button button--block" href="/chat" data-link>${t('app.back_to_chat', state.language)}</a>
+    </div>
+  </div>`;
+}
+
+export function outage(state: EntryState): Html {
+  return html`<div class="entry">
+    <div class="entry__body">
+      ${icon('i-offline', 'lg')}
+      <h1 class="entry__promise">${t('app.outage_title', state.language)}</h1>
+      <p class="entry__detail">${t('error.outage', state.language)}</p>
+    </div>
+    <div class="entry__actions">
+      <button class="button button--block" data-action="retry">${t('app.retry', state.language)}</button>
+    </div>
   </div>`;
 }
 

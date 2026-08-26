@@ -35,6 +35,8 @@ export const ROUTES: readonly Route[] = [
   { pattern: '/money/:id', screen: 'money' },
   { pattern: '/notes/:id', screen: 'tasks' },
   { pattern: '/welcome', screen: 'welcome' },
+  { pattern: '/consent', screen: 'consent' },
+  { pattern: '/outage', screen: 'outage' },
   { pattern: '/sign-in', screen: 'signIn' },
   { pattern: '/sign-up', screen: 'signUp' },
   { pattern: '/confirm-device', screen: 'confirmDevice' },

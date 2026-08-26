@@ -70,7 +70,13 @@ function fakePorts() {
 
 async function withAccount() {
   const fake = fakePorts();
-  const { userId } = await signUp({ email: 'a@example.test', password: 'correct horse battery', timeZone: 'Asia/Dubai', device: LAPTOP }, fake.ports, NOW);
+  const { userId } = await signUp(
+    {
+      email: 'a@example.test', password: 'correct horse battery', timeZone: 'Asia/Dubai', device: LAPTOP,
+      consent: { isAdult: true, agreed: true, version: 'test' },
+    },
+    fake.ports, NOW,
+  );
   return { ...fake, userId };
 }
 

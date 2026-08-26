@@ -20,7 +20,10 @@ let counter = 0;
 export async function freshUser(plan: 'free' | 'paid' = 'free', sql: Sql = db()): Promise<UserScope & { plan: 'free' | 'paid' }> {
   counter += 1;
   const user = await accounts.createUser(
-    { email: `t${Date.now()}-${counter}@example.test`, passwordHash: 'x', timeZone: 'Asia/Dubai' },
+    {
+      email: `t${Date.now()}-${counter}@example.test`, passwordHash: 'x', timeZone: 'Asia/Dubai',
+      consent: { isAdult: true, at: new Date(), version: 'test' },
+    },
     sql,
   );
   if (plan === 'paid') await sql.query(`UPDATE users SET plan = 'paid' WHERE id = $1`, [user.id]);

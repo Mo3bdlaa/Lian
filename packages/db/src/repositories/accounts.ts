@@ -10,27 +10,37 @@ export type AssistantGender = 'female' | 'male';
 export type User = {
   id: string; email: string; timeZone: string; languageStyle: string; plan: Plan;
   themePreference: 'auto' | 'always-light' | 'always-dark'; isAdult: boolean;
-  consentedAt: Date | null; displayName: string | null; onboardedAt: Date | null;
+  consentedAt: Date | null; consentVersion: string | null;
+  displayName: string | null; onboardedAt: Date | null;
 };
 type UserRow = {
   id: string; email: string; time_zone: string; language_style: string; plan: Plan;
   theme_preference: 'auto' | 'always-light' | 'always-dark'; is_adult: boolean;
-  consented_at: Date | null; display_name: string | null; onboarded_at: Date | null;
+  consented_at: Date | null; consent_version: string | null;
+  display_name: string | null; onboarded_at: Date | null;
 };
-const USER_COLUMNS = 'id, email, time_zone, language_style, plan, theme_preference, is_adult, consented_at, display_name, onboarded_at';
+const USER_COLUMNS = 'id, email, time_zone, language_style, plan, theme_preference, is_adult, consented_at, consent_version, display_name, onboarded_at';
 const toUser = (r: UserRow): User => ({
   id: r.id, email: r.email, timeZone: r.time_zone, languageStyle: r.language_style, plan: r.plan,
-  themePreference: r.theme_preference, isAdult: r.is_adult, consentedAt: r.consented_at,
+  themePreference: r.theme_preference, isAdult: r.is_adult,
+  consentedAt: r.consented_at, consentVersion: r.consent_version,
   displayName: r.display_name, onboardedAt: r.onboarded_at,
 });
 
 export async function createUser(
-  input: { email: string; passwordHash: string; timeZone: string },
+  input: {
+    email: string; passwordHash: string; timeZone: string;
+    /** UI-UX §22. Recorded AT creation rather than patched in afterwards: an
+     *  account that exists for even one request without a consent record is
+     *  an account that was created without one. */
+    consent: { isAdult: boolean; at: Date; version: string };
+  },
   sql: Sql = db(),
 ): Promise<User> {
   const { rows } = await sql.query<UserRow>(
-    `INSERT INTO users (email, password_hash, time_zone) VALUES ($1, $2, $3) RETURNING ${USER_COLUMNS}`,
-    [input.email, input.passwordHash, input.timeZone],
+    `INSERT INTO users (email, password_hash, time_zone, is_adult, consented_at, consent_version)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${USER_COLUMNS}`,
+    [input.email, input.passwordHash, input.timeZone, input.consent.isAdult, input.consent.at, input.consent.version],
   );
   return toUser(rows[0]!);
 }

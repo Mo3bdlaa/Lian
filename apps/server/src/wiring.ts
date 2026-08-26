@@ -22,7 +22,7 @@ import { DEFAULT_MODEL, turnCostMicros, type Provider } from '@lian/llm';
 import { verifyTick } from '@lian/jobs';
 import { transcribeVoiceNote, hashText, type SpeechProvider } from '@lian/voice';
 import { localDayKey, localHour, atLocalHour, limitsFor, messageBudget, nextStep, DEFAULT_CURRENCY } from '@lian/domain';
-import { moodPhrase, t } from '@lian/i18n';
+import { moodPhrase, t, CONSENT_VERSION } from '@lian/i18n';
 import { describeCaptures, observe, LANGUAGE_STYLES } from '@lian/capabilities';
 import { resolveTheme, timeBand } from '@lian/design';
 
@@ -176,7 +176,17 @@ export function authRoutePorts(deps: Deps): AuthRoutePorts {
     ...middlewarePorts(deps),
     now: deps.now,
     async signUp(input) {
-      const created = await authSignUp(input as { email: string; password: string; timeZone: string; device: DeviceInfo }, ports, deps.now());
+      // The version travels with the copy (packages/i18n), which is where
+      // the text they agreed to lives — @lian/http may not read it, so the
+      // route sends the answers and this stamps which text they answered.
+      const created = await authSignUp(
+        {
+          ...(input as { email: string; password: string; timeZone: string; device: DeviceInfo; consent: { isAdult: boolean; agreed: boolean } }),
+          consent: { ...input.consent, version: CONSENT_VERSION },
+        },
+        ports,
+        deps.now(),
+      );
       // An account is not usable until she exists and there is somewhere to
       // talk: onboarding is a conversation, so it needs one.  Both are made
       // here rather than lazily on the first message, so every later route

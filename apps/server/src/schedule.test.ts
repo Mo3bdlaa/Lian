@@ -51,7 +51,10 @@ const created: string[] = [];
 
 /** Somebody in Dubai who used the app today. */
 async function person(options: { habit?: boolean; dueTask?: boolean } = {}) {
-  const user = await accounts.createUser({ email: `sched-${Date.now()}-${Math.random()}@example.test`, passwordHash: 'x', timeZone: ZONE });
+  const user = await accounts.createUser({
+    email: `sched-${Date.now()}-${Math.random()}@example.test`, passwordHash: 'x', timeZone: ZONE,
+    consent: { isAdult: true, at: new Date(), version: 'test' },
+  });
   created.push(user.id);
   const assistant = await accounts.createAssistant({ userId: user.id }, { name: 'Lian', gender: 'female' });
   const scope = { userId: user.id, assistantId: assistant.id };

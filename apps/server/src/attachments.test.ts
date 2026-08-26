@@ -102,7 +102,7 @@ describe('attachments, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not se
     const signUp = await fetch(`${base}/api/auth/sign-up`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'idempotency-key': `su-${Date.now()}`, 'x-forwarded-for': options.address },
-      body: JSON.stringify({ email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai' }),
+      body: JSON.stringify({ email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai', isAdult: true, agreedToTerms: true }),
     });
     const account = (await signUp.json()) as { userId: string; sessionToken: string };
     created.push(account.userId);

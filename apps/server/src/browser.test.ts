@@ -157,7 +157,7 @@ describe('the app, in a browser', { skip: SKIP }, () => {
         // 203.0.113.0/24 belongs to this file (see onboarding.test.ts).
         'x-forwarded-for': `203.0.113.${100 + ((addresses += 1) % 100)}`,
       },
-      body: JSON.stringify({ email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai' }),
+      body: JSON.stringify({ email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai', isAdult: true, agreedToTerms: true }),
     });
     const account = (await response.json()) as { userId: string; sessionToken: string };
     created.push(account.userId);
@@ -207,10 +207,23 @@ describe('the app, in a browser', { skip: SKIP }, () => {
   });
 
   test('sign up, and the first thing that happens is a conversation', async () => {
-    // The one test that drives the real form.
+    // The one test that drives the real form — and now the real consent
+    // screen in front of it (UI-UX §22), because that is the only way to
+    // reach sign-up: the answers are held in the page and the server refuses
+    // without them.
     const page = browser!;
     const email = `form-${Date.now()}@example.test`;
-    await page.goto(`${base}/sign-up`);
+    await page.goto(`${base}/consent`);
+    await page.waitFor('document.querySelector(\'[data-action="consent-adult"]\')');
+    // The legal text is ON the screen — §22 forbids burying it behind a link.
+    assert.ok(
+      await page.evaluate<boolean>('document.body.innerText.length > 400'),
+      'the terms have to be readable here, not linked to',
+    );
+    assert.equal(await page.evaluate('document.querySelectorAll(\'a[href^="http"]\').length'), 0);
+    await page.click('[data-action="consent-adult"][data-value="yes"]');
+    await page.click('[data-action="consent-agree"]');
+    await page.click('a[href="/sign-up"]');
     await page.waitFor('document.querySelector("#email")');
     await page.type('#email', email);
     await page.type('#password', 'a-long-enough-password');
@@ -314,7 +327,11 @@ describe('the app, in a browser', { skip: SKIP }, () => {
     // held on sign-in — which is the next test, deliberately.
     const page = await freshBrowser();
     const email = `again-${Date.now()}@example.test`;
-    await page.goto(`${base}/sign-up`);
+    await page.goto(`${base}/consent`);
+    await page.waitFor('document.querySelector(\'[data-action="consent-adult"]\')');
+    await page.click('[data-action="consent-adult"][data-value="yes"]');
+    await page.click('[data-action="consent-agree"]');
+    await page.click('a[href="/sign-up"]');
     await page.waitFor('document.querySelector("#email")');
     await page.type('#email', email);
     await page.type('#password', 'a-long-enough-password');
@@ -364,7 +381,7 @@ describe('the app, in a browser', { skip: SKIP }, () => {
         'content-type': 'application/json', 'idempotency-key': `su-${email}`,
         'x-forwarded-for': '203.0.113.241', 'user-agent': 'the-first-device',
       },
-      body: JSON.stringify({ email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai' }),
+      body: JSON.stringify({ email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai', isAdult: true, agreedToTerms: true }),
     });
     created.push(((await signedUp.json()) as { userId: string }).userId);
 

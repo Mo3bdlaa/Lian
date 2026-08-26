@@ -20,7 +20,7 @@ import { head } from './components/head.ts';
 import { nav } from './components/nav.ts';
 import { drawer } from './components/drawer.ts';
 import { chatScreen, composer, recorder, actionSheet, deleteSheet, thinking, permissionCard, installCard } from './screens/chat.ts';
-import { welcome, signUp, signIn, heldDevice } from './screens/entry.ts';
+import { welcome, signUp, signIn, heldDevice, consent, notFound, outage } from './screens/entry.ts';
 import { memoryScreen, memoryEditor, memoryDeleteSheet, type Memory, type MemoryState } from './screens/memory.ts';
 import { tasksScreen, moneyScreen, storyScreen, type Task, type Note, type Money, type Story } from './screens/life.ts';
 import { healthScreen, albumScreen, type Health, type Album } from './screens/album.ts';
@@ -56,11 +56,20 @@ let lastPath = '';
 
 /** The screens that exist before there is an account. */
 const ENTRY: Record<string, (state: { language: 'en' | 'ar'; error: string | null; busy: boolean }) => Html> = {
-  welcome, signUp, signIn, confirmDevice: heldDevice,
+  welcome, signUp, signIn, confirmDevice: heldDevice, notFound, outage,
+  // Consent is an entry screen even for someone who is signed in: it has no
+  // header and no nav, because agreeing to something is not a place to be.
+  consent: (state) => consent({ ...state, adult: consentState.adult, agreed: consentState.agreed }),
 };
 
+/** The two answers, held until sign-up sends them. Nothing is written until
+ *  the account is created — an under-18 answer must not leave a trace. */
+const consentState: { adult: boolean | null; agreed: boolean } = { adult: null, agreed: false };
+
 function draw(state: State): void {
-  const screen = match(state.path)?.screen ?? 'chat';
+  // A path nobody defined is a 404, not the conversation. Rendering chat for
+  // an unknown URL means a typo looks like it worked.
+  const screen = match(state.path)?.screen ?? 'notFound';
   const me = state.me;
 
   const entry = ENTRY[screen];
@@ -207,7 +216,7 @@ window.addEventListener('popstate', () => {
 async function load(path: string): Promise<void> {
   const state = current();
   if (state.me === null) return;
-  const screen = match(path)?.screen ?? 'chat';
+  const screen = match(path)?.screen ?? 'notFound';
   set({ busy: true });
   try {
     if (screen === 'chat' && state.messages.length === 0) await loadMessages();
@@ -424,6 +433,14 @@ document.addEventListener('click', (event) => {
     set({ acting: { id, mode: 'delete' as 'sheet' } });
   } else if (action === 'confirm-delete') {
     void deleteMessage(id, actor.dataset['keep'] === 'true');
+  } else if (action === 'consent-adult') {
+    consentState.adult = actor.dataset['value'] === 'yes';
+    set({});
+  } else if (action === 'consent-agree') {
+    consentState.agreed = !consentState.agreed;
+    set({});
+  } else if (action === 'retry') {
+    void boot();
   } else if (action === 'open-photo') {
     screenData.viewing = id;
     set({});
@@ -842,7 +859,11 @@ async function boot(): Promise<void> {
       else draw(current());
       return;
     }
-    throw error;
+    // Anything else — the server is down, the database is unreachable, the
+    // network went away mid-request. It arrives as her saying so, on a screen
+    // with a way to try again, rather than as a blank page and a console
+    // message nobody will read.
+    go('/outage', true);
   }
 }
 
@@ -855,7 +876,16 @@ async function submitCredentials(form: HTMLFormElement, route: 'sign-up' | 'sign
     const body = {
       email: String(data.get('email') ?? ''),
       password: String(data.get('password') ?? ''),
-      ...(route === 'sign-up' ? { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone } : {}),
+      ...(route === 'sign-up'
+        ? {
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            // UI-UX §22: both answers, from the consent screen that had to be
+            // passed to get here. The server refuses without them, so a
+            // client that skipped the screen gets a 403, not an account.
+            isAdult: consentState.adult === true,
+            agreedToTerms: consentState.agreed,
+          }
+        : {}),
     };
     const result = await post<{ status?: string }>(`/api/auth/${route}`, body);
     if (result.status === 'held_new_device') {
@@ -874,6 +904,8 @@ async function submitCredentials(form: HTMLFormElement, route: 'sign-up' | 'sign
       ? error.code === 'rejected' ? t('entry.rejected', language)
         : error.code === 'bad_email' ? t('entry.bad_email', language)
         : error.code === 'weak_password' ? t('entry.weak_password', language)
+        : error.code === 'under_age' ? t('consent.under_age', language)
+        : error.code === 'consent_required' ? t('consent.required', language)
         : error.message
       : t('error.send_failed', language);
     set({ busy: false, error: message });

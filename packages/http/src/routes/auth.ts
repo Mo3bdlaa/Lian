@@ -7,7 +7,10 @@ import { HttpError, type Handler, type RequestContext } from '../router.ts';
 import { RATE_RULES, enforceRate, hashToken, requireSession, withIdempotency, type MiddlewarePorts } from '../middleware.ts';
 
 export type AuthRoutePorts = MiddlewarePorts & {
-  signUp(input: { email: string; password: string; timeZone: string; device: DeviceFrom }): Promise<{ userId: string; sessionToken: string }>;
+  /** `consent` carries the two ANSWERS (UI-UX §22). Which text they answered
+   *  about is the composition root's to say — the version travels with the
+   *  copy, and this package may not read the copy. */
+  signUp(input: { email: string; password: string; timeZone: string; device: DeviceFrom; consent: { isAdult: boolean; agreed: boolean } }): Promise<{ userId: string; sessionToken: string }>;
   signIn(input: { email: string; password: string; device: DeviceFrom }): Promise<{ status: 'signed_in'; userId: string; sessionToken: string } | { status: 'held_new_device'; userId: string } | { status: 'rejected' }>;
   resolveConfirmation(input: { token: string; decision: 'confirmed' | 'denied' }): Promise<{ status: string; sessionToken?: string }>;
   revokeAllSessions(userId: string): Promise<number>;
@@ -50,7 +53,7 @@ export function authRoutes(ports: AuthRoutePorts, options: { secureCookies: bool
       pattern: '/api/auth/sign-up',
       handler: async (context) => {
         await enforceRate({ bucket: `auth:ip:${context.ip}`, rule: RATE_RULES.auth, now: ports.now() }, ports);
-        const body = context.body<{ email?: string; password?: string; timeZone?: string }>();
+        const body = context.body<{ email?: string; password?: string; timeZone?: string; isAdult?: boolean; agreedToTerms?: boolean }>();
         const email = (body.email ?? '').trim().toLowerCase();
         if (!EMAIL.test(email)) throw new HttpError(400, 'bad_email', 'that does not look like an email address');
         // A floor, not a policy: length is the only password rule that
@@ -58,8 +61,21 @@ export function authRoutes(ports: AuthRoutePorts, options: { secureCookies: bool
         if ((body.password ?? '').length < 10) throw new HttpError(400, 'weak_password', 'passwords need to be at least 10 characters');
         const timeZone = body.timeZone ?? 'UTC';
 
+        // UI-UX §22. Refused HERE as well as in signUp(), so the reason
+        // reaches the person as a specific status rather than a 500 — and so
+        // the underage answer never becomes a created-then-deleted account.
+        if (body.isAdult !== true) {
+          throw new HttpError(403, 'under_age', 'this is not for under-18s');
+        }
+        if (body.agreedToTerms !== true) {
+          throw new HttpError(400, 'consent_required', 'an account cannot be made without agreeing');
+        }
+
         const result = await withIdempotency({ context, userId: null, route: 'sign-up' }, ports, async () => {
-          const created = await ports.signUp({ email, password: body.password!, timeZone, device: fingerprintOf(context) });
+          const created = await ports.signUp({
+            email, password: body.password!, timeZone, device: fingerprintOf(context),
+            consent: { isAdult: true, agreed: true },
+          });
           return { status: 201, json: { userId: created.userId, sessionToken: created.sessionToken } };
         });
         const token = (result.json as { sessionToken?: string }).sessionToken;

@@ -5,7 +5,12 @@ export type AttemptOutcome = 'success' | 'bad_password' | 'unknown_email' | 'hel
 
 export type AuthPorts = {
   findUserByEmail(email: string): Promise<AuthUser | null>;
-  createUser(input: { email: string; passwordHash: string; timeZone: string }): Promise<AuthUser>;
+  createUser(input: {
+    email: string; passwordHash: string; timeZone: string;
+    /** UI-UX §22, recorded at creation — an account that exists for even one
+     *  request without a consent record was created without one. */
+    consent: { isAdult: boolean; at: Date; version: string };
+  }): Promise<AuthUser>;
   findDevice(userId: string, fingerprint: string): Promise<AuthDevice | null>;
   upsertDevice(userId: string, input: { fingerprint: string; userAgent: string | null; locationLabel: string | null }): Promise<AuthDevice>;
   trustDevice(userId: string, deviceId: string): Promise<void>;

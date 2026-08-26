@@ -124,7 +124,7 @@ describe('onboarding, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not set
     const signUp = await fetch(`${base}/api/auth/sign-up`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'idempotency-key': `su-${Date.now()}`, 'x-forwarded-for': '192.0.2.100' },
-      body: JSON.stringify({ email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai' }),
+      body: JSON.stringify({ email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai', isAdult: true, agreedToTerms: true }),
     });
     const account = (await signUp.json()) as { userId: string; sessionToken: string };
     created.push(account.userId);
@@ -220,7 +220,10 @@ describe('onboarding, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not set
       const response = await fetch(`${base}/api/auth/sign-up`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'idempotency-key': `su-${Date.now()}-${Math.random()}`, 'x-forwarded-for': '192.0.2.110' },
-        body: JSON.stringify({ email: `perm-${Date.now()}-${Math.random()}@example.test`, password: 'a-long-enough-password', timeZone: 'UTC' }),
+        body: JSON.stringify({
+          email: `perm-${Date.now()}-${Math.random()}@example.test`, password: 'a-long-enough-password',
+          timeZone: 'UTC', isAdult: true, agreedToTerms: true,
+        }),
       });
       const account = (await response.json()) as { userId: string; sessionToken: string };
       created.push(account.userId);

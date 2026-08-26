@@ -11,6 +11,17 @@ export type AssistantGender = 'female' | 'male';
  * The one lookup.  Assistant gender selects between two AUTHORED Arabic
  * strings where they exist; it never transforms one into the other.
  */
+/**
+ * Which consent text an agreement was to (UI-UX §22).
+ *
+ * Bumped whenever any `consent.*` entry above changes in a way that alters
+ * what someone is agreeing to. It is stored on the user at sign-up, so
+ * revising the terms does not silently reinterpret every existing agreement
+ * as being to the new wording — which is the one thing a consent record
+ * exists to prevent.
+ */
+export const CONSENT_VERSION = '2026-08-26';
+
 export function t(key: CopyKey, language: Language, gender: AssistantGender = 'female'): string {
   const entry = CATALOG[key];
   if (language === 'en') return entry.en;

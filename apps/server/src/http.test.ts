@@ -16,6 +16,7 @@ import { signTick } from '@lian/jobs';
 import { deterministicEmbedder, EMBEDDING_DIMENSIONS } from '@lian/analysis';
 import { DEFAULT_MODEL, type Provider, type CompletionRequest } from '@lian/llm';
 import { generateVapidKeys } from '@lian/push';
+import { CONSENT_VERSION } from '@lian/i18n';
 import { createApplication, type Overrides } from './app.ts';
 import { loadConfig, type Config } from './config.ts';
 
@@ -151,7 +152,7 @@ const created: string[] = [];
 
 async function signUp(base: string, overrides: Json = {}): Promise<{ userId: string; token: string; conversationId: string; email: string }> {
   const email = `http-${Date.now()}-${++keyCounter}@example.test`;
-  const result = await post(base, '/api/auth/sign-up', { email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai', ...overrides });
+  const result = await post(base, '/api/auth/sign-up', { email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai', isAdult: true, agreedToTerms: true, ...overrides });
   assert.equal(result.status, 201, JSON.stringify(result.json));
   const userId = result.json['userId'] as string;
   created.push(userId);
@@ -426,6 +427,47 @@ describe('the HTTP layer', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, ()
 
     const manifest = await fetch(`${app.base}/manifest.webmanifest`);
     assert.match(manifest.headers.get('content-type') ?? '', /manifest\+json/);
+  });
+
+  test('§22 an account cannot be made without both consent answers', async () => {
+    // Refused at the door AND inside signUp(), so a caller that skips the
+    // screen gets a specific status rather than a 500 — and, more to the
+    // point, no row exists to clean up afterwards.
+    const email = `consent-${Date.now()}-${++keyCounter}@example.test`;
+    const under = await post(app.base, '/api/auth/sign-up', {
+      email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai',
+      isAdult: false, agreedToTerms: true,
+    });
+    assert.equal(under.status, 403);
+    assert.equal(under.json['error'], 'under_age');
+
+    const unagreed = await post(app.base, '/api/auth/sign-up', {
+      email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai',
+      isAdult: true, agreedToTerms: false,
+    });
+    assert.equal(unagreed.status, 400);
+    assert.equal(unagreed.json['error'], 'consent_required');
+
+    const missing = await post(app.base, '/api/auth/sign-up', {
+      email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai',
+    });
+    assert.equal(missing.status, 403, 'absent is not the same as true');
+
+    // Nothing was created by any of the three.
+    const { rows } = await db().query(`SELECT id FROM users WHERE email = $1`, [email]);
+    assert.equal(rows.length, 0, 'a refused sign-up must not leave an account behind');
+  });
+
+  test('§22 consent is recorded WITH the version of the text that was agreed to', async () => {
+    // Without the version, revising the terms silently reinterprets every
+    // existing agreement as being to the new wording.
+    const account = await signUp(app.base);
+    const { rows } = await db().query<{ is_adult: boolean; consented_at: Date | null; consent_version: string | null }>(
+      `SELECT is_adult, consented_at, consent_version FROM users WHERE id = $1`, [account.userId],
+    );
+    assert.equal(rows[0]!.is_adult, true);
+    assert.notEqual(rows[0]!.consented_at, null);
+    assert.equal(rows[0]!.consent_version, CONSENT_VERSION);
   });
 
   test('an unknown route answers in JSON rather than an HTML error page', async () => {

@@ -303,6 +303,51 @@ export const CATALOG = {
   'album.more': { en: 'Older', ar: 'أقدم', addressee: 'none' },
   'album.close': { en: 'Close', ar: 'إغلاق', addressee: 'none' },
 
+  // ── consent, the text itself (UI-UX §22) ────────────────────────────────
+  // The headings and the two checkbox lines are above, with the other short
+  // labels. This is the part the spec is actually about.
+  //
+  // "Do not bury legal text behind external links." So the text is here, in
+  // the catalogue, in both languages, and the screen shows it in full before
+  // anything is agreed to.
+  //
+  // WHAT THIS IS NOT: it is a plain-language description of what the product
+  // actually does, written from the build. It is not a lawyer's terms of
+  // service, and HANDOFF says so — a reviewed document has to replace or
+  // wrap it before this ships to anyone. Changing the words means changing
+  // CONSENT_VERSION with them, or every existing agreement silently becomes
+  // an agreement to the new text.
+  'consent.age_question': { en: 'Are you 18 or over?', ar: 'عندك ١٨ سنة أو أكتر؟', addressee: 'none' },
+  'consent.age_yes': { en: "Yes, I'm 18 or over", ar: 'أيوه، ١٨ أو أكتر', addressee: 'none' },
+  'consent.age_no': { en: "No, I'm under 18", ar: 'لأ، أقل من ١٨', addressee: 'none' },
+  'consent.under_age': { en: "Then this isn't for you yet, and I'd rather say so plainly than make you find out later. Nothing has been created and nothing was kept.", ar: 'يبقى ده لسه مش مناسب ليك، وأحسن أقولها بوضوح من دلوقتي. مفيش حساب اتعمل ومفيش حاجة اتحفظت.', addressee: 'user' },
+  'consent.what_we_keep': { en: 'What is kept', ar: 'اللي بيتحفظ', addressee: 'none' },
+  'consent.what_we_keep_body': {
+    en: 'Your conversations, what she remembers from them, and anything you capture — tasks, spending, notes, meals and workouts. Photos and voice notes you send are stored so they can be shown back to you. Incognito conversations are kept only while they are open and are removed with the thread.',
+    ar: 'المحادثات، واللي بتفتكره منها، وأي حاجة بتتسجل — مهام، مصاريف، ملاحظات، أكل وحركة. الصور والرسايل الصوتية بتتخزن عشان تتعرض تاني. المحادثات السرية بتفضل موجودة وقت ما تكون مفتوحة بس، وبتتشال مع المحادثة.',
+    addressee: 'none',
+  },
+  'consent.who_sees': { en: 'Who sees it', ar: 'مين بيشوفها', addressee: 'none' },
+  'consent.who_sees_body': {
+    en: 'You. Your messages are sent to a model provider to be answered, and voice notes to a speech provider to be transcribed; neither is used to train anything. Nobody at this company reads your conversations, and there is no admin screen that could.',
+    ar: 'إنت. الرسايل بتتبعت لمزود النموذج عشان يرد، والصوت لمزود تفريغ عشان يتحول لكلام؛ ولا واحد فيهم بيستخدمها في تدريب أي حاجة. مفيش حد في الشركة بيقرا المحادثات، ومفيش شاشة إدارة تقدر تعمل كده أصلًا.',
+    addressee: 'none',
+  },
+  'consent.your_control': { en: 'What you can do about it', ar: 'اللي تقدر تعمله', addressee: 'none' },
+  'consent.your_control_body': {
+    en: 'Change or delete any memory, any captured item and any message, at any time. Export everything as one file. Delete the account and everything in it, including stored photos and voice notes — deletion removes the files, not only the rows.',
+    ar: 'تعديل أو مسح أي ذكرى، أي حاجة اتسجلت، وأي رسالة، في أي وقت. تصدير كل حاجة في ملف واحد. مسح الحساب وكل اللي فيه، بما فيه الصور والصوت المتخزن — المسح بيشيل الملفات نفسها، مش السجلات بس.',
+    addressee: 'none',
+  },
+  'consent.continue': { en: 'Continue', ar: 'استمرار', addressee: 'none' },
+  'consent.required': { en: 'Both answers are needed before an account can be made.', ar: 'الإجابتين لازمين قبل ما الحساب يتعمل.', addressee: 'none' },
+
+  // ── splash, 404, outage (coverage matrix) ───────────────────────────────
+  'app.not_found_title': { en: 'Nothing here', ar: 'مفيش حاجة هنا', addressee: 'none' },
+  'app.back_to_chat': { en: 'Back to the conversation', ar: 'رجوع للمحادثة', addressee: 'none' },
+  'app.outage_title': { en: 'I cannot reach everything', ar: 'مش قادرة أوصل لكل حاجة', arMale: 'مش قادر أوصل لكل حاجة', addressee: 'none' },
+  'app.retry': { en: 'Try again', ar: 'إعادة المحاولة', addressee: 'none' },
+
   // ── search (UI-UX §11) ──────────────────────────────────────────────────
   'search.title': { en: 'Search', ar: 'بحث', addressee: 'none' },
   'search.placeholder': { en: 'Search what we said', ar: 'دوّر في كلامنا', addressee: 'none' },
