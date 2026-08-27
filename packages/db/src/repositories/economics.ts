@@ -112,3 +112,105 @@ export async function turnsPerSession(
     since: since?.toISOString() ?? null,
   };
 }
+
+// ── the cost dashboard (per-user pressure against the ceilings) ────────────
+//
+// LESSONS §12: a paid model with no per-user ceiling is how these products
+// die. The ceilings exist and are enforced; what did not exist until now is
+// any way to LOOK at them, which means the first sign of a bad assumption
+// would have been a bill.
+//
+// Everything below returns DISTRIBUTIONS AND COUNTS. No user id, no email, no
+// message body, nothing that identifies a person, ever — which is what keeps
+// an aggregate over everybody an acceptable read (LESSONS §11) rather than
+// the admin data path this product does not have. `reporting.test.ts` asserts
+// the shape carries no identifier, so a future edit cannot quietly add one.
+
+export type CounterPressure = {
+  readonly kind: string;
+  readonly periodKey: string;
+  /** How many accounts have a non-zero value for this counter. */
+  readonly accounts: number;
+  readonly total: number;
+  readonly median: number;
+  readonly p90: number;
+  readonly max: number;
+  /** Accounts at or past the ceiling, and within a tenth of it. The second
+   *  number is the one that moves first. */
+  readonly atCeiling: number;
+  readonly nearCeiling: number;
+  readonly ceiling: number;
+};
+
+/**
+ * One counter's spread across the accounts using it, for one period.
+ *
+ * `ceiling` is passed in rather than read here: the limits are a product
+ * decision in @lian/domain, and a repository that knew them would be a second
+ * place they are written down.
+ */
+export async function counterPressure(
+  input: { kind: string; periodKey: string; ceiling: number },
+  sql: Sql = db(),
+): Promise<CounterPressure> {
+  // db-scoping:allow-unscoped — an aggregate over every account's meter, by
+  // definition. It returns counts and quantiles; no user_id leaves it.
+  const { rows } = await sql.query<{
+    accounts: number; total: string | null; median: string | null;
+    p90: string | null; max: string | null; at_ceiling: number; near_ceiling: number;
+  }>(
+    `SELECT count(*)::int                                              AS accounts,
+            sum(value)                                                 AS total,
+            percentile_cont(0.5) WITHIN GROUP (ORDER BY value)         AS median,
+            percentile_cont(0.9) WITHIN GROUP (ORDER BY value)         AS p90,
+            max(value)                                                 AS max,
+            count(*) FILTER (WHERE value >= $3)::int                   AS at_ceiling,
+            count(*) FILTER (WHERE value >= $3 * 0.9 AND value < $3)::int AS near_ceiling
+     FROM usage_counters
+     WHERE kind = $1 AND period_key = $2 AND value > 0`,
+    [input.kind, input.periodKey, input.ceiling],
+  );
+  const row = rows[0];
+  return {
+    kind: input.kind, periodKey: input.periodKey, ceiling: input.ceiling,
+    accounts: row?.accounts ?? 0,
+    total: Number(row?.total ?? 0),
+    median: Math.round(Number(row?.median ?? 0)),
+    p90: Math.round(Number(row?.p90 ?? 0)),
+    max: Number(row?.max ?? 0),
+    atCeiling: row?.at_ceiling ?? 0,
+    nearCeiling: row?.near_ceiling ?? 0,
+  };
+}
+
+/** How many accounts are on each plan. The denominator for everything else. */
+export async function planCounts(sql: Sql = db()): Promise<{ free: number; paid: number }> {
+  // db-scoping:allow-unscoped — a count of every account, by definition.
+  const { rows } = await sql.query<{ plan: string; n: number }>(
+    `SELECT plan, count(*)::int AS n FROM users WHERE deleted_at IS NULL GROUP BY plan`,
+  );
+  const counts = { free: 0, paid: 0 };
+  for (const row of rows) {
+    if (row.plan === 'paid') counts.paid = row.n;
+    else counts.free = row.n;
+  }
+  return counts;
+}
+
+/**
+ * Total model spend in a month, in micros, across everybody.
+ *
+ * The number that turns into a bill. Reported beside the per-account
+ * distribution because the two fail differently: a high total with a low p90
+ * is growth, and a low total with a p90 at the ceiling is one account about
+ * to be cut off.
+ */
+export async function monthlySpendMicros(month: string, sql: Sql = db()): Promise<number> {
+  // db-scoping:allow-unscoped — an aggregate over every account's spend.
+  const { rows } = await sql.query<{ total: string | null }>(
+    `SELECT sum(value) AS total FROM usage_counters WHERE kind = 'model_cost_micros' AND period_key = $1`,
+    [month],
+  );
+  return Number(rows[0]?.total ?? 0);
+}
+

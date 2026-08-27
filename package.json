@@ -31,6 +31,7 @@
     "dev": "node apps/server/src/main.ts",
     "tick": "node apps/server/src/ticker.ts",
     "report:economics": "node tools/report/economics.ts",
+    "report": "node tools/report/weekly.ts",
     "up": "node tools/up.ts"
   },
   "devDependencies": {
