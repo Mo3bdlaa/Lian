@@ -1,5 +1,10 @@
 # HANDOFF
 
+Eighth run. **Read `docs/FIRST-RUN.md` first** — it is the ordered list of
+what to do on hardware, and `npm run preflight` is the command that makes the
+four unverified integrations tell you which of their possible failures you
+are looking at.
+
 Seventh run. Storage exists, so the two features that were waiting on it
 exist: **a photographed receipt becomes a transaction**, and **a voice note
 is a real voice note in both directions**. Every screen in the coverage
@@ -7,8 +12,12 @@ matrix is built, desktop has its three purpose-built layouts and its
 fallback rule, and there is a billing path.
 
 `npm run verify` is green: typecheck (two projects — server and browser),
-11 gates, **560 tests**, including 17 that drive real Chromium and 12 that
-prove each gate FAILS on a deliberate violation.
+**12 gates**, **624 tests**, including 18 that drive real Chromium, 20 that
+prove each gate FAILS on a deliberate violation, and 23 that attack the
+product with a second account.
+
+**Read the test summary, not the exit code.** `pass 462, fail 0, cancelled
+100` is what a dead database looks like, and it happened once this run.
 
 **Every number below states the assumption it rests on.** Where an
 assumption is soft, it says so. Where a thing has never touched a live
@@ -16,7 +25,89 @@ service, it says that too.
 
 ---
 
-## 0. What this run built
+## 0. What the eighth run built
+
+### Consent, terms and privacy — the mechanism, not the wording
+
+Both documents are IN the app (§22's rule, and the only version that works on
+the consent gate where there is no account yet). Every section is on
+`NEEDS_LEGAL_REVIEW` — the list a lawyer gets handed, 46 strings in both
+languages — and a section added without being on it fails the build, because
+the documents are assembled from the marking. `LEGAL_REVIEWED` is a constant,
+currently `false`, and it drives the red banner on every page carrying legal
+text: flipping it removes the warning everywhere at once.
+
+Four tests assert the privacy notice still describes the build rather than
+what the build used to do — it names all four services that receive data, it
+says the TTS cache outlives the account **because it does**, and it does not
+promise the service cannot be breached.
+
+### Retention and cost, in one place, with their definitions
+
+`npm run report`. Retention prints what the words mean above the numbers,
+because "D7 retention" means four different things: cohort is FIRST recorded
+day, the day is the USER's local day, and returned is EXACTLY day N. Cohorts
+under 20 are not offered as rates; a cohort younger than 30 days is labelled,
+because its D30 has not happened yet and printing 0 reads as a collapse.
+
+Cost prints per-account pressure against every ceiling — `nearCeiling` moves
+first, `atCeiling` is people already told no — and says plainly that these
+are our counters rather than an invoice.
+
+**It is a command, not a screen**, and that is the standing instruction being
+followed: a dashboard inside the app that reads across accounts is an admin
+data path. `reporting.test.ts` asserts every shape it reads carries no uuid
+and no `@`, so it cannot become a back door by accretion.
+
+### Account recovery
+
+Six decisions, each stated in the code with which way it went. The request
+returns the **same object** whether or not the address has an account —
+asserted byte-identical over HTTP, not just in the unit test. Single-use,
+thirty minutes, hashed at rest, claimed by the database. A new link spends the
+old one. A completed reset ends every other session, because recovery is what
+you do when you think you have been compromised.
+
+### The hardening pass, and three findings
+
+`apps/server/src/hardening.test.ts` is written by somebody trying to get at
+another person's year of their life. It found three things in code that looked
+correct, all of them now LESSONS §17 and §18:
+
+1. **A stranger could react to any message id in the database.** The row is
+   keyed `(message_id, user_id)`; the user id came from the session and the
+   message id came from the URL and was checked against nothing. Every scope
+   rule was satisfied and the gate passed.
+2. **Revoking a device that was not yours answered 200.** The query was
+   correctly scoped; the port returned a hard-coded `true`. The security
+   screen told people a device had been signed out when nothing happened.
+3. **Deleting somebody else's attachment answered 200 with `deleted: false`** —
+   the same false confirmation, plus an existence oracle.
+
+Plus a cross-origin refusal behind the `SameSite=Lax` cookie. Its first
+version compared `Origin` to `LIAN_PUBLIC_URL` alone and turned every browser
+write into a 403 — a total outage with nothing in any log. It compares against
+the request's own `Host` now.
+
+### The conversation switcher, and the last matrix row
+
+Every row of the coverage matrix is now built on mobile. Ending a thread is
+two different things: an incognito thread is really deleted, photographs and
+all, while a side thread is **closed**, because its messages are the
+provenance of memories she kept.
+
+### `npm run preflight`
+
+The four integrations that have never touched a live service, each in its
+smallest real form, each failure diagnosed. `403` from a bucket is three
+different problems with three different fixes — the signature, the clock, or
+the policy — and all three arrive as `403`. This reads the code in the body
+and says which. Verified against a real S3 endpoint: it correctly reported
+`InvalidAccessKeyId` rather than "403".
+
+---
+
+## 0b. What the seventh run built
 
 ### Object storage, and the two features it unblocked
 
@@ -95,8 +186,12 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
    being to the new wording. Reversing this does not recover which text
    anyone actually saw. **The text itself is mine, not a lawyer's** — a
    plain-language description of what the build does, in both languages,
-   and a reviewed document has to replace or wrap it before this ships to
-   anyone who is not you.
+   marked as unreviewed on every screen that carries it, and listed in
+   `NEEDS_LEGAL_REVIEW` for whoever reviews it.
+1a. **A password reset ends every other session.** Somebody who resets on a
+   phone loses the session on their laptop. That is the decision, and it is
+   the right one — recovery is what you do when you think you have been
+   compromised — but it is felt by the person the moment it happens.
 2. **Deleting an account deletes the objects, not only the rows.** Asserted
    against the store, which is the only thing that can answer it. Once
    somebody has been told that and acted on it, it cannot become untrue.
@@ -242,6 +337,10 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
 
 ## 3. What will block me next
 
+0. **An email transport.** `sendEmail` is null, so a device confirmation and
+   a password reset are both created and neither is delivered. Recovery now
+   exists end to end and cannot reach anyone who cannot read the server log.
+   This is the highest-value thing left that needs nothing from me.
 1. **A real Stripe account, on the phone.** Checkout, the webhook reaching
    a public URL, and the plan changing under a person. Everything else in
    billing is tested; nothing in it has met Stripe.
@@ -261,13 +360,18 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
 
 ```sh
 npm run up                      # migrate, server, ticker
-npm run verify                  # typecheck, 11 gates, 560 tests
+npm run verify                  # typecheck, 12 gates, 624 tests
+npm run preflight               # the four live integrations, each diagnosed
+npm run report                  # retention and cost, with their definitions
 node tools/preview.ts 8790      # the app, with a model that costs nothing
 npm run report:economics        # the free tier, every assumption named
 ```
 
 | File | Why |
 |---|---|
+| `docs/FIRST-RUN.md` | what to do on hardware, in order, and what each failure looks like |
+| `apps/server/src/hardening.test.ts` | the product attacked, rather than exercised |
+| `tools/preflight.ts` | the four live integrations, and how each one fails |
 | `tools/gates/gates.test.ts` | every gate, shown to fail |
 | `packages/billing/src/webhook.ts` | the whole security boundary of billing |
 | `packages/analysis/src/receipt.ts` | what a photograph is allowed to say |

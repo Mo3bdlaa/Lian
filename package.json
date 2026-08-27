@@ -32,6 +32,7 @@
     "tick": "node apps/server/src/ticker.ts",
     "report:economics": "node tools/report/economics.ts",
     "report": "node tools/report/weekly.ts",
+    "preflight": "node tools/preflight.ts",
     "up": "node tools/up.ts"
   },
   "devDependencies": {
