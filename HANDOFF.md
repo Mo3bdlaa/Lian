@@ -1,31 +1,75 @@
 # HANDOFF
 
-Eighth run. **Read `docs/FIRST-RUN.md` first** — it is the ordered list of
-what to do on hardware, and `npm run preflight` is the command that makes the
-four unverified integrations tell you which of their possible failures you
-are looking at.
+Ninth run. **Read `docs/FIRST-IMPRESSIONS.md` first.** It is the only document
+here written from outside the machinery — I signed up, talked to her, and
+wrote down what it was actually like. Four holes and five wrong sentences came
+out of that afternoon, and none of them was findable any other way.
 
-Seventh run. Storage exists, so the two features that were waiting on it
-exist: **a photographed receipt becomes a transaction**, and **a voice note
-is a real voice note in both directions**. Every screen in the coverage
-matrix is built, desktop has its three purpose-built layouts and its
-fallback rule, and there is a billing path.
+Then `docs/FIRST-RUN.md`, which is the ordered list of what to do on hardware,
+and `npm run preflight`, which makes the five unverified integrations tell you
+which of their possible failures you are looking at.
 
-`npm run verify` is green: typecheck (two projects — server and browser),
-**12 gates**, **624 tests**, including 18 that drive real Chromium, 20 that
-prove each gate FAILS on a deliberate violation, and 23 that attack the
-product with a second account.
+Eighth run. Email exists: provider-agnostic behind a port, address
+confirmation at sign-up, recovery, new-device confirmation, and the first real
+send is a preflight command that reads the provider's own error back. It found
+a misclassification on its first live call, which is the whole argument for it.
+
+`npm run verify` is green: typecheck (server and browser), **13 gates**,
+**667 tests**, including 19 that drive real Chromium, 23 that prove each gate
+FAILS on a deliberate violation, and 27 that attack the product with a second
+account.
 
 **Read the test summary, not the exit code.** `pass 462, fail 0, cancelled
-100` is what a dead database looks like, and it happened once this run.
+100` is what a dead database looks like, and it happened once. **And export
+`DATABASE_URL` before you run the suite** — without it 137 tests SKIP silently
+and the count reads 530, which looks like a smaller suite rather than a
+crippled one.
 
-**Every number below states the assumption it rests on.** Where an
-assumption is soft, it says so. Where a thing has never touched a live
-service, it says that too.
+**Every number below states the assumption it rests on.** Where an assumption
+is soft, it says so. Where a thing has never touched a live service, it says
+that too.
 
 ---
 
-## 0. What the eighth run built
+## 0. What the ninth run did
+
+### It used the product
+
+`docs/FIRST-IMPRESSIONS.md`. The headline: **"remind me to call the bank" →
+"I'll remind you" → nothing could.** A `<todo>` with no date stores `due_on
+NULL`, which matched no outreach query and no briefing block, so the one
+sentence the product exists to make true was false the first time I asked for
+it. Every part of it was individually correct. Fixed by carrying dateless
+tasks in the briefing's *Carried over* — and deliberately NOT in outreach,
+because a dateless task pushing a notification every morning is the nagging
+LESSONS §4 exists to prevent.
+
+Plus four dead ends and five sentences that are authored, bilingual,
+gate-passing and wrong in place. All fixed except the ones in §3 below.
+
+### LESSONS §20 and a thirteenth gate
+
+Four things had one shape — declared in one place, connected in none: the
+incognito role, `story_events`, the key pool, and `/settings/language`. Each
+looks finished from whichever side of the seam you are standing on.
+`tools/gates/wired.ts` reads across two of those seams every build, and
+`story_events` is a NAMED exemption that prints **"NOT BUILT"** on every run.
+
+### LESSONS §19: the ceiling that was never checked on the first use
+
+`ON CONFLICT … DO UPDATE … WHERE` bounds the UPDATE branch only. `reserve`
+granted the FIRST reservation of any period whatever it asked for — so a free
+account's first voice note of every calendar month was transcribed and paid
+for, forever, and every test passed because every test reserves one unit at a
+time against a ceiling above one.
+
+### The incognito role, and the plan gate audited
+
+PRD §27 is built on both sides now. And every one of the eight PlanLimits
+fields is enforced — seven by a comparison in code, the eighth by the
+reservation above, which is how §19 was found.
+
+## 0a. What the eighth run built
 
 ### Consent, terms and privacy — the mechanism, not the wording
 
@@ -89,9 +133,12 @@ version compared `Origin` to `LIAN_PUBLIC_URL` alone and turned every browser
 write into a 403 — a total outage with nothing in any log. It compares against
 the request's own `Host` now.
 
-### The conversation switcher, and the last matrix row
+### The conversation switcher, and what looked like the last matrix row
 
-Every row of the coverage matrix is now built on mobile. Ending a thread is
+Every row of the coverage matrix was ticked after this. **Two of those ticks
+were wrong** and the ninth run found them by using the product — see
+`docs/specs/SCREEN-COVERAGE.md`, which now says which part of each row is
+missing. Ending a thread is
 two different things: an incognito thread is really deleted, photographs and
 all, while a side thread is **closed**, because its messages are the
 provenance of memories she kept.
@@ -213,6 +260,16 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
    have. The cost is ranking — results are ordered by recency. Replacing it
    means per-language tsvector columns, not a second index.
 
+6a. **An undated task is carried, not chased.** "Remind me to call the bank"
+   with no day stores `due_on NULL`, and she has already said "I'll remind
+   you" by then. It now appears in the briefing's *Carried over*, labelled
+   "No day set", and it does NOT enter outreach. The alternative — a
+   notification every morning until it is done — is the nagging LESSONS §4
+   exists to prevent, and somebody who turns her notifications off over it
+   does not turn them back on. The cost of this direction is that a person
+   who never opens the briefing is never reminded; that is the trade, and it
+   is felt by the person the first time it matters.
+
 ### Very expensive — a migration, a backfill, or a bill
 
 7. **The system/turn channel split.** Reversing it gives up history caching,
@@ -225,6 +282,22 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
    bytes held do not.
 10. **`rate_limits` and `idempotency_keys` in the database**, and the client
     contract that every write carries an `idempotency-key`.
+10a. **Every ceiling is checked on the FIRST reservation of a period as well
+    as on later ones** (LESSONS §19). Reversing it re-opens a free account's
+    first voice note of every month, and every test would still pass.
+10b. **The model key pool is live.** `ANTHROPIC_API_KEY_2` now rotates and
+    cools down on 401/403/429 through `api_key_pool` — shared state, not
+    process memory. Until this run it was read at startup and discarded.
+    A **400 is not retried** on another key: the request is wrong, and a
+    second attempt only spends the pool. Every key cooling down is a refusal
+    that says so, not a loop.
+10c. **A voice note's duration is the LARGER of what the recorder reported
+    and what the bytes prove** (DECISIONS §29, resolved). A client-reported
+    duration is a number somebody can choose, so it is neither trusted nor
+    ignored. Assumptions: 4 kB/s is ordinary Opus voice; 16 kB/s is the
+    densest a browser plausibly produces, so `bytes / 16 kB/s` is the
+    shortest a file of that size can honestly be. Both err in stated
+    directions. Migration 0015 adds the column, nullable.
 
 ### Expensive — a public contract
 
@@ -235,6 +308,11 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
     produces different bytes for the same document, and the signature is
     over what was sent — so the port takes a string and there is no overload
     that takes an object. A caller cannot make the mistake.
+12a. **The incognito role is refused, not truncated, above 600 characters**
+    (`MAX_SCENARIO_LENGTH`). The prompt block has always rendered at most
+    that; the write did not, so a longer role was displayed in full and
+    obeyed in part. A role that is shown and not in effect is worse than a
+    refusal — the person finds out three answers later.
 13. **The capability registry's sixth consumer, `describe()`.** A captured
     row reads back in the language it is being read in NOW.
 14. **The API shape**, now with: attachments (three-step upload, a 302 to a
@@ -255,6 +333,14 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
     beside assumed. New this run: **the vision call is charged to the same
     monthly meter as a turn** — a hundred photographs cannot go around the
     limit a hundred messages cannot go around.
+
+17a. **Onboarding messages do not count against the daily limit.** Nine turns
+    on a "20 a day" plan while the app still said 20. The monthly cost
+    ceiling is the real bound so the business is safe, but the number on
+    screen is wrong for the first nine messages of somebody's life with the
+    product. Left as it is — burning a quarter of your first day on the setup
+    conversation is worse — and recorded because it is a decision, not an
+    oversight.
 
 ### Moderate — people will feel it, changeable in a day
 
@@ -281,6 +367,18 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
 24. **The identity capture chip is a moment, not a row.** **This changed the
     spec** (UI-UX §4).
 25. **She catches up on a twenty-second beat while the tab is visible.**
+25a. **"Our story" shows ONE stage, not five.** UI-UX §8: "Show current state
+    as prose, not progression." The view still carries all five — the server
+    decides what is true, the client decides what to show — so this is
+    reversible in a line. RECONCILIATIONS §14.
+25b. **The Money headline is what went out until income exists.** §7 asks for
+    all three figures and does not say which is large; "What's left" is
+    in-minus-out, so on a first month it was a negative headline for somebody
+    who mentioned one gym fee. RECONCILIATIONS §15.
+25c. **The mic button stays on the free plan.** Voice is paid-only. Hiding a
+    feature is how nobody learns it exists, so the button remains and nothing
+    is recorded or uploaded — she says once, in the conversation, that voice
+    notes are on the paid plan.
 26. **A test client address per test file.**
 
 ### Cheap — a line, a number, a file
@@ -290,7 +388,9 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
     make: it fits the longest drawer label in both languages.
 28. **`DEFAULT_CURRENCY` is AED**, in one place, because the first market is
     the UAE. A receipt that prints its own code is captured in that code.
-29. **Audio is charged at 4 kB per second** to turn a byte count into STT
+29. **Audio is charged at the LARGER of the recorder's duration and the
+    bytes-derived floor** — see 10c. Superseded the estimate-only version,
+    which said 4 kB per second to turn a byte count into STT
     seconds — Opus at ~32 kbit/s, what a browser's MediaRecorder produces.
     A denser codec is overcharged, which is the safe direction for a ceiling
     and the wrong one for a bill. A real duration from the recorder should
@@ -321,8 +421,12 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
   is tested — VAPID, RFC 8291, delivery, the worker drawing it — but a
   sandbox cannot subscribe to a push service. **Still the one link in "she
   texts you first" that is proven in parts rather than end to end.**
-- **No email transport**, so a device confirmation cannot be emailed. The
-  sign-in stays held — the safe direction — and she raises it in chat.
+- **No real email has been sent.** The transport exists and `classify()` was
+  corrected by a live call; a key, a verified domain and an actual inbox are
+  what remain.
+- **The key pool has never rotated in anger.** It is wired, tested against a
+  fake provider, and its state is in the database — but no real 429 has ever
+  moved a real key out of rotation.
 - **The consent text is not legal advice** and is not a lawyer's document.
   See decision 1.
 - **`prefers-reduced-motion` is honoured; nothing else in the accessibility
@@ -331,37 +435,72 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
   unchanged**, where no `arMale` is authored. The gate proves no string
   assumes the USER's gender; it cannot prove the register is right.
 
+- **UI-UX §8's story timeline is not built at all** — see §3.9. It is the one
+  entry in this section that is a missing FEATURE rather than an unverified
+  integration, and it is here so it stops being a ✅ on a matrix.
+- **Her replies have never been judged.** `docs/FIRST-IMPRESSIONS.md` was
+  written against a scripted provider, so everything in it about the
+  PRODUCT's own words is first-hand and nothing in it about HER words is.
+  Whether she sounds like herself is still unknown.
+
 **Never built, per your instruction:** no hidden mode, no admin data path.
 
 ---
 
 ## 3. What will block me next
 
-0. **An email transport.** `sendEmail` is null, so a device confirmation and
-   a password reset are both created and neither is delivered. Recovery now
-   exists end to end and cannot reach anyone who cannot read the server log.
-   This is the highest-value thing left that needs nothing from me.
-1. **A real Stripe account, on the phone.** Checkout, the webhook reaching
-   a public URL, and the plan changing under a person. Everything else in
-   billing is tested; nothing in it has met Stripe.
-2. **A device**, for the one push subscription that closes item 2 above.
-3. **Keys**: embedder (production will not start without one), speech, and
-   storage credentials against a real bucket — the first real upload is
-   also the first real SigV4 check.
-4. **Arabic needs a native pass.** The catalogue is now ~330 strings.
-5. **An accessibility pass**, including a keyboard-only run over the sheets
-   and the new full-screen photo viewer — both are focus traps by shape.
-6. **The recorder should report a duration.** Until it does, STT seconds are
-   inferred from bytes (decision 29).
+**Nothing here needs deciding. Every item is a key, a device, or a person.**
 
----
+0. **A real Stripe account, on the phone.** Checkout, the webhook reaching a
+   public URL, and the plan changing under a person. Everything in billing is
+   tested and audited; nothing in it has met Stripe. `npm run preflight
+   stripe` makes the first call a read-only one that names its own failure.
+1. **A real email send.** The transport exists and the preflight already
+   caught one classification bug on its first live call. What remains is a
+   key, a verified domain, and going to look in the inbox — including spam.
+2. **A device**, for the one push subscription that is proven in parts.
+3. **Keys**: embedder (production will not start without one), speech, and
+   storage credentials against a real bucket — the first real upload is also
+   the first real SigV4 check.
+4. **Arabic needs a native pass.** The catalogue is ~470 strings now.
+5. **An accessibility pass**: no screen reader run, no keyboard-only pass.
+   The sheets and the full-screen photo viewer are focus traps by shape.
+
+### And these need doing, not unblocking
+
+Found by using the product; each is in `docs/FIRST-IMPRESSIONS.md` with what
+it felt like.
+
+6. **She should ask for a day when a reminder has none.** The briefing carries
+   dateless tasks now, so the promise is no longer false — but the right
+   answer is one more question at capture time. That is a prompt change, and
+   I would not tune a prompt against a scripted model.
+7. **The Security screen cannot answer its own question.** One device,
+   labelled `Device`, `location: null`. It exists to let somebody decide
+   *was that me?* and offers nothing to decide with. Needs a User-Agent parse
+   and an IP-to-city lookup — the second is a third-party service and a
+   privacy decision, not a patch.
+8. **"Message limit approaching" is not shown anywhere.** UI-UX §19 asks for
+   a quiet indicator near the end. `messagesRemaining` travels in every
+   snapshot and no screen reads it, so you find out at zero.
+9. **The story timeline does not exist.** `story_events` has held its three
+   types since migration 0001 and no code has ever written a row. It is the
+   largest genuinely unbuilt thing left, and the only one whose absence a
+   person notices as an absence rather than as thinness. The gate prints it
+   as "NOT BUILT" on every run.
+10. **The first briefing is a money figure and four empty lists.** The rule
+    producing it is right — she has written no line, and the screen refuses
+    to invent her voice. The screen is still somebody's first meeting with
+    the product's second-biggest idea.
+11. **Money has no "her observation"** (UI-UX §7). Not in the view at all.
 
 ## 4. Where to look
 
 ```sh
 npm run up                      # migrate, server, ticker
-npm run verify                  # typecheck, 12 gates, 624 tests
-npm run preflight               # the four live integrations, each diagnosed
+npm run verify                  # typecheck, 13 gates, 667 tests
+#   export DATABASE_URL first, or 137 of them SKIP without saying so
+npm run preflight               # the five live integrations, each diagnosed
 npm run report                  # retention and cost, with their definitions
 node tools/preview.ts 8790      # the app, with a model that costs nothing
 npm run report:economics        # the free tier, every assumption named
@@ -379,3 +518,7 @@ npm run report:economics        # the free tier, every assumption named
 | `apps/web/styles/app.css` | the token layer as it ships, desktop at the end |
 | `apps/server/src/browser.test.ts` | the app, running, on a phone and at 1280px |
 | `docs/RECONCILIATIONS.md` | every disagreement, and which four changed the specs |
+| `docs/FIRST-IMPRESSIONS.md` | the product used rather than read — start here |
+| `tools/gates/wired.ts` | the two seams nothing else reads across (§20) |
+| `packages/db/src/repositories/usage.ts` | why an upsert's WHERE is not a check (§19) |
+| `packages/llm/src/pooled.ts` | LESSONS §12's rotation, finally connected |
