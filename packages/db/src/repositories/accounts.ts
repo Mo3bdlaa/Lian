@@ -8,7 +8,11 @@ export type Plan = 'free' | 'paid';
 export type AssistantGender = 'female' | 'male';
 
 export type User = {
-  id: string; email: string; timeZone: string; languageStyle: string; plan: Plan;
+  id: string; email: string; timeZone: string; languageStyle: string;
+  /** What the app was signed up in — used only while languageStyle is 'auto'
+   *  (migration 0017). An observation, never a preference. */
+  signupLanguage: string | null;
+  plan: Plan;
   themePreference: 'auto' | 'always-light' | 'always-dark'; isAdult: boolean;
   consentedAt: Date | null; consentVersion: string | null;
   /** UI-UX §21: what makes recovery reachable. Nothing else depends on it. */
@@ -16,15 +20,16 @@ export type User = {
   displayName: string | null; onboardedAt: Date | null;
 };
 type UserRow = {
-  id: string; email: string; time_zone: string; language_style: string; plan: Plan;
+  id: string; email: string; time_zone: string; language_style: string; signup_language: string | null; plan: Plan;
   theme_preference: 'auto' | 'always-light' | 'always-dark'; is_adult: boolean;
   consented_at: Date | null; consent_version: string | null;
   email_verified_at: Date | null;
   display_name: string | null; onboarded_at: Date | null;
 };
-const USER_COLUMNS = 'id, email, time_zone, language_style, plan, theme_preference, is_adult, consented_at, consent_version, email_verified_at, display_name, onboarded_at';
+const USER_COLUMNS = 'id, email, time_zone, language_style, signup_language, plan, theme_preference, is_adult, consented_at, consent_version, email_verified_at, display_name, onboarded_at';
 const toUser = (r: UserRow): User => ({
-  id: r.id, email: r.email, timeZone: r.time_zone, languageStyle: r.language_style, plan: r.plan,
+  id: r.id, email: r.email, timeZone: r.time_zone, languageStyle: r.language_style,
+  signupLanguage: r.signup_language, plan: r.plan,
   themePreference: r.theme_preference, isAdult: r.is_adult,
   consentedAt: r.consented_at, consentVersion: r.consent_version,
   emailVerifiedAt: r.email_verified_at,
@@ -38,13 +43,18 @@ export async function createUser(
      *  account that exists for even one request without a consent record is
      *  an account that was created without one. */
     consent: { isAdult: boolean; at: Date; version: string };
+    /** What the sign-up screens were RENDERED in. An observation, not a
+     *  preference — language_style stays 'auto' so onboarding still asks
+     *  (migration 0017). */
+    signupLanguage?: 'en' | 'ar' | null;
   },
   sql: Sql = db(),
 ): Promise<User> {
   const { rows } = await sql.query<UserRow>(
-    `INSERT INTO users (email, password_hash, time_zone, is_adult, consented_at, consent_version)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${USER_COLUMNS}`,
-    [input.email, input.passwordHash, input.timeZone, input.consent.isAdult, input.consent.at, input.consent.version],
+    `INSERT INTO users (email, password_hash, time_zone, is_adult, consented_at, consent_version, signup_language)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING ${USER_COLUMNS}`,
+    [input.email, input.passwordHash, input.timeZone, input.consent.isAdult, input.consent.at,
+     input.consent.version, input.signupLanguage ?? null],
   );
   return toUser(rows[0]!);
 }

@@ -182,6 +182,21 @@ describe('every gate objects to a deliberate violation (LESSONS §15)', () => {
     });
   });
 
+  test('formatting: a second place that formats for a reader (§22)', () => {
+    // Two files formatted dates and money for a person and disagreed. Not a
+    // bug in either — a bug in there being two, and only a screenshot showed
+    // it: every test asserted `AED 400`, the one amount where two decimals
+    // and zero decimals agree.
+    proves('formatting', {
+      clean: { 'packages/i18n/src/format.ts': "export const money = (n) => new Intl.NumberFormat('en-GB').format(n);\n" },
+      dirty: {
+        'apps/web/src/thing.ts':
+          "export const money = (n, language) => new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en-GB').format(n);\n",
+      },
+      says: /outside packages\/i18n\/src\/format\.ts/,
+    });
+  });
+
   // ── promises (§21) ────────────────────────────────────────────────────
   // This gate reads the REAL registry, catalogue and promise list rather than
   // a fixture tree — a fixture would have to reimplement three modules, and

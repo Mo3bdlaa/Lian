@@ -248,6 +248,9 @@ export function turnPorts(userId: string): import('./turn.ts').TurnPorts['turn']
     async markOutreachAnswered(assistantId) {
       await db.outreach.markAnswered(scopeFor(assistantId), new Date());
     },
+    async linkReceipt(forUserId, transactionId, attachmentId) {
+      await db.life.linkReceipt({ userId: forUserId }, transactionId, attachmentId);
+    },
     async attachToMessage(forUserId, attachmentId, messageId) {
       await db.attachments.attachToMessage({ userId: forUserId }, attachmentId, messageId);
     },

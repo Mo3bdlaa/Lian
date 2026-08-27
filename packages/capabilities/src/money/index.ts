@@ -8,6 +8,7 @@ import { DEFAULT_CURRENCY } from '@lian/domain';
 import type { Capability, CaptureOutcome, ExportSlice } from '@lian/domain';
 import type { CapabilityPorts } from '../ports.ts';
 import { line } from '../copy.ts';
+import { relativeDay } from '@lian/i18n';
 
 type SpendPayload = { amount?: unknown; currency?: unknown; category?: unknown; date?: unknown; note?: unknown; direction?: unknown };
 
@@ -25,26 +26,19 @@ type TransactionLike = { id: string; amountMinor: number; currency: string; cate
 /**
  * The day, as a person reads it.
  *
- * `Today`, `Yesterday`, or a short localised date. Anything not today used to
- * render the raw column — so a chip in a conversation read `AED 400 · gym ·
- * 2026-08-24` three lines under a day separator saying "25 August". Nothing
- * caught it because nothing was wrong with it: the string was correct, the
- * test asserted the amount, and it only looks wrong next to the rest of the
- * screen. A screenshot is what found it.
- *
- * Formatting for a language normally belongs to the client (HANDOFF §15) and
- * this line is the exception the product already makes — the AMOUNT beside it
- * is formatted here too, because a capture summary is composed as one
- * sentence rather than as fields.
+ * `Today`, `Yesterday`, or a date — and the DATE comes from @lian/i18n, which
+ * is the one place that formats for a reader. This function used to render
+ * the raw column for anything not today, so a chip read `2026-08-24` three
+ * lines under a separator saying "25 August". The words stay here because
+ * they are copy; the formatting does not, because it was the second copy of
+ * something the client already had.
  */
 function dayLabel(occurredOn: string, localDay: string, language: 'en' | 'ar'): string {
-  if (occurredOn === localDay) return line(language, 'Today', 'النهاردة');
-  const yesterday = new Date(`${localDay}T00:00:00Z`);
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-  if (occurredOn === yesterday.toISOString().slice(0, 10)) return line(language, 'Yesterday', 'إمبارح');
-  return new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en-GB', {
-    day: 'numeric', month: 'long', timeZone: 'UTC',
-  }).format(new Date(`${occurredOn}T00:00:00Z`));
+  const when = relativeDay(occurredOn, localDay, language);
+  if ('date' in when) return when.date;
+  return when.key === 'today'
+    ? line(language, 'Today', 'النهاردة')
+    : line(language, 'Yesterday', 'إمبارح');
 }
 
 function summaryOf(transaction: TransactionLike, language: 'en' | 'ar', localDay: string) {

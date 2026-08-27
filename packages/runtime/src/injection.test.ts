@@ -54,6 +54,7 @@ function turnPorts() {
   const ports: TurnPorts['turn'] = {
     async appendMessage() { return { id: `m${++n}` }; },
     async history() { return []; },
+    async linkReceipt() {},
     async claimCapture() { return true; },
     async voidCaptures() { return []; },
     async reserve() { return true; },

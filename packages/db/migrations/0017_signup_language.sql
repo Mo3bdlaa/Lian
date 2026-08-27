@@ -1,0 +1,21 @@
+-- 0017 — what the app was signed up in.
+--
+-- `language_style` starts as 'auto' and stays there until the person ANSWERS
+-- the onboarding language question, because a browser's guess is not somebody's
+-- choice and `languageChosen` is derived from that column. That is right.
+--
+-- But 'auto' also had to resolve to something for RENDERING, and it resolved
+-- to English — so an Arabic speaker who signed up got her authored opening in
+-- Arabic inside an English, left-to-right app. Before she spoke first that was
+-- invisible (everything was English); the moment she did, it became the most
+-- incoherent screen in the product, and a screenshot is what showed it.
+--
+-- So: the language the sign-up screens were RENDERED in, stored separately.
+-- It is an OBSERVATION, not a preference — which is exactly why it is not
+-- language_style. Onboarding still asks, `languageChosen` is still false, and
+-- the app renders in the language they were already reading while it does.
+--
+-- Null for every account that existed before this, which resolves to English
+-- exactly as it did.
+ALTER TABLE users ADD COLUMN signup_language text
+  CHECK (signup_language IS NULL OR signup_language IN ('en', 'ar'));

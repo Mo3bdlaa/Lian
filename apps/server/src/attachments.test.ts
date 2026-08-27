@@ -197,6 +197,54 @@ describe('attachments, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not se
       `SELECT message_id FROM attachments WHERE id = $1`, [uploaded.id],
     );
     assert.notEqual(linked[0]!.message_id, null);
+
+    // 5. AND THE TRANSACTION KNOWS WHICH PHOTOGRAPH IT CAME FROM.
+    //    `transactions.receipt_id` existed since migration 0002 with nothing
+    //    writing it, so the Money screen used `originMessageId === null` as a
+    //    stand-in — backwards, since a real receipt capture HAS an origin
+    //    message. Every chat-captured row read "from a receipt" and every
+    //    photographed one read "you told me".
+    const { rows: receipt } = await db().query<{ receipt_id: string | null }>(
+      `SELECT receipt_id FROM transactions WHERE user_id = $1`, [app.account.userId],
+    );
+    assert.equal(receipt[0]!.receipt_id, uploaded.id, 'the row cannot say which photograph it came from');
+
+    // And the screen's caption is read from the column rather than guessed.
+    const money2 = await app.call('GET', '/api/money');
+    const view = (await money2.json()) as { recent: { fromReceipt: boolean }[] };
+    assert.equal(view.recent[0]!.fromReceipt, true);
+  });
+
+  test('a transaction she was TOLD about does not claim a receipt', async () => {
+    // The other half, and the one that was wrong on every row: a caption is a
+    // claim about state (LESSONS §20), and "from a receipt" was being made by
+    // a proxy that meant something else entirely.
+    const app = await boot({
+      address: '192.0.2.67',
+      analysis: analysisWithEyes({ total: null }),
+      replies: ['Okay, logged it. <spend>{"amount":400,"currency":"AED","category":"gym","date":"2026-05-18"}</spend>'],
+    });
+
+    const spoke = await app.call('POST', `/api/conversations/${app.conversationId}/messages`, {
+      message: 'paid 400 for the gym', clientId: `c-${Date.now()}`,
+    });
+    // Kept in the assertion below: when a capture does not happen, the
+    // stream says why, and 'expected 1, got 0' does not.
+    const said = await spoke.text();
+
+    const { rows } = await db().query<{ receipt_id: string | null; origin_message_id: string | null }>(
+      `SELECT receipt_id, origin_message_id FROM transactions WHERE user_id = $1`, [app.account.userId],
+    );
+    assert.equal(rows.length, 1, said);
+    assert.equal(rows[0]!.receipt_id, null);
+    // The proxy that used to decide this: a chat capture HAS an origin
+    // message, which is exactly why `originMessageId === null` labelled it
+    // the wrong way round.
+    assert.notEqual(rows[0]!.origin_message_id, null);
+
+    const money = await app.call('GET', '/api/money');
+    const view = (await money.json()) as { recent: { fromReceipt: boolean }[] };
+    assert.equal(view.recent[0]!.fromReceipt, false, 'a row she was told about claimed a photograph');
   });
 
   test('the picture is never in the prompt that speaks in her voice', async () => {

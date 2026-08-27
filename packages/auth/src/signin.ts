@@ -58,6 +58,8 @@ export async function signUp(
   input: {
     email: string; password: string; timeZone: string; device: DeviceInfo;
     consent: { isAdult: boolean; agreed: boolean; version: string };
+    /** What the sign-up screens were rendered in. See migration 0017. */
+    language?: 'en' | 'ar';
   },
   ports: AuthPorts,
   now: Date,
@@ -72,6 +74,7 @@ export async function signUp(
     passwordHash: await hashPassword(input.password),
     timeZone: input.timeZone,
     consent: { isAdult: true, at: now, version: input.consent.version },
+    signupLanguage: input.language ?? null,
   });
   // The device someone signs up on is trusted by definition: it is the first
   // one, and there is nothing yet to protect it from.

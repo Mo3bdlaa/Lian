@@ -102,6 +102,12 @@ const COVERAGE: Record<string, Coverage[]> = {
     { where: 'tools/gates/boundaries.ts', marker: /composes INTO the prompt/ },
     { where: 'packages/capabilities/src/capabilities.test.ts', marker: /adding a capability stayed cheap/ },
   ],
+  '22': [
+    { where: 'packages/i18n/src/format.ts', marker: /FORMATTING FOR A READER — the one place/ },
+    { where: 'tools/gates/formatting.ts', marker: /formatting for a reader happens in exactly one place/ },
+    { where: 'tools/gates/gates.test.ts', marker: /a second place that formats for a reader/ },
+    { where: 'apps/web/src/screens.test.ts', marker: /own precision/ },
+  ],
   '21': [
     { where: 'packages/domain/src/promises.ts', marker: /WHAT SHE IS ALLOWED TO PROMISE/ },
     { where: 'tools/gates/promises.ts', marker: /she may not promise what nothing performs/ },

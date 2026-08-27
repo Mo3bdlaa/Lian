@@ -64,12 +64,13 @@ const TABLES_WITHOUT_A_REPOSITORY: Record<string, string> = {
  * every chat-captured row "from a receipt" for as long as the screen existed.
  */
 const COLUMNS_NOTHING_USES: Record<string, string> = {
-  'transactions.receipt_id':
-    'NOT WRITTEN. A photographed receipt becomes a transaction (that path is built and tested), '
-    + 'but nothing links the transaction back to the photograph — so UI-UX §7\'s "receipt attached / '
-    + 'view receipt" on the correction screen cannot be built, and the recent row cannot say where '
-    + 'it came from. Threading the attachment id from prepareAttachment through the turn into the '
-    + '<spend> handler is the fix.',
+  // (empty)
+  //
+  // `transactions.receipt_id` lived here for exactly one run. Both entries
+  // this list has ever held were closed by the run after the one that added
+  // them, which is the argument for announcing a hole rather than carrying it
+  // silently: a line printed on every CI run gets looked at, and a TODO in a
+  // comment does not.
 };
 
 const violations: Violation[] = [];

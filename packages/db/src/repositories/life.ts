@@ -39,6 +39,29 @@ export async function createTask(
   return toTask(rows[0]!);
 }
 
+/**
+ * Link a transaction to the photograph it was read from (UI-UX §7).
+ *
+ * The column has existed since migration 0002 and nothing wrote it, so the
+ * Money screen used `originMessageId === null` as a stand-in — which is
+ * backwards, since a real receipt capture HAS an origin message. LESSONS §20:
+ * a caption is a claim about state, and that one was false on every row.
+ *
+ * Scoped by user on BOTH sides: the transaction and the attachment have to be
+ * theirs, or a stolen attachment id would caption somebody else's row.
+ */
+export async function linkReceipt(
+  scope: UserScope, transactionId: string, attachmentId: string, sql: Sql = db(),
+): Promise<boolean> {
+  const { rowCount } = await sql.query(
+    `UPDATE transactions SET receipt_id = $3
+     WHERE user_id = $1 AND id = $2 AND deleted_at IS NULL
+       AND EXISTS (SELECT 1 FROM attachments WHERE id = $3 AND user_id = $1 AND deleted_at IS NULL)`,
+    [scope.userId, transactionId, attachmentId],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
 export async function dueOn(scope: UserScope, day: string, sql: Sql = db()): Promise<Task[]> {
   const { rows } = await sql.query<TaskRow>(
     `SELECT ${TASK_COLUMNS} FROM tasks
@@ -104,15 +127,19 @@ export type Direction = 'in' | 'out';
 export type Transaction = {
   id: string; direction: Direction; amountMinor: number; currency: string;
   category: string | null; occurredOn: string; note: string | null; originMessageId: string | null;
+  /** The photograph it was read from, or null — UI-UX §7. */
+  receiptId: string | null;
 };
 type TxRow = {
   id: string; direction: Direction; amount_minor: number; currency: string;
   category: string | null; occurred_on: string; note: string | null; origin_message_id: string | null;
+  receipt_id: string | null;
 };
-const TX_COLUMNS = 'id, direction, amount_minor, currency, category, occurred_on::text AS occurred_on, note, origin_message_id';
+const TX_COLUMNS = 'id, direction, amount_minor, currency, category, occurred_on::text AS occurred_on, note, origin_message_id, receipt_id';
 const toTx = (r: TxRow): Transaction => ({
   id: r.id, direction: r.direction, amountMinor: r.amount_minor, currency: r.currency,
   category: r.category, occurredOn: r.occurred_on, note: r.note, originMessageId: r.origin_message_id,
+  receiptId: r.receipt_id,
 });
 
 export async function createTransaction(

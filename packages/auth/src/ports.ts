@@ -14,6 +14,9 @@ export type AuthPorts = {
     /** UI-UX §22, recorded at creation — an account that exists for even one
      *  request without a consent record was created without one. */
     consent: { isAdult: boolean; at: Date; version: string };
+    /** What the sign-up screens were RENDERED in — an observation, not a
+     *  preference, so onboarding still asks (migration 0017). */
+    signupLanguage?: 'en' | 'ar' | null;
   }): Promise<AuthUser>;
   findDevice(userId: string, fingerprint: string): Promise<AuthDevice | null>;
   upsertDevice(userId: string, input: { fingerprint: string; userAgent: string | null; locationLabel: string | null }): Promise<AuthDevice>;

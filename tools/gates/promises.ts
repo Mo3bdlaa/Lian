@@ -95,8 +95,27 @@ for (const [name, promise] of [...Object.entries(TAG_PROMISES), ...Object.entrie
 // against the ENGLISH, because the Arabic is authored beside it and a pattern
 // that worked on both would be a worse pattern on each.
 
-/** First person, future, in her voice. */
-const COMMITMENT = /\b(I'll|I will|I'm going to|I can reach|I'd rather|it'll live|we share one)\b/i;
+/**
+ * First person, in her voice, about something she does or will do.
+ *
+ * The future half was the obvious half. The PRESENT half was added because
+ * this gate let through the first sentence anybody reads from her — "I keep
+ * track of what you tell me, and bring it back when it matters" — which is a
+ * standing commitment with two mechanisms behind it and no "I'll" anywhere.
+ * A promise does not have to be in the future tense to be a promise.
+ *
+ * A denylist of forms that actually occur, not a grammar: six strings match
+ * the present-tense half, and each one is classified.
+ */
+const COMMITMENT = new RegExp(
+  [
+    // future
+    "I'll", 'I will', "I'm going to", "I'd rather", "it'll live", 'we share one',
+    // present, standing
+    'I keep', 'I remember', 'I bring', 'I can reach', 'I hold', 'I look after',
+  ].map((form) => `\\b${form.replace(/'/g, "['’]")}\\b`).join('|'),
+  'i',
+);
 
 const classifiedCopy = new Set(Object.keys(COPY_PROMISES));
 

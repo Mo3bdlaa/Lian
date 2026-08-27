@@ -602,17 +602,25 @@ describe('what using it found', () => {
     assert.ok(!/127\.5[^0]/.test(markup));
   });
 
-  test('a transaction row does not claim a provenance nothing can establish', () => {
+  test('a transaction row says where it came from, and the column decides', () => {
     // `fromReceipt` was `originMessageId === null` — backwards, since a real
     // receipt capture HAS an origin message. Five seeded rows, none of them
-    // photographed, every one captioned "from a receipt".
-    const markup = render(moneyScreen(me(), {
+    // photographed, every one captioned "from a receipt". A caption is a
+    // claim about state (LESSONS §20), and that one was false on every row.
+    // `transactions.receipt_id` is written now, so the caption follows it.
+    const row = (fromReceipt: boolean) => render(moneyScreen(me(), {
       month: '2026-08', inMinor: 0, outMinor: 40_000, leftMinor: -40_000, currency: 'AED',
       categories: [],
-      recent: [{ id: 't-1', line: 'gym', amountMinor: 40_000, direction: 'out', occurredOn: '2026-08-25', fromReceipt: true }],
+      recent: [{ id: 't-1', line: 'gym', amountMinor: 40_000, direction: 'out', occurredOn: '2026-08-25', fromReceipt }],
     }));
-    assert.ok(!markup.includes(t('money.from_receipt', 'en')), 'the row claims a receipt nothing recorded');
-    assert.ok(!markup.includes(t('money.from_chat', 'en')));
+
+    const photographed = row(true);
+    assert.ok(photographed.includes(t('money.from_receipt', 'en')));
+    assert.ok(!photographed.includes(t('money.from_chat', 'en')));
+
+    const told = row(false);
+    assert.ok(told.includes(t('money.from_chat', 'en')));
+    assert.ok(!told.includes(t('money.from_receipt', 'en')), 'a row she was told about claimed a photograph');
   });
 
   test('the first conversation does not claim a continuity that has not happened', () => {

@@ -11,6 +11,10 @@
 // reproducible: re-running produces the same pictures, and a diff in
 // docs/shots is a real change to the product rather than a clock moving.
 import { db } from '@lian/db';
+import { t } from '@lian/i18n';
+
+/** The one copy of it is the catalogue's; this just picks the language. */
+const greeting = (language: 'en' | 'ar'): string => t('greeting.first', language, 'female');
 
 /** The day every screenshot is taken on. Wednesday, so "carried over" from
  *  Monday and Tuesday is a normal thing to show rather than a weekend edge. */
@@ -62,8 +66,8 @@ export async function seed(fullness: Fullness, options: {
   const { rows: [user] } = await sql.query<{ id: string }>(
     `INSERT INTO users (email, password_hash, time_zone, display_name, language_style, plan,
                         theme_preference, is_adult, consented_at, consent_version, onboarded_at,
-                        notification_prompted_at, email_verified_at)
-     VALUES ($1, 'x', 'Asia/Dubai', $2, $3, $4, $5, true, now(), 'shots', $7, $7, $6)
+                        notification_prompted_at, email_verified_at, signup_language)
+     VALUES ($1, 'x', 'Asia/Dubai', $2, $3, $4, $5, true, now(), 'shots', $7, $7, $6, $8)
      RETURNING id`,
     [
       email,
@@ -78,6 +82,10 @@ export async function seed(fullness: Fullness, options: {
       // being mid-onboarding IS: the step is derived from the facts, so there
       // is no flag to fake (packages/domain/src/onboarding.ts).
       fullness === 'onboarding' ? null : new Date(),
+      // $8 — what the sign-up screens were rendered in. It is what makes an
+      // onboarding account (language_style still 'auto') render in the
+      // language its opening is written in.
+      arabic ? 'ar' : 'en',
     ],
   );
   const userId = user!.id;
@@ -142,6 +150,17 @@ export async function seed(fullness: Fullness, options: {
       [userId, email],
     );
   }
+
+  // Her authored opening (PRD §8), written by the real sign-up route in the
+  // product. The seed writes rows directly, so it has to write this one too —
+  // otherwise the ONBOARDING shot shows an empty conversation and the picture
+  // is of a product that no longer exists. The sentence itself comes from the
+  // catalogue, so there is still one copy of it; only the row is duplicated.
+  await sql.query(
+    `INSERT INTO messages (conversation_id, assistant_id, role, body, surface, created_at)
+     VALUES ($1, $2, 'assistant', $3, 'onboarding', $4)`,
+    [conversationId, assistantId, greeting(arabic ? 'ar' : 'en'), at(daysAgo(fullness === 'full' ? 21 : 0), 20)],
+  );
 
   if (fullness !== 'full') return { userId, assistantId, conversationId, sessionToken: token, email };
 
@@ -263,6 +282,17 @@ export async function seed(fullness: Fullness, options: {
      arabic ? 'فطار خفيف' : 'Light breakfast', at(daysAgo(1), 8),
      arabic ? 'جري' : 'Run', at(daysAgo(3), 7)],
   );
+
+  // One transaction linked to a photograph, so the Money screen shows BOTH
+  // captions — "from a receipt" and "you told me" — rather than five rows
+  // that all claim the same provenance, which is what it did when the flag
+  // was a proxy for something else.
+  const { rows: [receipt] } = await sql.query<{ id: string }>(
+    `INSERT INTO attachments (user_id, kind, content_type, storage_key, status, persist, ready_at, bytes)
+     VALUES ($1, 'receipt', 'image/jpeg', $2, 'ready', true, now(), 204800) RETURNING id`,
+    [userId, `shots/receipt-${Date.now()}`],
+  );
+  await sql.query(`UPDATE transactions SET receipt_id = $2 WHERE id = $1`, [transactionRows[3]!.id, receipt!.id]);
 
   // ── the timeline (UI-UX §8) ───────────────────────────────────────────
   // Keys, not sentences: the screen resolves them in the language it is being

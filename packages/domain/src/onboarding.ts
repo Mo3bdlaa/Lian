@@ -58,8 +58,13 @@ export function isComplete(facts: OnboardingFacts): boolean {
  *  a message that asks three questions reads like a form with a friendlier
  *  font. */
 export const STEP_INSTRUCTION: Readonly<Record<OnboardingStep, string>> = {
+  // Her opening is AUTHORED and has already been sent (greeting.first in the
+  // catalogue), so this is her first GENERATED turn and it is a reply. The
+  // instruction used to say "this is the very first thing they will read from
+  // you", which was not true: nothing ran until they typed. Introducing
+  // herself again here would be the second introduction in two messages.
   greet:
-    'This is the very first thing they will read from you. Introduce yourself as a secretary, more or less, say plainly what you keep, and ask what to call them. Nothing else.',
+    'You have already introduced yourself and asked what to call them — that message is on screen and you do not repeat it. They are answering now. Take the name if they gave one, and say something to it.',
   learn_name: 'You still do not know what to call them. Ask, once, without making it a form.',
   learn_language:
     'Ask which language they would rather use, and mention you can switch any time. If they have already been writing in one, say you noticed and offer to keep to it.',

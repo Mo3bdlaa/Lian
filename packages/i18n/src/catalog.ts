@@ -470,6 +470,35 @@ export const CATALOG = {
   'threads.delete_incognito': { en: 'Delete this thread', ar: 'امسح المحادثة دي', addressee: 'none' },
   'threads.messages': { en: '{n} messages', ar: '{n} رسالة', addressee: 'none' },
 
+  // ── the first thing anybody reads from her (PRD §8) ─────────────────────
+  //
+  // AUTHORED, not generated, and written into the conversation at sign-up.
+  //
+  // "She texts you first" is the positioning, and until this existed the
+  // first interaction was somebody opening an empty conversation and typing
+  // into it — the promise broken on the first screen, in the three minutes
+  // where the product is won. A generated greeting was the wrong instrument:
+  // on turn zero there is no context to generate FROM, and a model call per
+  // sign-up buys a sentence that would be worse than one written carefully
+  // once.
+  //
+  // It also settles a real inconsistency. STEP_INSTRUCTION's `greet` told her
+  // "this is the very first thing they will read from you", and it was not —
+  // the mechanism only ran in reply to their first message. Now it is true,
+  // and it is not generated.
+  //
+  // The shape is from PRD §8: introduce herself, say plainly what she keeps,
+  // ask what to call them. Nothing else — no tour, no feature list, no
+  // permission ask. The register is the product's: "more or less" rather than
+  // a job title, because she is not a product announcing itself.
+  'greeting.first': {
+    en: "Good to meet you. I'm a secretary, more or less — I keep track of what you tell me, and bring it back when it matters. What should I call you?",
+    ar: 'تشرفنا. أنا سكرتيرة، يعني تقريباً — بحتفظ باللي بتقوله لي، وبرجّعه في وقته. أنادي عليك بإيه؟',
+    // Not a pronoun swap: the noun changes too (PRD §45).
+    arMale: 'تشرفنا. أنا سكرتير، يعني تقريباً — بحتفظ باللي بتقوله لي، وبرجّعه في وقته. أنادي عليك بإيه؟',
+    addressee: 'none',
+  },
+
   // ── the incognito role (PRD §27, UI-UX §46) ─────────────────────────────
   // The examples are the only strings in the catalogue that are ADDRESSED TO
   // HER: they are examples of what the person would type into the role box,

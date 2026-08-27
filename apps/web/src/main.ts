@@ -1249,6 +1249,12 @@ async function submitCredentials(form: HTMLFormElement, route: 'sign-up' | 'sign
             // client that skipped the screen gets a 403, not an account.
             isAdult: consentState.adult === true,
             agreedToTerms: consentState.agreed,
+            // The language these screens were RENDERED in, so her authored
+            // opening is in the one they were just reading. It is not a
+            // setting — the server keeps language_style on 'auto' and
+            // onboarding still asks, because this is the browser's guess
+            // rather than their answer.
+            language: document.documentElement.getAttribute('dir') === 'rtl' ? 'ar' : 'en',
           }
         : {}),
     };

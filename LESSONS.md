@@ -521,3 +521,33 @@ the chip was right, the Tasks screen showed it. The Tasks screen even said
   exactly the drift it exists to catch.
 - **The rule underneath it: where the mechanism cannot, she must not say it.**
   A sentence with nothing behind it comes out; it does not get documented.
+
+## 22. Two places that format the same thing will disagree
+
+**A capture chip read `AED 400 · gym · 2026-08-24`, three lines under a day
+separator that said "25 August". `AED 127.50` rendered as `AED 127.5` in the
+Money headline. Neither was a bug in a call site. Both were a bug in there
+being two call sites.**
+
+`apps/web/src/format.ts` formatted for the client and
+`packages/capabilities/src/money` formatted for the capture chip, and nobody
+compared them because nothing put them next to each other — until a screenshot
+did.
+
+- **No test could find either.** Every money assertion in the repository used
+  `AED 400`, which is the one amount where two decimals and zero decimals
+  agree. Every chip assertion used a transaction dated today, which is the one
+  day where "Today" and the raw column agree.
+- The distinction that makes the rule enforceable: **Intl is used for two
+  different jobs.** A CALCULATOR (`en-CA` for a YYYY-MM-DD key, `en-US` +
+  hourCycle for an hour number) has a fixed locale on purpose, because its
+  output is a machine key that must not move with who is reading. A SENTENCE
+  has a locale computed from the reader.
+- `packages/i18n/src/format.ts` is the only place the second kind may happen.
+  `tools/gates/formatting.ts` fails the build on a reader-facing Intl call
+  anywhere else, and the calculator files are a named list that each say why
+  their locale is fixed.
+- **`minimumFractionDigits: 0` was the bug and removing both overrides was the
+  fix.** Intl already knows each currency's precision — AED and USD two, JPY
+  none, KWD three — so saying nothing is shorter and right in more places than
+  any pair of numbers chosen by hand.

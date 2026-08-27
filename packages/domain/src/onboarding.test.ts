@@ -7,10 +7,18 @@ const nothing: OnboardingFacts = {
 };
 
 describe('PRD §8 onboarding is state, not a step counter', () => {
-  test('it opens by introducing herself and asking one thing', () => {
+  test('the opening is AUTHORED, so greet is her first reply rather than her introduction', () => {
     assert.equal(nextStep(nothing), 'greet');
-    assert.match(STEP_INSTRUCTION.greet, /secretary, more or less/);
-    assert.match(STEP_INSTRUCTION.greet, /Nothing else\./, 'one question, or it is a form');
+    // PRD §8's introduction is `greeting.first` in the catalogue, written
+    // into the conversation at sign-up — she speaks first, and nothing
+    // generates that sentence. So this instruction must NOT ask her to
+    // introduce herself again: that is the second introduction in two
+    // messages, and it was what the instruction said for nine runs while
+    // claiming to be "the very first thing they will read from you", which
+    // nothing ever made true.
+    assert.ok(!/introduce yourself/i.test(STEP_INSTRUCTION.greet), 'she would introduce herself twice');
+    assert.match(STEP_INSTRUCTION.greet, /already introduced/i);
+    assert.match(STEP_INSTRUCTION.greet, /answering/i, 'they have spoken; this is a reply');
   });
 
   test('someone who answers two things at once is not asked twice', () => {

@@ -102,7 +102,7 @@ async function emailFor(
   link: string,
 ): Promise<{ to: string; subject: string; body: string }> {
   const user = await db.accounts.getUser({ userId });
-  const language = languageOf(user?.languageStyle ?? 'en');
+  const language = languageOf(user?.languageStyle ?? 'en', user?.signupLanguage);
   const assistant = await assistantOf(userId);
   const gender = assistant?.gender ?? 'female';
   return {
@@ -111,7 +111,23 @@ async function emailFor(
     body: t(`email.${kind}_body` as 'email.reset_body', language, gender).replace('{link}', link),
   };
 }
-const languageOf = (style: string): 'en' | 'ar' => (style.startsWith('ar') ? 'ar' : 'en');
+/**
+ * Which language to RENDER in.
+ *
+ * `auto` means "match the user", and before they have said anything there is
+ * nothing to match — so it falls back to what the app was signed up in
+ * (migration 0017), and only then to English.
+ *
+ * Without the fallback, an Arabic speaker got her authored opening in Arabic
+ * inside an English, left-to-right app: the most incoherent screen in the
+ * product, on the first one they see. It was invisible until she spoke first,
+ * because before that everything was English together.
+ */
+const languageOf = (style: string, signupLanguage?: string | null): 'en' | 'ar' => {
+  if (style.startsWith('ar')) return 'ar';
+  if (style === 'auto' && signupLanguage === 'ar') return 'ar';
+  return 'en';
+};
 
 /** The user's assistant.  One per account today; the schema allows more, so
  *  this is the single place that decides which one a request means. */
@@ -259,7 +275,7 @@ export function authRoutePorts(deps: Deps): AuthRoutePorts {
       // route sends the answers and this stamps which text they answered.
       const created = await authSignUp(
         {
-          ...(input as { email: string; password: string; timeZone: string; device: DeviceInfo; consent: { isAdult: boolean; agreed: boolean } }),
+          ...(input as { email: string; password: string; timeZone: string; device: DeviceInfo; consent: { isAdult: boolean; agreed: boolean }; language: 'en' | 'ar' }),
           consent: { ...input.consent, version: CONSENT_VERSION },
         },
         ports,
@@ -279,9 +295,28 @@ export function authRoutePorts(deps: Deps): AuthRoutePorts {
         { type: 'milestone', titleKey: 'story.began', occurredAt: deps.now(), dedupeKey: 'began' },
       );
 
-      await db.conversations.createConversation(
+      const conversation = await db.conversations.createConversation(
         { userId: created.userId, assistantId: assistant.id },
         { kind: 'main' },
+      );
+
+      // SHE SPEAKS FIRST (PRD §8). Authored, not generated — see
+      // greeting.first in the catalogue for why a model call here would be
+      // the wrong instrument. Written as a real assistant message on the main
+      // conversation, so it is in the history, is what the window shows, and
+      // is what her next turn is answering.
+      //
+      // `input.language` is what the client RENDERED the consent and sign-up
+      // screens in. It is used for this sentence and nothing else: it does
+      // NOT set language_style, which stays 'auto', so onboarding still asks
+      // which language they want. A browser's guess is not somebody's choice.
+      await db.conversations.appendMessage(
+        { userId: created.userId, assistantId: assistant.id },
+        {
+          conversationId: conversation.id, role: 'assistant',
+          body: t('greeting.first', input.language === 'ar' ? 'ar' : 'en', assistant.gender),
+          tags: [], surface: 'onboarding',
+        },
       );
       return created;
     },
@@ -519,7 +554,7 @@ export function chatRoutePorts(deps: Deps): ChatRoutePorts {
         memoryQueueFull: () => input.onMemoryQueueFull(),
       };
 
-      const language = languageOf(user.languageStyle);
+      const language = languageOf(user.languageStyle, user.signupLanguage);
 
       // Before the turn, and before any budget is reserved: reading a picture
       // or a recording is where an attachment message can fail, and failing
@@ -569,7 +604,7 @@ export function chatRoutePorts(deps: Deps): ChatRoutePorts {
         { model: deps.analysisModel, ports: summaryPorts(input.userId) },
       ).catch((error: unknown) => { deps.log(`summary roll failed: ${String(error)}`); });
       await refreshMood(
-        { assistantId: assistant.id, language: languageOf(user.languageStyle), now: deps.now() },
+        { assistantId: assistant.id, language: languageOf(user.languageStyle, user.signupLanguage), now: deps.now() },
         moodPorts(input.userId),
       ).catch((error: unknown) => { deps.log(`mood refresh failed: ${String(error)}`); });
 
@@ -722,7 +757,7 @@ export function readPorts(deps: Deps): ReadPorts {
       const assistant = await assistantOf(userId);
       if (user === null || assistant === null) return null;
       const scope = { userId, assistantId: assistant.id };
-      const language = languageOf(user.languageStyle);
+      const language = languageOf(user.languageStyle, user.signupLanguage);
       const localDay = dayKeyFor(user.timeZone, deps.now());
       const hour = localHour(deps.now(), user.timeZone);
 
@@ -817,7 +852,7 @@ export function readPorts(deps: Deps): ReadPorts {
         {
           userId, assistantId: assistant.id, surface: 'chat',
           localDay: dayKeyFor(user.timeZone, deps.now()), timeZone: user.timeZone,
-          plan: user.plan, language: languageOf(user.languageStyle),
+          plan: user.plan, language: languageOf(user.languageStyle, user.signupLanguage),
         },
         capabilityPorts(userId),
       );
@@ -861,7 +896,7 @@ export function readPorts(deps: Deps): ReadPorts {
       const user = await db.accounts.getUser({ userId });
       const assistant = await assistantOf(userId);
       if (user === null || assistant === null) return { from: '', observation: null, days: [], habits: [] };
-      const language = languageOf(user.languageStyle);
+      const language = languageOf(user.languageStyle, user.signupLanguage);
       const localDay = dayKeyFor(user.timeZone, deps.now());
       const from = startOfWeekDay(localDay);
       const fromDate = new Date(`${from}T00:00:00Z`);
@@ -947,7 +982,7 @@ export function readPorts(deps: Deps): ReadPorts {
       const user = await db.accounts.getUser({ userId });
       if (assistant === null || user === null) return { query, conversations: [], memories: [] };
       const scope = { userId, assistantId: assistant.id };
-      const language = languageOf(user.languageStyle);
+      const language = languageOf(user.languageStyle, user.signupLanguage);
       const needle = query.trim();
       if (needle.length < 2) return { query, conversations: [], memories: [] };
 
@@ -982,7 +1017,7 @@ export function readPorts(deps: Deps): ReadPorts {
       const empty = { day: '', line: null, today: [], carriedOver: [], habits: [], pattern: null, money: null };
       if (user === null || assistant === null) return empty;
       const scope = { userId, assistantId: assistant.id };
-      const language = languageOf(user.languageStyle);
+      const language = languageOf(user.languageStyle, user.signupLanguage);
       const localDay = dayKeyFor(user.timeZone, deps.now());
 
       const tasks = await db.life.allTasks({ userId });
@@ -1145,7 +1180,7 @@ export function readPorts(deps: Deps): ReadPorts {
       const user = await db.accounts.getUser({ userId });
       if (assistant === null || user === null) return [];
       const scope = { userId, assistantId: assistant.id };
-      const language = languageOf(user.languageStyle);
+      const language = languageOf(user.languageStyle, user.signupLanguage);
       const rows = [
         ...(await db.memories.list(scope, 'active')).map((row) => ({ row, status: 'active' as const })),
         // PRD §35: the free plan's queue is a visible, honest state — what
@@ -1194,7 +1229,13 @@ export function readPorts(deps: Deps): ReadPorts {
           occurredOn: transaction.occurredOn,
           // UI-UX §22 distinguishes what she read from a receipt from what
           // they told her — provenance, on a money row.
-          fromReceipt: transaction.originMessageId === null,
+          // THE COLUMN, at last. This was `originMessageId === null` — which
+          // is not what "came from a receipt" means and is backwards, since a
+          // real receipt capture HAS an origin message. Every chat-captured
+          // row was captioned "from a receipt" and every photographed one was
+          // not, for as long as the screen existed (LESSONS §20: a caption is
+          // a claim about state, and that one was false on every row).
+          fromReceipt: transaction.receiptId !== null,
         }));
       return {
         month: period, inMinor: summary.inMinor, outMinor: summary.outMinor, leftMinor: summary.leftMinor,
@@ -1213,7 +1254,7 @@ export function readPorts(deps: Deps): ReadPorts {
       if (user === null || assistant === null) return { now: '', footer: '', stages: [], timeline: [] };
       const scope = { userId, assistantId: assistant.id };
       const relationship = await db.relationship.get(scope);
-      const language = languageOf(user.languageStyle);
+      const language = languageOf(user.languageStyle, user.signupLanguage);
       const view = relationshipView(relationship?.stage ?? 1, language, assistant.gender);
       // LESSONS §6: which stage, never how far through it. There is no day
       // count in this response and there must never be one.

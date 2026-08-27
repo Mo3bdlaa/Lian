@@ -10,7 +10,14 @@ export type AuthRoutePorts = MiddlewarePorts & {
   /** `consent` carries the two ANSWERS (UI-UX §22). Which text they answered
    *  about is the composition root's to say — the version travels with the
    *  copy, and this package may not read the copy. */
-  signUp(input: { email: string; password: string; timeZone: string; device: DeviceFrom; consent: { isAdult: boolean; agreed: boolean } }): Promise<{ userId: string; sessionToken: string }>;
+  signUp(input: {
+    email: string; password: string; timeZone: string; device: DeviceFrom;
+    consent: { isAdult: boolean; agreed: boolean };
+    /** What the client RENDERED the sign-up screens in — used ONLY for her
+     *  authored opening, never stored as a preference. A browser's guess is
+     *  not somebody's choice, so onboarding still asks. */
+    language: 'en' | 'ar';
+  }): Promise<{ userId: string; sessionToken: string }>;
   signIn(input: { email: string; password: string; device: DeviceFrom }): Promise<{ status: 'signed_in'; userId: string; sessionToken: string } | { status: 'held_new_device'; userId: string } | { status: 'rejected' }>;
   resolveConfirmation(input: { token: string; decision: 'confirmed' | 'denied' }): Promise<{ status: string; sessionToken?: string }>;
   /** UI-UX §21. Always resolves the same way — see @lian/auth/recovery. */
@@ -67,7 +74,7 @@ export function authRoutes(ports: AuthRoutePorts, options: { secureCookies: bool
       pattern: '/api/auth/sign-up',
       handler: async (context) => {
         await enforceRate({ bucket: `auth:ip:${context.ip}`, rule: RATE_RULES.auth, now: ports.now() }, ports);
-        const body = context.body<{ email?: string; password?: string; timeZone?: string; isAdult?: boolean; agreedToTerms?: boolean }>();
+        const body = context.body<{ email?: string; password?: string; timeZone?: string; isAdult?: boolean; agreedToTerms?: boolean; language?: string }>();
         const email = (body.email ?? '').trim().toLowerCase();
         if (!EMAIL.test(email)) throw new HttpError(400, 'bad_email', 'that does not look like an email address');
         // A floor, not a policy: length is the only password rule that
@@ -89,6 +96,11 @@ export function authRoutes(ports: AuthRoutePorts, options: { secureCookies: bool
           const created = await ports.signUp({
             email, password: body.password!, timeZone, device: fingerprintOf(context),
             consent: { isAdult: true, agreed: true },
+            // What the client RENDERED the consent and sign-up screens in, so
+            // her authored opening is in the language they were just reading.
+            // Not a setting: language_style stays 'auto' and onboarding still
+            // asks, because a browser's guess is not somebody's choice.
+            language: body.language === 'ar' ? 'ar' : 'en',
           });
           // Sent at sign-up, and never blocking it: a wall here would be a
           // wall in front of the first conversation, which PRD §8 will not

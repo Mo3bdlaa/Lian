@@ -60,6 +60,7 @@ function fakeTurnPorts() {
       return { id: message.id };
     },
     async history() { return messages.filter((m) => m.role !== 'system').map((m) => ({ role: m.role as 'user' | 'assistant', content: m.body })); },
+    async linkReceipt() {},
     async claimCapture(input) {
       const key = `${input.messageId}:${input.tagIndex}`;
       if (claimed.has(key)) return false;

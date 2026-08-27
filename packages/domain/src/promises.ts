@@ -109,6 +109,27 @@ export const TAG_PROMISES: Record<string, Promise_> = {
  * sentence stays is exactly how this goes wrong quietly.
  */
 export const COPY_PROMISES: Record<string, Promise_> = {
+  // The first sentence anybody reads from her, and it commits to two things:
+  // that she keeps what she is told, and that she brings it back. Both have
+  // mechanisms; naming them here is what stops the opening becoming a
+  // brochure sentence when one of them is refactored away.
+  'greeting.first': {
+    kind: 'commits',
+    says: 'I keep track of what you tell me, and bring it back when it matters.',
+    by: [
+      { where: 'packages/analysis/src/extract.ts', marker: /export async function extractMemories/ },
+      // "Brings it back" is retrieval into the turn, not storage.
+      { where: 'packages/db/src/repositories/memories.ts', marker: /export async function retrieve/ },
+    ],
+  },
+  'memory.search': {
+    kind: 'records',
+    why: 'A field label on the memory screen. The search it labels is /api/memories?q=, which exists.',
+  },
+  'data.delete_memories': {
+    kind: 'records',
+    why: 'A label naming what an export slice contains. Not a promise about the future.',
+  },
   'permission.pre_prompt': {
     kind: 'commits',
     says: 'I can reach you even when you have not opened the app.',

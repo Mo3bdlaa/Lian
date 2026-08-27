@@ -59,8 +59,7 @@ export function tasksScreen(me: Snapshot, data: { tasks: Task[]; notes: Note[] }
 /**
  * Money (UI-UX §7).
  *
- * A RECENT ROW SAYS THE DATE AND NOTHING ABOUT WHERE IT CAME FROM, and that is
- * a retreat from something that was wrong rather than a design choice.
+ * A RECENT ROW SAYS WHERE IT CAME FROM, and now that is true.
  *
  * `fromReceipt` was `transaction.originMessageId === null`, which is not what
  * "came from a receipt" means, and is BACKWARDS: a real receipt capture HAS an
@@ -68,10 +67,9 @@ export function tasksScreen(me: Snapshot, data: { tasks: Task[]; notes: Note[] }
  * photograph. So every row that came from a photograph read "you told me", and
  * every row without an origin message read "from a receipt".
  *
- * The column that would answer it — `transactions.receipt_id` — has existed
- * since migration 0002 and no code has ever written it (LESSONS §20, and
- * tools/gates/wired.ts names it). Until something does, the row says the date,
- * which is true, rather than a provenance nothing can establish.
+ * `transactions.receipt_id` is written now — the turn is the only place that
+ * knows both the attachment that arrived and the row the tag produced — so the
+ * caption is read from the column rather than guessed from a proxy.
  *
  * Found by looking at a screenshot: five rows, none of them photographed, all
  * of them captioned "from a receipt".
@@ -120,12 +118,11 @@ export function moneyScreen(me: Snapshot, data: Money): Html {
     </div>
     <div class="split__side">
     <div class="section">${t('money.recent', language, gender)}</div>
-    <!-- The date, and nothing about where it came from — see the note above. -->
     ${data.recent.map((transaction) => html`<button class="row" data-action="open-money" data-id="${transaction.id}">
-      ${icon('i-money', 'sm', 'icon--muted')}
+      ${icon(transaction.fromReceipt ? 'i-receipt' : 'i-money', 'sm', 'icon--muted')}
       <span class="row__label">
         ${transaction.line}
-        <span class="row__sub">${dateLabel(transaction.occurredOn, language, me.user.timeZone)}</span>
+        <span class="row__sub">${dateLabel(transaction.occurredOn, language, me.user.timeZone)} · ${transaction.fromReceipt ? t('money.from_receipt', language, gender) : t('money.from_chat', language, gender)}</span>
       </span>
       <span class="row__value">${amount(transaction.amountMinor)}</span>
     </button>`)}

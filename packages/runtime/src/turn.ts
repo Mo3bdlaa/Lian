@@ -48,6 +48,9 @@ export type TurnPorts = {
     appendMessage(input: { assistantId: string; conversationId: string; role: 'user' | 'assistant'; body: string; tags: unknown[]; surface: string | null; clientId: string | null }): Promise<{ id: string }>;
     history(assistantId: string, conversationId: string, limit: number): Promise<{ role: 'user' | 'assistant'; content: string }[]>;
     claimCapture(input: { userId: string; messageId: string; tagIndex: number; capability: string; entityTable: string; entityId: string }): Promise<boolean>;
+    /** UI-UX §7: which photograph a transaction came from. Scoped by user in
+     *  the repository, so a stolen id belongs to nobody. */
+    linkReceipt(userId: string, transactionId: string, attachmentId: string): Promise<void>;
     voidCaptures(userId: string, messageId: string): Promise<{ entityTable: string; entityId: string }[]>;
     reserve(userId: string, kind: 'messages' | 'proactive', periodKey: string, ceiling: number, by: number): Promise<boolean>;
     /** Distinct from reserve() on purpose: "is there room left?" and "take
@@ -281,6 +284,21 @@ export async function runTurn(input: TurnInput, ports: TurnPorts, sink: TurnSink
       capability: capability.id, entityTable: outcome.entityTable, entityId: outcome.entityId,
     });
     if (!claimed) continue;
+
+    // THE RECEIPT LINK (UI-UX §7). A photographed receipt becomes a
+    // transaction through the same `<spend>` tag as anything else, so the
+    // transaction has never known which photograph it came from —
+    // `transactions.receipt_id` has existed since migration 0002 and nothing
+    // wrote it. The Money screen filled the gap with `originMessageId ===
+    // null` as a proxy, which is backwards: a real receipt capture HAS an
+    // origin message, so every chat-captured row was captioned "from a
+    // receipt" and every photographed one was not.
+    //
+    // Written HERE because this is the only place that knows both halves: the
+    // attachment that arrived with the message, and the row the tag produced.
+    if (input.attachment?.kind === 'receipt' && outcome.entityTable === 'transactions') {
+      await ports.turn.linkReceipt(input.userId, outcome.entityId, input.attachment.id);
+    }
 
     captures.push(outcome.summary);
     sink.capture(outcome.summary);

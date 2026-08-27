@@ -325,6 +325,43 @@ describe('the HTTP layer', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, ()
     assert.equal(Number(rows[0]!.n), 1);
   });
 
+  test('she speaks first, in the language the sign-up screens were read in', async () => {
+    // "She texts you first" is the positioning, and until this the first
+    // interaction was somebody opening an empty conversation and typing into
+    // it — the promise broken on the first screen, in the three minutes where
+    // the product is won. AUTHORED, not generated: on turn zero there is no
+    // context to generate from.
+    const english = await signUp(app.base);
+    const before = await get(app.base, `/api/conversations/${english.conversationId}/messages`, english.token);
+    const opening = (before.json['messages'] as { role: string; body: string }[])[0]!;
+    assert.equal(opening.role, 'assistant', 'the first message in a new account is not hers');
+    assert.match(opening.body, /secretary, more or less/);
+    assert.match(opening.body, /What should I call you\?$/, 'PRD §8: it ends by asking one thing');
+
+    // The language the CLIENT rendered, not a stored preference.
+    const arabic = await signUp(app.base, { language: 'ar' });
+    const theirs = await get(app.base, `/api/conversations/${arabic.conversationId}/messages`, arabic.token);
+    const inArabic = (theirs.json['messages'] as { body: string }[])[0]!.body;
+    assert.match(inArabic, /[\u0600-\u06FF]/, `her opening was English for an Arabic reader: ${inArabic}`);
+
+    // AND ONBOARDING STILL ASKS WHICH LANGUAGE. The browser's guess is not
+    // somebody's choice, so language_style stays 'auto' — without this, a
+    // person whose browser happened to be Arabic would never be asked, and
+    // would never know they could change it.
+    const me = await get(app.base, '/api/me', arabic.token);
+    const user = me.json['user'] as { languageStyle: string; language: string };
+    assert.equal(user.languageStyle, 'auto');
+
+    // WHILE THE APP RENDERS IN ARABIC ANYWAY. 'auto' means "match the user",
+    // and before they have said anything there is nothing to match — so it
+    // falls back to what they signed up in. Without this, her Arabic opening
+    // arrived inside an English left-to-right app: the most incoherent screen
+    // in the product, on the first one anybody sees. It was invisible until
+    // she spoke first, because before that everything was English together.
+    assert.equal(user.language, 'ar', 'her opening was Arabic and the app around it was not');
+    assert.equal(me.json['direction'], 'rtl');
+  });
+
   // ── idempotency, on every write route ───────────────────────────────────
 
   test('a retried chat turn replays the first answer and does not pay twice', async () => {
@@ -492,13 +529,16 @@ describe('the HTTP layer', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, ()
     assert.ok((report.json['swept'] as Json)['rateLimits'] as number >= 1, 'the sweep did not run');
 
     // The message exists in the conversation, written by the same turn
-    // function chat uses.
+    // function chat uses. Asserted BY SURFACE rather than by counting every
+    // assistant message: her authored opening is also an assistant message
+    // now (PRD §8 — she speaks first), and a count was never what this test
+    // meant.
     const messages = await db().query<{ body: string; surface: string | null }>(
-      `SELECT body, surface FROM messages WHERE assistant_id = $1 AND role = 'assistant'`, [assistantId],
+      `SELECT body, surface FROM messages WHERE assistant_id = $1 AND role = 'assistant' AND surface = 'scheduled'`,
+      [assistantId],
     );
     assert.equal(messages.rows.length, 1);
     assert.match(messages.rows[0]!.body, /Noted/);
-    assert.equal(messages.rows[0]!.surface, 'scheduled');
 
     const swept = await db().query<{ n: number }>(`SELECT count(*)::int AS n FROM rate_limits WHERE bucket_key = $1`, [`sweep-me:${user.userId}`]);
     assert.equal(swept.rows[0]!.n, 0);
