@@ -12,6 +12,7 @@
 // docs/shots is a real change to the product rather than a clock moving.
 import { db } from '@lian/db';
 import { t } from '@lian/i18n';
+import { localDayKey } from '@lian/domain';
 
 /** The one copy of it is the catalogue's; this just picks the language. */
 const greeting = (language: 'en' | 'ar'): string => t('greeting.first', language, 'female');
@@ -57,6 +58,20 @@ export async function seed(fullness: Fullness, options: {
   /** Relationship stage 1–5. Anything above 1 has to be EARNED in the real
    *  product; here it is set, because the screen is what is being shown. */
   stage?: number;
+  /**
+   * Messages already spent today, for the free plan's end-of-day states.
+   *
+   * A real row in usage_counters, not a flag: the counter is what the server
+   * reads (LESSONS §12 — the limit is a row, not process memory), and the
+   * screen derives 'approaching' from it exactly as it would for somebody who
+   * had actually sent fifteen messages.
+   *
+   * NOT keyed on TODAY. The period key is the user's local day by the REAL
+   * clock, because that is what the running server will look up; a counter
+   * filed under the fixed screenshot date would be a row nothing reads, and
+   * the picture would show 'ok' while claiming to show the limit.
+   */
+  messagesUsedToday?: number;
 } = {}): Promise<Seeded> {
   const sql = db();
   const email = `shots-${Date.now()}-${Math.round(Math.random() * 1e6)}@example.test`;
@@ -161,6 +176,14 @@ export async function seed(fullness: Fullness, options: {
      VALUES ($1, $2, 'assistant', $3, 'onboarding', $4)`,
     [conversationId, assistantId, greeting(arabic ? 'ar' : 'en'), at(daysAgo(fullness === 'full' ? 21 : 0), 20)],
   );
+
+  if (options.messagesUsedToday !== undefined) {
+    await sql.query(
+      `INSERT INTO usage_counters (user_id, kind, period_key, value, updated_at)
+       VALUES ($1, 'messages', $2, $3, now())`,
+      [userId, localDayKey(new Date(), 'Asia/Dubai'), options.messagesUsedToday],
+    );
+  }
 
   if (fullness !== 'full') return { userId, assistantId, conversationId, sessionToken: token, email };
 

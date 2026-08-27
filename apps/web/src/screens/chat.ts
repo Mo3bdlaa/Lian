@@ -13,7 +13,7 @@
 //     what it is given — escaped, because a message body is text.
 import { html, icon, type Html } from '../dom.ts';
 import { t } from '../copy.ts';
-import { dayOf, dateLabel, time } from '../format.ts';
+import { dayOf, dateLabel, time, todayIn } from '../format.ts';
 import type { Message, Snapshot, State } from '../state.ts';
 
 const REACTION_ICONS: Record<string, string> = {
@@ -40,7 +40,7 @@ export function chatScreen(state: State): Html {
 
   let lastDay = '';
   for (const message of state.messages) {
-    const day = dayOf(message.at, me.user.timeZone, todayIn(me));
+    const day = dayOf(message.at, me.user.timeZone, todayIn(me.user.timeZone));
     const key = 'key' in day ? day.key : day.date;
     if (key !== lastDay) {
       lastDay = key;
@@ -58,6 +58,19 @@ export function chatScreen(state: State): Html {
     rows.push(html`<div class="chat__group chat__group--hers">
       <div class="bubble bubble--hers bubble--notice">${state.error}</div>
     </div>`);
+  }
+
+  // UI-UX §19: a "small conversational line" as the day's free messages run
+  // down — not a banner, not a counter, and never a countdown (PRD §11).
+  //
+  // The STATE comes from the server, not a threshold applied here: a client
+  // that knew `remaining <= 5` would be a second place the free tier is
+  // defined, and the two would eventually disagree about where the end is.
+  //
+  // Suppressed once she has actually said the limit line, because then the
+  // warning and the thing it warned about would be on screen together.
+  if (me.limits.messagesState === 'approaching' && state.limitLine === null) {
+    rows.push(html`<div class="chat__note">${t('limit.approaching', language, gender)}</div>`);
   }
 
   if (state.limitLine !== null) {
@@ -99,9 +112,6 @@ function aside(me: Snapshot): Html {
     </a>`}
   </aside>`;
 }
-
-const todayIn = (me: Snapshot): string =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: me.user.timeZone }).format(new Date());
 
 function bubble(message: Message, me: Snapshot, state: State): Html {
   const mine = message.role === 'user';

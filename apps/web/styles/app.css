@@ -368,6 +368,17 @@ body {
   color: var(--muted);
   padding-top: var(--s-4);
 }
+/* The approaching-limit line (UI-UX §19). Reads like the day separator
+   rather than like a warning: it is her mentioning something, not the app
+   alerting anybody. */
+.chat__note {
+  align-self: center;
+  text-align: center;
+  max-width: 78%;
+  font-size: var(--t-body-sm-fs);
+  color: var(--muted);
+  padding-block: var(--s-4);
+}
 .chat__earlier {
   align-self: center;
   background: none;

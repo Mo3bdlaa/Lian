@@ -31,7 +31,7 @@ const me = (overrides: Partial<Snapshot> = {}): Snapshot => ({
   conversation: { id: 'c-1' },
   onboarding: null,
   relationship: { stageName: 'Getting acquainted', prose: 'We are still getting acquainted.' },
-  limits: { messagesRemaining: 18, memoriesKept: 3, memoriesPending: 0, memoryCapacity: 100, capacityLine: 'I can keep up to 100 lasting memories on the free plan.' },
+  limits: { messagesRemaining: 18, messagesState: 'ok', memoriesKept: 3, memoriesPending: 0, memoryCapacity: 100, capacityLine: 'I can keep up to 100 lasting memories on the free plan.' },
   ...overrides,
 });
 
@@ -57,6 +57,30 @@ describe('chat (UI-UX §3)', () => {
     assert.ok(markup.includes('&lt;img'));
   });
 
+  test('the approaching-limit line appears in that state and in no other', () => {
+    // UI-UX §19 asks for a "small conversational line" near the end of a free
+    // day. `limit.approaching` had been authored in both languages since the
+    // first run and NO SCREEN READ IT — the string existed, the number that
+    // would have triggered it travelled in every snapshot, and nothing put
+    // the two together. That is §20 again: five of six parts.
+    const withState = (messagesState: 'ok' | 'approaching' | 'reached', over: Partial<State> = {}) =>
+      render(chatScreen(state({
+        me: me({ limits: { ...me().limits, messagesState } }),
+        messages: [message()], ...over,
+      })));
+    const line = t('limit.approaching', 'en').replace(/'/g, '&#39;');
+
+    assert.ok(withState('approaching').includes(line), 'the free day was running out and she said nothing');
+    assert.ok(!withState('ok').includes(line), 'a warning about the end of the day, eighteen messages from it');
+    assert.ok(!withState('reached').includes(line), 'warned about a limit that had already arrived');
+    // Once she has actually said the limit line, the warning about it would
+    // be on screen beside the thing it warned about.
+    assert.ok(
+      !withState('approaching', { limitLine: t('limit.reached', 'en') }).includes(line),
+      'the warning and the limit it warned about were shown together',
+    );
+  });
+
   test('a control tag would render as text if one ever arrived', () => {
     // LESSONS §3 strips tags server-side; this is the second line of defence,
     // and it is here because "it cannot happen" is what the prototype said.
@@ -74,10 +98,10 @@ describe('chat (UI-UX §3)', () => {
 
   test('an inline capture row is tappable and points at its correction', () => {
     const markup = render(chatScreen(state({
-      messages: [message({ captures: [{ capability: 'money', icon: 'i-money', line: 'AED 400 · gym · Today', correctionRoute: '/money/t-1' }] })],
+      messages: [message({ captures: [{ capability: 'money', icon: 'i-money', line: 'AED\u00a0400.00 · gym · Today', correctionRoute: '/money/t-1' }] })],
     })));
     assert.ok(markup.includes('href="/money/t-1"'));
-    assert.ok(markup.includes('AED 400 · gym · Today'));
+    assert.ok(markup.includes('AED\u00a0400.00 · gym · Today'));
   });
 
   test('the composer offers a message field and voice, and nothing else', () => {
@@ -156,7 +180,7 @@ describe('every screen speaks both languages', () => {
     direction: 'rtl',
     // The capacity line is resolved server-side, so an Arabic reader gets the
     // Arabic one; the fixture carries what the server would send.
-    limits: { messagesRemaining: 18, memoriesKept: 3, memoriesPending: 0, memoryCapacity: 100, capacityLine: 'أقدر أحتفظ بـ ١٠٠ ذكرى دايمة في الخطة المجانية.' },
+    limits: { messagesRemaining: 18, messagesState: 'ok', memoriesKept: 3, memoriesPending: 0, memoryCapacity: 100, capacityLine: 'أقدر أحتفظ بـ ١٠٠ ذكرى دايمة في الخطة المجانية.' },
     // The stage prose is resolved server-side too — relationshipView() picks
     // the language — and the desktop contextual panel renders it. The fixture
     // carries what the server would send, or this test would be asserting

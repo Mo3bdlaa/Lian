@@ -43,6 +43,9 @@ type Shot = {
   mood?: 'warm' | 'quiet' | 'neutral';
   plan?: 'free' | 'paid';
   stage?: number;
+  /** Messages already spent today, for the free plan's end-of-day states.
+   *  A real usage_counters row — see seed.ts for why it is not a flag. */
+  messagesUsedToday?: number;
   /** Desktop shots. Everything else is a phone. */
   width?: number;
   height?: number;
@@ -68,12 +71,6 @@ const GAPS: Gap[] = [
       + 'WAS a moment is a judgement only she can make, which is a control tag, which under '
       + 'LESSONS §21 is a promise that has to name the mechanism keeping it. That is a '
       + 'capability, not a repository function.',
-  },
-  {
-    area: 'Free limit', name: 'limit-approaching',
-    why: 'NOT SHOWN. UI-UX §19 asks for a quiet indicator near the end. `messagesRemaining` '
-      + 'travels in every snapshot and no screen reads it, so there is nothing to photograph. '
-      + 'The REACHED state is captured — she says it in the conversation, which is right.',
   },
   {
     area: 'Money', name: 'money-observation',
@@ -307,6 +304,34 @@ const SHOTS: Shot[] = [
     themePreference: 'always-light', click: ['[data-action="threads"]'], waitFor: '!!document.querySelector(".sheet")',
   },
 
+  // ── Free limit ──────────────────────────────────────────────────────────
+  //
+  // Both states come from a real usage_counters row, and the free plan's day
+  // is 20 messages (PLAN_LIMITS): 16 spent leaves 4, which is inside the
+  // threshold of 5, and 20 spent leaves none.
+  {
+    name: 'limit-approaching-ltr', area: 'Free limit', path: '/chat', themePreference: 'always-light',
+    messagesUsedToday: 16,
+    note: 'four left: a small line in the conversation, not a counter and not a banner (UI-UX §19)',
+  },
+  {
+    name: 'limit-approaching-rtl', area: 'Free limit', path: '/chat', language: 'ar-eg',
+    themePreference: 'always-light', messagesUsedToday: 16,
+  },
+  {
+    // The REACHED state is not a snapshot field — it is what she SAYS when a
+    // message is refused, so the only honest way to photograph it is to send
+    // one and be refused. The composer is filled and submitted for real; the
+    // server turns it down before any model call.
+    name: 'limit-reached-ltr', area: 'Free limit', path: '/chat', themePreference: 'always-light',
+    messagesUsedToday: 20,
+    script: "(document.querySelector('.composer__input').value = 'one more thing', "
+      + "document.querySelector('.composer__input').dispatchEvent(new Event('input', {bubbles: true})), "
+      + "document.querySelector('form.composer__bar').requestSubmit(), true)",
+    waitFor: '!!document.querySelector(".bubble--limit")',
+    note: 'the day is spent — her line, in the conversation, in her voice (PRD §11)',
+  },
+
   // ── Navigation drawer / rail ────────────────────────────────────────────
   {
     name: 'drawer-day-ltr', area: 'Navigation drawer / rail', path: '/chat', themePreference: 'always-light',
@@ -381,7 +406,7 @@ const page = await Browser.launch();
 const accounts = new Map<string, Awaited<ReturnType<typeof seed>>>();
 async function accountFor(shot: Shot) {
   const key = [shot.fullness ?? 'full', shot.language ?? 'en', shot.themePreference ?? 'auto',
-    shot.mood ?? 'warm', shot.plan ?? 'free', shot.stage ?? 0].join('|');
+    shot.mood ?? 'warm', shot.plan ?? 'free', shot.stage ?? 0, shot.messagesUsedToday ?? -1].join('|');
   const existing = accounts.get(key);
   if (existing !== undefined) return existing;
   const made = await seed(shot.fullness ?? 'full', {
@@ -390,6 +415,7 @@ async function accountFor(shot: Shot) {
     ...(shot.mood === undefined ? {} : { mood: shot.mood }),
     ...(shot.plan === undefined ? {} : { plan: shot.plan }),
     ...(shot.stage === undefined ? {} : { stage: shot.stage }),
+    ...(shot.messagesUsedToday === undefined ? {} : { messagesUsedToday: shot.messagesUsedToday }),
   });
   accounts.set(key, made);
   return made;

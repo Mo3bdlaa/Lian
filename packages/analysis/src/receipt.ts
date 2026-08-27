@@ -172,11 +172,18 @@ export async function readReceipt(
 }
 
 /**
- * The reading, as the one sentence she is shown.
+ * The reading, as the one sentence SHE is shown — the model, not the person.
  *
  * Composed HERE, out of validated fields, rather than anywhere the model's
  * own words could be substituted for it. This string is the entire surface
  * the photograph gets: five values in a sentence we wrote.
+ *
+ * Its only consumer is the attachment block in the prompt
+ * (packages/prompt/src/blocks.ts), which is why the amount is hand-formatted
+ * and the date is the raw column and the words are English regardless of the
+ * reader: it is a machine key, like the day key and the local hour beside it.
+ * NOTHING here reaches a person — what they see is her reply, in their
+ * language, and every amount in that goes through @lian/i18n.
  */
 export function describeReading(reading: ReceiptReading): string {
   const amount = `${reading.currency} ${(reading.amountMinor / 100).toFixed(2).replace(/\.00$/, '')}`;

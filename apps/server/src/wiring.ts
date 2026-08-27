@@ -805,6 +805,7 @@ export function readPorts(deps: Deps): ReadPorts {
         relationship: { stageName: current?.name ?? '', prose: view.now },
         limits: {
           messagesRemaining: messageBudget(user.plan, used).remaining,
+          messagesState: messageBudget(user.plan, used).state,
           memoriesKept: await db.memories.countActive(scope),
           memoriesPending: await db.memories.countPending(scope),
           memoryCapacity: limits.activeMemoriesPerAssistant,

@@ -20,6 +20,18 @@ export const count = formatCount;
 export const money = formatMoney;
 
 /**
+ * Today, in the viewer's time zone, as a day key.
+ *
+ * Lived in screens/chat.ts, where it was the same `en-CA` calculation as the
+ * one below with a different name — and where no gate could see it, because
+ * every gate skipped any directory called `screens` and that swallowed the
+ * whole product UI along with the reference HTML. Here it is one calculation
+ * in one file, next to the only thing that consumes it.
+ */
+export const todayIn = (timeZone: string): string =>
+  new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
+
+/**
  * Which day a message belongs to, as a key.
  *
  * Stays here because it compares against the BROWSER's idea of today, in the

@@ -29,6 +29,18 @@
 // The test is the locale: a call whose locale is a literal is a calculator, a
 // call whose locale is computed from a language is a sentence. So this looks
 // for the second kind outside the one file.
+//
+// AND FOR THE OTHER KIND, which the first version of this gate could not see.
+// It watched for a SECOND `Intl` call, and the third copy of money formatting
+// used none:
+//
+//     `${currency} ${(minor / 100).toFixed(2).replace(/\.00$/, '')}`
+//
+// which put `AED 400` in Latin digits inside an Arabic capture chip, three
+// lines under a bubble reading ٤٠٠ درهم and beside a date in Eastern
+// numerals. A gate that only knows one spelling of the mistake catches the
+// mistake it was written for and nothing else — so `toFixed` is checked too,
+// because it is what a hand-rolled number formatter is made of.
 import { walk, rel, read, lineOf, report, ROOT, type Violation } from './lib.ts';
 
 /** The one file allowed to format for a reader. */
@@ -53,6 +65,27 @@ const CALCULATORS: Record<string, string> = {
     'dayOf() compares against the BROWSER\'s idea of today in the viewer\'s time zone. The comparison '
     + 'is a machine key; the formatting it delegates to @lian/i18n.',
 };
+
+/**
+ * Hand-rolled number formatting whose output is NOT read by a person, and why.
+ *
+ * Same distinction as CALCULATORS above, for the other spelling. `toFixed`
+ * is fine when the string is a machine key or is read by the model; it is
+ * never fine in something somebody reads, because it knows nothing about
+ * their digits, their separator or their currency's precision.
+ */
+const FIXED_POINT: Record<string, string> = {
+  'packages/analysis/src/embed.ts':
+    'serialising a vector for pgvector. The consumer is Postgres.',
+  'packages/analysis/src/receipt.ts':
+    'describeReading, whose only consumer is the attachment block in the prompt. The MODEL reads it.',
+  'packages/capabilities/src/money/index.ts':
+    'forTheModel(), the monthly total in the environment block. The MODEL reads it; the chip beside '
+    + 'it goes through @lian/i18n, and that split is the whole of LESSONS §22.',
+};
+
+/** `x.toFixed(` — the primitive a hand-rolled number formatter is built on. */
+const TO_FIXED = /\.toFixed\s*\(/g;
 
 const violations: Violation[] = [];
 const exemptions: string[] = [];
@@ -97,9 +130,38 @@ for (const file of files) {
   }
 }
 
+// ── the other spelling ─────────────────────────────────────────────────────
+
+let fixedPoint = 0;
+for (const file of files) {
+  const path = rel(file);
+  if (path === HOME) continue;
+  const source = read(file);
+  const calls = [...source.matchAll(TO_FIXED)];
+  if (calls.length === 0) continue;
+
+  const reason = FIXED_POINT[path];
+  if (reason !== undefined) {
+    exemptions.push(`${path.padEnd(40)} ${reason}`);
+    continue;
+  }
+  fixedPoint += 1;
+  for (const call of calls) {
+    violations.push({
+      file: path, line: lineOf(source, call.index),
+      message: `toFixed() outside ${HOME}. If this number is READ BY A PERSON it belongs in that `
+        + 'file: toFixed knows nothing about their digits (٤٠٠ vs 400), their decimal separator, or '
+        + "their currency's own precision, and a hand-rolled formatter is invisible to the Intl half "
+        + 'of this gate — which is exactly how `AED 400` ended up inside an Arabic chip. If it is a '
+        + 'machine key or something the MODEL reads, add the file to FIXED_POINT in '
+        + 'tools/gates/formatting.ts with the reason.',
+    });
+  }
+}
+
 if (exemptions.length > 0) {
   console.log(`  ${exemptions.length} file(s) using Intl as a calculator:`);
   for (const line of exemptions) console.log(`    ${line}`);
 }
-console.log(`  ${checked} other file(s) with an Intl call`);
-report('formatting', violations, checked + exemptions.length);
+console.log(`  ${checked} other file(s) with an Intl call, ${fixedPoint} with a hand-rolled one`);
+report('formatting', violations, checked + fixedPoint + exemptions.length);

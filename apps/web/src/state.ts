@@ -13,7 +13,12 @@ export type Snapshot = {
   conversation: { id: string } | null;
   onboarding: { step: string } | null;
   relationship: { stageName: string; prose: string };
-  limits: { messagesRemaining: number; memoriesKept: number; memoriesPending: number; memoryCapacity: number; capacityLine: string };
+  limits: {
+    messagesRemaining: number;
+    /** UI-UX §19, decided server-side — see ReadPorts. */
+    messagesState: 'ok' | 'approaching' | 'reached';
+    memoriesKept: number; memoriesPending: number; memoryCapacity: number; capacityLine: string;
+  };
 };
 
 export type Capture = { capability: string; icon: string; line: string; correctionRoute: string };

@@ -14,7 +14,25 @@ import { join, relative, sep } from 'node:path';
  */
 export const ROOT = (process.env['LIAN_GATE_ROOT'] ?? new URL('../../', import.meta.url).pathname).replace(/\/$/, '');
 
-const SKIP_DIRS = new Set(['node_modules', '.git', '.pgdata', 'dist', 'screens']);
+const SKIP_DIRS = new Set(['node_modules', '.git', '.pgdata', 'dist']);
+
+/**
+ * Skipped by PATH, not by name.
+ *
+ * `screens` used to be in the set above, for `design-system/screens` — the
+ * reference HTML, which is a design artefact rather than product code and
+ * would fail half of these gates by construction. But the name matched
+ * `apps/web/src/screens` too, so TWENTY FILES OF THE ACTUAL PRODUCT UI —
+ * every screen a person looks at — were invisible to every gate that walks
+ * the tree. That is the worst possible thing for a set of gates to be blind
+ * to, and nothing said so: the counts each gate prints looked healthy
+ * because they counted the files it could see.
+ *
+ * Found while widening the formatting gate, when it reported zero Intl calls
+ * outside the calculators and `apps/web/src/screens/chat.ts` had one on line
+ * 117.
+ */
+const SKIP_PATHS = ['design-system/screens'];
 
 export function walk(dir: string, exts: string[]): string[] {
   const out: string[] = [];
@@ -27,6 +45,7 @@ export function walk(dir: string, exts: string[]): string[] {
   for (const entry of entries) {
     if (SKIP_DIRS.has(entry)) continue;
     const full = join(dir, entry);
+    if (SKIP_PATHS.some((skip) => rel(full) === skip)) continue;
     const st = statSync(full);
     if (st.isDirectory()) out.push(...walk(full, exts));
     else if (exts.some((e) => entry.endsWith(e))) out.push(full);

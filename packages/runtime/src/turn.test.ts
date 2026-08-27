@@ -134,7 +134,11 @@ describe('the turn', () => {
     assert.equal(collected.text.trim(), 'Okay, logged AED 400 for the gym today.');
     assert.ok(!collected.text.includes('<spend'), 'a control tag must never reach the sink (LESSONS §3)');
     assert.equal(collected.captures.length, 1);
-    assert.equal(collected.captures[0]!.line, 'AED 400 · gym · Today');
+    // `AED 400.00`, not `AED 400`. The chip's own formatter trimmed a
+    // trailing `.00`; it now goes through @lian/i18n like the Money screen,
+    // which never did — so the two finally agree, and the amount that made
+    // them agree by accident was this one.
+    assert.equal(collected.captures[0]!.line, 'AED\u00a0400.00 · gym · Today');
     assert.equal(result.costMicros, turnCostMicros(DEFAULT_MODEL, { inputTokens: 1_000, outputTokens: 100 }));
     assert.deepEqual(store.events, ['capture_created', 'message_sent']);
     assert.equal(store.answered, 1, 'a reply answers everything she was waiting on');

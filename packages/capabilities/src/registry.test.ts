@@ -74,7 +74,11 @@ describe('§13 a capability composes into the prompt', () => {
     assert.equal(outcome.entityTable, 'transactions');
     assert.equal(ports.txRows.length, 1);
     assert.equal(ports.taskRows.length, 0, 'money must not touch tasks');
-    assert.equal(outcome.summary.line, 'AED 400 · gym · Today');
+    // `AED\u00a0400.00` — a NON-BREAKING space, which is Intl's and is right:
+    // an amount must not wrap between its currency and its number. The
+    // hand-rolled formatter this replaced used an ordinary space, so the
+    // escape is the visible difference between the two.
+    assert.equal(outcome.summary.line, 'AED\u00a0400.00 · gym · Today');
     assert.match(outcome.summary.correctionRoute, /^\/money\//, 'the row is tappable to correct');
   });
 
@@ -121,7 +125,7 @@ describe('§13 a capability composes into the prompt', () => {
     assert.ok(outcome.ok);
 
     const inEnglish = await describeCaptures([{ capability: 'money', entityId: outcome.entityId }], CONTEXT, ports);
-    assert.match(inEnglish[outcome.entityId]!.line, /AED 400 · gym · Today/);
+    assert.match(inEnglish[outcome.entityId]!.line, /AED\u00a0400\.00 · gym · Today/);
     assert.equal(inEnglish[outcome.entityId]!.correctionRoute, `/money/${outcome.entityId}`);
 
     const inArabic = await describeCaptures(
@@ -130,6 +134,20 @@ describe('§13 a capability composes into the prompt', () => {
       ports,
     );
     assert.match(inArabic[outcome.entityId]!.line, /النهاردة/, 'the row reads in the language it is being read in');
+
+    // AND THE AMOUNT, which the line above did not check.
+    //
+    // The Arabic chip read `AED 400 · جيم · ٢٤ أغسطس` — Latin digits and a
+    // Latin currency code, three lines under a bubble saying ٤٠٠ درهم and
+    // beside a date in Eastern numerals. The day was localised and the money
+    // was not, because the money had its own hand-rolled formatter that the
+    // formatting gate could not see (it watched for a second `Intl` call and
+    // this one used none). Found by looking at the Arabic screenshot.
+    assert.doesNotMatch(
+      inArabic[outcome.entityId]!.line, /AED|400/,
+      'the amount in an Arabic chip is in Latin digits: it is not going through @lian/i18n',
+    );
+    assert.match(inArabic[outcome.entityId]!.line, /٤٠٠/, 'Eastern Arabic numerals, like every other number on the screen');
   });
 
   test('consumer 6: a day that is not today is a DATE somebody reads, not a column', async () => {

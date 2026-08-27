@@ -8,7 +8,7 @@ import { DEFAULT_CURRENCY } from '@lian/domain';
 import type { Capability, CaptureOutcome, ExportSlice } from '@lian/domain';
 import type { CapabilityPorts } from '../ports.ts';
 import { line } from '../copy.ts';
-import { relativeDay } from '@lian/i18n';
+import { relativeDay, formatMoney } from '@lian/i18n';
 
 type SpendPayload = { amount?: unknown; currency?: unknown; category?: unknown; date?: unknown; note?: unknown; direction?: unknown };
 
@@ -17,7 +17,15 @@ function toMinor(amount: number): number {
   return Math.round(amount * 100);
 }
 
-function formatMinor(minor: number, currency: string): string {
+/**
+ * An amount for the MODEL, in the environment block — not for a person.
+ *
+ * Fixed representation on purpose, the same way the day key and the local
+ * hour are: it is read by the thing that writes her reply, and a Latin-digit
+ * `AED 400` is what that reads most reliably. The reader-facing amount is
+ * `formatMoney` from @lian/i18n, and there is exactly one of those.
+ */
+function forTheModel(minor: number, currency: string): string {
   return `${currency} ${(minor / 100).toFixed(2).replace(/\.00$/, '')}`;
 }
 
@@ -42,7 +50,13 @@ function dayLabel(occurredOn: string, localDay: string, language: 'en' | 'ar'): 
 }
 
 function summaryOf(transaction: TransactionLike, language: 'en' | 'ar', localDay: string) {
-  const parts = [formatMinor(transaction.amountMinor, transaction.currency)];
+  // Through @lian/i18n, like every other amount a person reads. This was
+  // `AED 400` in Latin digits INSIDE AN ARABIC CHIP — three lines under a
+  // bubble that said ٤٠٠ درهم and beside a date in Eastern numerals — because
+  // the chip had its own formatter. Found by looking at the Arabic
+  // screenshot; invisible to the formatting gate, which watched for a second
+  // `Intl` call and this one used none.
+  const parts = [formatMoney(transaction.amountMinor, transaction.currency, language)];
   if (transaction.category !== null) parts.push(transaction.category);
   parts.push(dayLabel(transaction.occurredOn, localDay, language));
   return { capability: 'money', icon: 'i-money', line: parts.join(' · '), correctionRoute: `/money/${transaction.id}` };
@@ -71,8 +85,8 @@ export const moneyCapability: Capability<CapabilityPorts> = {
     const currency = DEFAULT_CURRENCY;
     return line(
       context.language,
-      `This month: ${formatMinor(summary.inMinor, currency)} in, ${formatMinor(summary.outMinor, currency)} out.`,
-      `الشهر ده: ${formatMinor(summary.inMinor, currency)} داخل، ${formatMinor(summary.outMinor, currency)} خارج.`,
+      `This month: ${forTheModel(summary.inMinor, currency)} in, ${forTheModel(summary.outMinor, currency)} out.`,
+      `الشهر ده: ${forTheModel(summary.inMinor, currency)} داخل، ${forTheModel(summary.outMinor, currency)} خارج.`,
     );
   },
 

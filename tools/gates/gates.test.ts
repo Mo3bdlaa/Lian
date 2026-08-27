@@ -17,6 +17,7 @@ import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, copyFileSync, rmSy
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { addressViolations } from '../../packages/i18n/src/arabic.ts';
+import { walk } from './lib.ts';
 
 const REPO = resolve(new URL('../..', import.meta.url).pathname);
 const roots: string[] = [];
@@ -195,6 +196,47 @@ describe('every gate objects to a deliberate violation (LESSONS §15)', () => {
       },
       says: /outside packages\/i18n\/src\/format\.ts/,
     });
+  });
+
+  test('formatting: a hand-rolled formatter, which uses no Intl at all (§22)', () => {
+    // The gate above watched for a SECOND `Intl` call. The third copy of
+    // money formatting had none — `${currency} ${(minor/100).toFixed(2)}` —
+    // and put `AED 400` in Latin digits inside an Arabic chip, beside a date
+    // in Eastern numerals. A gate that knows one spelling of a mistake
+    // catches that spelling and reports green on every other.
+    proves('formatting', {
+      clean: { 'packages/i18n/src/format.ts': "export const money = (n) => new Intl.NumberFormat('en-GB').format(n);\n" },
+      dirty: {
+        'packages/capabilities/src/chip.ts':
+          'export const chip = (minor, currency) => `${currency} ${(minor / 100).toFixed(2)}`;\n',
+      },
+      says: /toFixed\(\) outside packages\/i18n\/src\/format\.ts/,
+    });
+  });
+
+  test('the gates can see the product screens at all', () => {
+    // Not a violation case — a BLINDNESS case, which is the failure the
+    // §15 meta-tests exist for and the one they cannot express as a fixture.
+    //
+    // Every gate walked the tree with any directory named `screens` skipped,
+    // for `design-system/screens` (reference HTML, a design artefact). The
+    // name also matched `apps/web/src/screens` — the twenty files of actual
+    // product UI, every screen a person looks at — so they were invisible to
+    // all fifteen gates. Nothing said so: each gate's file count looked
+    // healthy because it counted what it could see.
+    //
+    // Asserted against the REAL tree, because a fixture would only prove the
+    // fixture. It is what caught chat.ts formatting a day key with its own
+    // Intl call, in a file no gate had ever read.
+    const seen = walk(REPO, ['.ts']).map((file) => file.replace(`${REPO}/`, ''));
+    assert.ok(
+      seen.includes('apps/web/src/screens/chat.ts'),
+      'the gates cannot see the product screens — a skip by NAME is matching more than the one path it was for',
+    );
+    assert.ok(
+      !seen.some((file) => file.startsWith('design-system/screens/')),
+      'the reference screens are being gated as if they were product code',
+    );
   });
 
   // ── promises (§21) ────────────────────────────────────────────────────

@@ -24,7 +24,20 @@ export type Snapshot = {
   conversation: { id: string } | null;
   onboarding: { step: string } | null;
   relationship: { stageName: string; prose: string };
-  limits: { messagesRemaining: number; memoriesKept: number; memoriesPending: number; memoryCapacity: number; capacityLine: string };
+  limits: {
+    messagesRemaining: number;
+    /**
+     * UI-UX §19's quiet indicator, decided SERVER-SIDE.
+     *
+     * The number has travelled in every snapshot since the first run and no
+     * screen read it, so the approaching state did not exist — you found out
+     * at zero. It is the state rather than a threshold because the client is
+     * told what to show, not how to decide (HANDOFF §15): a client applying
+     * `remaining <= 5` is a second place the free tier is defined.
+     */
+    messagesState: 'ok' | 'approaching' | 'reached';
+    memoriesKept: number; memoriesPending: number; memoryCapacity: number; capacityLine: string;
+  };
 };
 
 export type MessageView = {
