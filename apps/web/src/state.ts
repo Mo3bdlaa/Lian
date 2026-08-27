@@ -5,7 +5,7 @@
 import type { Language } from './format.ts';
 
 export type Snapshot = {
-  user: { id: string; name: string | null; timeZone: string; languageStyle: string; language: Language; plan: 'free' | 'paid'; themePreference: string };
+  user: { id: string; name: string | null; timeZone: string; languageStyle: string; language: Language; plan: 'free' | 'paid'; themePreference: string; emailVerified: boolean };
   assistant: { id: string; name: string; gender: 'female' | 'male'; mood: string; moodPhrase: string };
   theme: string;
   direction: 'ltr' | 'rtl';

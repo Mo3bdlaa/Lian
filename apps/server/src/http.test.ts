@@ -89,6 +89,18 @@ let keyCounter = 0;
 /** Every message the app tried to send, in order. */
 const mail: { to: string; subject: string; body: string }[] = [];
 
+/** The raw token out of the most recent message to an address matching a
+ *  pattern — how a test reads a link the way a person does. */
+function lastEmailFor(email: string, pattern: RegExp): string | null {
+  for (let index = mail.length - 1; index >= 0; index -= 1) {
+    const message = mail[index]!;
+    if (message.to !== email) continue;
+    const match = pattern.exec(message.body);
+    if (match !== null) return decodeURIComponent(match[1]!);
+  }
+  return null;
+}
+
 /** The raw token out of the most recent reset email. */
 function lastResetTokenFor(email: string): string | null {
   for (let index = mail.length - 1; index >= 0; index -= 1) {
@@ -121,6 +133,27 @@ async function post(base: string, path: string, body: unknown, init: { token?: s
   const response = await fetch(`${base}${path}`, { method: 'POST', headers, body: JSON.stringify(body) });
   const text = await response.text();
   return { status: response.status, json: (text === '' ? {} : JSON.parse(text)) as Json, headers: response.headers };
+}
+
+async function get(base: string, path: string, token: string) {
+  const response = await fetch(`${base}${path}`, {
+    headers: { authorization: `Bearer ${token}`, 'x-forwarded-for': nextIp() },
+  });
+  const text = await response.text();
+  return { status: response.status, json: (text === '' ? {} : JSON.parse(text)) as Json };
+}
+
+async function patch(base: string, path: string, body: unknown, token: string) {
+  const response = await fetch(`${base}${path}`, {
+    method: 'PATCH',
+    headers: {
+      'content-type': 'application/json', authorization: `Bearer ${token}`,
+      'idempotency-key': freshKey(), 'x-forwarded-for': nextIp(),
+    },
+    body: JSON.stringify(body),
+  });
+  const text = await response.text();
+  return { status: response.status, json: (text === '' ? {} : JSON.parse(text)) as Json };
 }
 
 /** Reads an SSE body into its events. The turn is short, so this waits for
@@ -551,6 +584,54 @@ describe('the HTTP layer', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, ()
     assert.equal(forged.status, 400);
     const after = await fetch(`${app.base}/api/me`, { headers: { authorization: `Bearer ${account.token}` } });
     assert.equal(after.status, 200, 'a refused reset must not revoke a session');
+  });
+
+  test('§21 an address is confirmed by the link that was sent to it', async () => {
+    const account = await signUp(app.base);
+    // Sent at sign-up, without blocking it.
+    const verify = lastEmailFor(account.email, /\/confirm-email\?token=([^\s]+)/);
+    assert.notEqual(verify, null, 'no confirmation was sent at sign-up');
+
+    const before = await get(app.base, '/api/me', account.token);
+    assert.equal((before.json['user'] as { emailVerified: boolean }).emailVerified, false);
+
+    const confirmed = await post(app.base, '/api/auth/confirm-email', { token: verify });
+    assert.equal(confirmed.status, 200, JSON.stringify(confirmed.json));
+    const after = await get(app.base, '/api/me', account.token);
+    assert.equal((after.json['user'] as { emailVerified: boolean }).emailVerified, true);
+
+    // Once.
+    assert.equal((await post(app.base, '/api/auth/confirm-email', { token: verify })).status, 400);
+  });
+
+  test('§21 confirming blocks nothing before it happens', async () => {
+    // A wall here would be a wall in front of the first conversation.
+    const account = await signUp(app.base);
+    const said = await sse(app.base, `/api/conversations/${account.conversationId}/messages`,
+      { message: 'Hello' }, { token: account.token, key: freshKey() });
+    assert.equal(said.status, 200);
+    assert.ok(said.events.some((event) => event.event === 'done'), 'an unconfirmed address could not talk to her');
+  });
+
+  test('§21 a forged confirmation token confirms nothing', async () => {
+    const account = await signUp(app.base);
+    assert.equal((await post(app.base, '/api/auth/confirm-email', { token: 'not-a-token' })).status, 400);
+    const me = await get(app.base, '/api/me', account.token);
+    assert.equal((me.json['user'] as { emailVerified: boolean }).emailVerified, false);
+  });
+
+  test('§21 the three emails are in the reader\u2019s language, not English', async () => {
+    // The device-confirmation body was the one user-facing string in the
+    // product hardcoded in English in a composition root — invisible to the
+    // copy tests and to the Arabic gate.
+    const account = await signUp(app.base);
+    await patch(app.base, '/api/settings', { languageStyle: 'ar-eg' }, account.token);
+    const asked = await post(app.base, '/api/auth/forgot', { email: account.email });
+    assert.equal(asked.status, 202);
+    const message = mail.filter((entry) => entry.to === account.email).at(-1)!;
+    assert.match(message.subject, /[\u0600-\u06FF]/, `the subject was not Arabic: ${message.subject}`);
+    assert.match(message.body, /[\u0600-\u06FF]/, 'the body was not Arabic');
+    assert.match(message.body, /reset-password\?token=/, 'and it still carries the link');
   });
 
   test('an unknown route answers in JSON rather than an HTML error page', async () => {

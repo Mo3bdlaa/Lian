@@ -441,6 +441,61 @@ export const CATALOG = {
   'threads.messages': { en: '{n} messages', ar: '{n} رسالة', addressee: 'none' },
   'threads.empty_thread': { en: 'Nothing said yet', ar: 'لسه مفيش كلام', addressee: 'none' },
 
+  // ── the three emails ────────────────────────────────────────────────────
+  //
+  // Everything this product sends to an inbox, authored in both languages
+  // like every other string — because an email is a surface a person reads,
+  // and the one that was hardcoded English in the composition root was the
+  // only user-facing text in the product that was not in this file.
+  //
+  // Each is a sentence and a link. No HTML, no header image, no footer, no
+  // unsubscribe segment: these are transactional, a person asked for each of
+  // them, and a product that promises nobody reads your conversations should
+  // not ship a tracking pixel in the one message it sends.
+  //
+  // {link} is the only substitution. Nothing else is interpolated, so there
+  // is no path by which a name somebody chose reaches an inbox.
+  'email.verify_subject': { en: 'Confirming your email address', ar: 'تأكيد الإيميل', addressee: 'none' },
+  'email.verify_body': {
+    en: 'Confirming this address is what makes it possible to get back in if the password is ever lost.\n{link}\nThe link works once and stops working in a day. If this was not you, nothing has been created that you need to do anything about.',
+    ar: 'تأكيد الإيميل ده هو اللي بيخلي الرجوع للحساب ممكن لو الباسورد ضاع.\n{link}\nاللينك بيشتغل مرة واحدة وبيقف بعد يوم. لو مش إنت، مفيش حاجة اتعملت تحتاج تصرف.',
+    addressee: 'none',
+  },
+  'email.reset_subject': { en: 'Setting a new password', ar: 'باسورد جديد', addressee: 'none' },
+  'email.reset_body': {
+    en: 'Someone asked to reset the password on this account.\n{link}\nIf it was not you, nothing has changed and you can ignore this. The link works once and stops working in half an hour.',
+    ar: 'في حد طلب تغيير باسورد الحساب ده.\n{link}\nلو مش إنت، مفيش حاجة اتغيرت وممكن تتجاهل الرسالة. اللينك بيشتغل مرة واحدة وبيقف بعد نص ساعة.',
+    addressee: 'none',
+  },
+  'email.device_subject': { en: 'Was this you?', ar: 'ده كان إنت؟', addressee: 'none' },
+  'email.device_body': {
+    en: 'Someone signed in to this account from a device it has not seen before. Nothing has been let through yet.\nIf it was you:\n{link}\nIf it was not, ignore this and change the password. The sign-in stays blocked either way.',
+    ar: 'في حد سجّل دخول للحساب ده من جهاز جديد. لسه مفيش حاجة اتفتحت.\nلو ده إنت:\n{link}\nلو لأ، تجاهل الرسالة وغيّر الباسورد. تسجيل الدخول هيفضل متوقف في الحالتين.',
+    addressee: 'none',
+  },
+
+  // ── confirming the address, in the app (UI-UX §16) ──────────────────────
+  'verify.unconfirmed': { en: 'Email not confirmed', ar: 'الإيميل مش متأكد', addressee: 'none' },
+  'verify.why': {
+    en: 'Confirming it is what makes getting back in possible if the password is ever lost. Nothing else depends on it.',
+    ar: 'التأكيد هو اللي بيخلي الرجوع للحساب ممكن لو الباسورد ضاع. مفيش حاجة تانية معتمدة عليه.',
+    addressee: 'none',
+  },
+  'verify.send': { en: 'Send the link again', ar: 'ابعت اللينك تاني', addressee: 'none' },
+  'verify.sent': { en: 'On its way.', ar: 'في الطريق.', addressee: 'none' },
+  'verify.confirmed': { en: 'Email confirmed', ar: 'الإيميل متأكد', addressee: 'none' },
+  'verify.done': { en: 'That is confirmed. Nothing else to do.', ar: 'تم التأكيد. مفيش حاجة تانية.', addressee: 'none' },
+  'verify.expired': {
+    en: 'That link has expired or has already been used. Sending a new one takes a moment.',
+    ar: 'اللينك ده انتهى أو اتستخدم قبل كده. إرسال واحد جديد مش هياخد وقت.',
+    addressee: 'none',
+  },
+  'verify.no_transport': {
+    en: 'This deployment cannot send email yet, so the link cannot arrive. Nothing is wrong with the account.',
+    ar: 'النسخة دي لسه ما بتبعتش إيميل، فاللينك مش هيوصل. مفيش حاجة غلط في الحساب.',
+    addressee: 'none',
+  },
+
   // ── account recovery (UI-UX §21) ────────────────────────────────────────
   //
   // The copy here is careful about one thing: it never confirms whether an

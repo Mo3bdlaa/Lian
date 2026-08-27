@@ -11,19 +11,23 @@ export type User = {
   id: string; email: string; timeZone: string; languageStyle: string; plan: Plan;
   themePreference: 'auto' | 'always-light' | 'always-dark'; isAdult: boolean;
   consentedAt: Date | null; consentVersion: string | null;
+  /** UI-UX §21: what makes recovery reachable. Nothing else depends on it. */
+  emailVerifiedAt: Date | null;
   displayName: string | null; onboardedAt: Date | null;
 };
 type UserRow = {
   id: string; email: string; time_zone: string; language_style: string; plan: Plan;
   theme_preference: 'auto' | 'always-light' | 'always-dark'; is_adult: boolean;
   consented_at: Date | null; consent_version: string | null;
+  email_verified_at: Date | null;
   display_name: string | null; onboarded_at: Date | null;
 };
-const USER_COLUMNS = 'id, email, time_zone, language_style, plan, theme_preference, is_adult, consented_at, consent_version, display_name, onboarded_at';
+const USER_COLUMNS = 'id, email, time_zone, language_style, plan, theme_preference, is_adult, consented_at, consent_version, email_verified_at, display_name, onboarded_at';
 const toUser = (r: UserRow): User => ({
   id: r.id, email: r.email, timeZone: r.time_zone, languageStyle: r.language_style, plan: r.plan,
   themePreference: r.theme_preference, isAdult: r.is_adult,
   consentedAt: r.consented_at, consentVersion: r.consent_version,
+  emailVerifiedAt: r.email_verified_at,
   displayName: r.display_name, onboardedAt: r.onboarded_at,
 });
 

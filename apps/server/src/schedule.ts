@@ -49,7 +49,7 @@ export type ScheduleReport = {
   readonly proposed: { assistants: number; scheduled: number; heldBack: number; duplicate: number };
   readonly dreams: ReflectReport | null;
   readonly diary: ReflectReport | null;
-  readonly swept: { abandonedUploads: number; rateLimits: number; staleIdempotency: number; oldIdempotency: number; passwordResets: number };
+  readonly swept: { abandonedUploads: number; rateLimits: number; staleIdempotency: number; oldIdempotency: number; passwordResets: number; emailVerifications: number };
 };
 
 const EMPTY_PROPOSED = { assistants: 0, scheduled: 0, heldBack: 0, duplicate: 0 };
@@ -142,6 +142,7 @@ export function scheduleRunner(deps: JobDeps & { store: { remove(keys: readonly 
       // Expired and spent reset rows. A used token that lingers is a row
       // somebody could try to reopen, and an expired one is dead weight.
       passwordResets: await db.auth.sweepPasswordResets(now),
+      emailVerifications: await db.auth.sweepEmailVerifications(now),
     };
 
     return { at: now.toISOString(), outreach, proposed, dreams, diary, swept };

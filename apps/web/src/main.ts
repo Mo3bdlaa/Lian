@@ -21,7 +21,7 @@ import { nav, railGroups } from './components/nav.ts';
 import { threadSheet, incognitoBanner, type Thread } from './screens/threads.ts';
 import { drawer } from './components/drawer.ts';
 import { chatScreen, composer, recorder, actionSheet, deleteSheet, thinking, permissionCard, installCard } from './screens/chat.ts';
-import { welcome, signUp, signIn, heldDevice, consent, legalScreen, forgotPassword, resetPassword, notFound, outage } from './screens/entry.ts';
+import { welcome, signUp, signIn, heldDevice, consent, legalScreen, forgotPassword, resetPassword, confirmEmailScreen, notFound, outage } from './screens/entry.ts';
 import { memoryScreen, memoryEditor, memoryDeleteSheet, type Memory, type MemoryState } from './screens/memory.ts';
 import { tasksScreen, moneyScreen, storyScreen, type Task, type Note, type Money, type Story } from './screens/life.ts';
 import { healthScreen, albumScreen, type Health, type Album } from './screens/album.ts';
@@ -68,6 +68,7 @@ const ENTRY: Record<string, (state: { language: 'en' | 'ar'; error: string | nul
   // from Settings a month later.
   forgot: (state) => forgotPassword({ ...state, sent: recovery.sent, canEmail: recovery.canEmail }),
   resetPassword,
+  confirmEmail: (state) => confirmEmailScreen({ ...state, done: verification.done }),
   terms: (state) => legalScreen({ ...state, document: TERMS, back: legalBack() }),
   privacy: (state) => legalScreen({ ...state, document: PRIVACY, back: legalBack() }),
 };
@@ -80,6 +81,7 @@ const legalBack = (): string => (current().me === null ? '/consent' : '/data');
  *  The second is told by the server, so the screen can say "the link cannot
  *  arrive" rather than leaving somebody waiting for an email nothing sends. */
 const recovery = { sent: false, canEmail: true };
+const verification = { done: false };
 
 /** Which thread the chat screen is showing: the one in the URL, or the main
  *  one from the snapshot. */
@@ -318,6 +320,30 @@ async function loadOlder(): Promise<void> {
  * and a card form inside somebody else's frame is the shape a person should
  * be suspicious of anyway.
  */
+async function resendVerification(): Promise<void> {
+  const me = current().me;
+  if (me === null) return;
+  const { sent } = await post<{ sent: boolean }>('/api/auth/resend-verification');
+  set({ error: t(sent ? 'verify.sent' : 'verify.no_transport', me.user.language, me.assistant.gender) });
+}
+
+/** Following a confirmation link. Runs on load rather than on a press: the
+ *  person clicked the link, which IS the press. */
+async function confirmEmailFromLink(): Promise<void> {
+  const token = new URLSearchParams(location.search).get('token') ?? '';
+  const language = document.documentElement.getAttribute('dir') === 'rtl' ? 'ar' : 'en';
+  try {
+    await post('/api/auth/confirm-email', { token });
+    verification.done = true;
+    set({ error: null });
+    // The snapshot carries emailVerified, so the security screen stops asking.
+    if (current().me !== null) set({ me: await get<Snapshot>('/api/me') });
+  } catch (error) {
+    verification.done = false;
+    set({ error: error instanceof ApiError ? error.message : t('verify.expired', language) });
+  }
+}
+
 // ── conversations (UI-UX §14) ─────────────────────────────────────────────
 
 async function loadThreads(): Promise<void> {
@@ -555,6 +581,8 @@ document.addEventListener('click', (event) => {
     set({ acting: { id, mode: 'delete' as 'sheet' } });
   } else if (action === 'confirm-delete') {
     void deleteMessage(id, actor.dataset['keep'] === 'true');
+  } else if (action === 'resend-verification') {
+    void resendVerification();
   } else if (action === 'threads') {
     void openThreads();
   } else if (action === 'close-threads') {
@@ -1025,6 +1053,9 @@ async function deleteMessage(messageId: string, keepDerived: boolean): Promise<v
 
 async function boot(): Promise<void> {
   set({ path: location.pathname });
+  // Before anything else: the link was clicked, and it should work whether or
+  // not there is a session in this browser.
+  if (location.pathname === '/confirm-email') await confirmEmailFromLink();
   try {
     const me = await get<Snapshot>('/api/me');
     set({ me });

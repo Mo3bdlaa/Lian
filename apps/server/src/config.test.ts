@@ -27,6 +27,8 @@ const PRODUCTION: Env = {
   LIAN_STRIPE_SECRET_KEY: 'sk',
   LIAN_STRIPE_PRICE_ID: 'price',
   LIAN_STRIPE_WEBHOOK_SECRET: 'whsec',
+  LIAN_EMAIL_API_KEY: 're_key',
+  LIAN_EMAIL_FROM: 'Lian <hello@lian.example>',
 };
 
 function problemsOf(env: Env): string[] {
@@ -49,8 +51,8 @@ describe('the environment contract', () => {
   test('every problem is reported at once, not one deploy at a time', () => {
     const problems = problemsOf({ NODE_ENV: 'production', LIAN_PUBLIC_URL: 'https://lian.example' });
     // Database, model key, tick secret, VAPID pair, embedder, storage,
-    // Stripe: seven.
-    assert.ok(problems.length >= 7, `expected every problem at once, got ${problems.length}`);
+    // Stripe, email: eight.
+    assert.ok(problems.length >= 8, `expected every problem at once, got ${problems.length}`);
     assert.ok(problems.some((line) => line.includes('ANTHROPIC_API_KEY')));
     assert.ok(problems.some((line) => line.includes('LIAN_TICK_SECRET')));
     assert.ok(problems.some((line) => line.includes('VAPID')));
@@ -66,12 +68,29 @@ describe('the environment contract', () => {
   test('development degrades loudly instead of failing', () => {
     const { config, degraded } = loadConfig(MINIMUM);
     assert.equal(config.nodeEnv, 'development');
-    assert.ok(degraded.length >= 6, 'a fallback nobody can see becomes the production configuration by accident');
+    assert.ok(degraded.length >= 7, 'a fallback nobody can see becomes the production configuration by accident');
     assert.ok(degraded.some((line) => line.includes('LIAN_EMBEDDER')));
     assert.equal(config.vapid, null, 'no keys means no keys, not an empty string pretending to be one');
     assert.equal(config.tickSecret, null);
     assert.equal(config.storage, null, 'a half-configured bucket is no bucket');
     assert.equal(config.stripe, null, 'and a half-configured Stripe takes payments it cannot confirm');
+    assert.equal(config.email, null, 'and no transport is no transport, not an empty key');
+  });
+
+  test('email needs both values, and the From address has to be one', () => {
+    // With one of the two, every send fails at the provider rather than being
+    // skipped — which is worse, because the app believes it has a transport.
+    const partial = problemsOf({ ...MINIMUM, LIAN_EMAIL_API_KEY: 're_key' });
+    assert.ok(partial.some((line) => line.includes('email needs both')), partial.join(' | '));
+
+    // The From DOMAIN has to be verified with the provider, and that is the
+    // commonest first-send failure — so a value that is not even an address
+    // is caught before anybody goes looking at DNS.
+    const bad = problemsOf({ ...PRODUCTION, LIAN_EMAIL_FROM: 'lian' });
+    assert.ok(bad.some((line) => line.includes('LIAN_EMAIL_FROM')), bad.join(' | '));
+
+    // "Name <a@b.c>" is a legitimate From and must not be refused.
+    assert.notEqual(loadConfig({ ...PRODUCTION, LIAN_EMAIL_FROM: 'Lian <hello@lian.example>' }).config.email, null);
   });
 
   test('billing needs all three values or it is not configured', () => {

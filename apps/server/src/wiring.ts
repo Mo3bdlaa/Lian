@@ -11,8 +11,9 @@
 import * as db from '@lian/db';
 import {
   signUp as authSignUp, signIn as authSignIn, resolveDeviceConfirmation,
-  requestPasswordReset, completePasswordReset, RESET_TTL_MINUTES,
-  type AuthPorts, type RecoveryPorts, type DeviceInfo,
+  requestPasswordReset, completePasswordReset,
+  sendEmailVerification, confirmEmail,
+  type AuthPorts, type RecoveryPorts, type VerificationPorts, type DeviceInfo,
 } from '@lian/auth';
 import {
   runTurn, promptPorts, capabilityPorts, turnPorts, absorbPort, ownershipPorts,
@@ -80,6 +81,36 @@ const dayKeyFor = (timeZone: string, now: Date): string => localDayKey(now, time
  * quality turns out to be the binding constraint (see providers/speech.ts).
  */
 const VOICE_ID: Record<'female' | 'male', string> = { female: 'shimmer', male: 'onyx' };
+
+/**
+ * One of the three emails, in the reader's language.
+ *
+ * Composed HERE and nowhere else, from the catalogue, because until this run
+ * the device-confirmation body was the only user-facing text in the product
+ * hardcoded in English in a composition root — invisible to the copy tests,
+ * invisible to the Arabic gate, and the first thing a stranger who reads
+ * Arabic would have received.
+ *
+ * `{link}` is the only substitution. Nothing else is interpolated, so no name
+ * anybody chose can reach an inbox: an email that echoes attacker-chosen text
+ * is a phishing template with our From address on it.
+ */
+async function emailFor(
+  deps: Deps,
+  userId: string,
+  kind: 'verify' | 'reset' | 'device',
+  link: string,
+): Promise<{ to: string; subject: string; body: string }> {
+  const user = await db.accounts.getUser({ userId });
+  const language = languageOf(user?.languageStyle ?? 'en');
+  const assistant = await assistantOf(userId);
+  const gender = assistant?.gender ?? 'female';
+  return {
+    to: user?.email ?? '',
+    subject: t(`email.${kind}_subject` as 'email.reset_subject', language, gender),
+    body: t(`email.${kind}_body` as 'email.reset_body', language, gender).replace('{link}', link),
+  };
+}
 const languageOf = (style: string): 'en' | 'ar' => (style.startsWith('ar') ? 'ar' : 'en');
 
 /** The user's assistant.  One per account today; the schema allows more, so
@@ -108,7 +139,7 @@ export function middlewarePorts(deps: Deps): MiddlewarePorts {
 
 // ── auth ──────────────────────────────────────────────────────────────────
 
-function authPorts(deps: Deps): AuthPorts & RecoveryPorts {
+function authPorts(deps: Deps): AuthPorts & RecoveryPorts & VerificationPorts {
   return {
     async findUserByEmail(email) {
       const user = await db.accounts.findUserByEmail(email);
@@ -137,11 +168,7 @@ function authPorts(deps: Deps): AuthPorts & RecoveryPorts {
     async sendDeviceConfirmation(input) {
       const link = `${deps.config.publicUrl}/confirm-device?token=${encodeURIComponent(input.token)}`;
       if (deps.sendEmail !== null) {
-        await deps.sendEmail({
-          to: input.email,
-          subject: 'Was this you?',
-          body: `Someone signed in to your account${input.locationLabel === null ? '' : ` from ${input.locationLabel}`}.\n\nIf it was you: ${link}\nIf it was not, ignore this and your password should change.`,
-        });
+        await deps.sendEmail(await emailFor(deps, input.userId, 'device', link));
         return;
       }
       // No transport configured.  The hold STANDS — no session was created —
@@ -180,14 +207,27 @@ function authPorts(deps: Deps): AuthPorts & RecoveryPorts {
     async setPasswordHash(userId, passwordHash) {
       await db.auth.setPasswordHash({ userId }, passwordHash);
     },
+    async createEmailVerification(userId, input) {
+      return db.auth.createEmailVerification({ userId }, input);
+    },
+    async claimEmailVerification(tokenHash, now) {
+      return db.auth.claimEmailVerification(tokenHash, now);
+    },
+    async sendEmailVerification(input) {
+      const link = `${deps.config.publicUrl}/confirm-email?token=${encodeURIComponent(input.token)}`;
+      if (deps.sendEmail === null) {
+        deps.log(`email confirmation for ${input.userId} could not be sent: no transport configured.`);
+        if (deps.config.logConfirmationLinks) deps.log(`[development] confirmation link: ${link}`);
+        return false;
+      }
+      await deps.sendEmail(await emailFor(deps, input.userId, 'verify', link));
+      return true;
+    },
+
     async sendPasswordReset(input) {
       const link = `${deps.config.publicUrl}/reset-password?token=${encodeURIComponent(input.token)}`;
       if (deps.sendEmail !== null) {
-        await deps.sendEmail({
-          to: input.email,
-          subject: 'Setting a new password',
-          body: `Someone asked to reset the password on your account.\n\nIf it was you: ${link}\n\nIf it was not, nothing has changed and you can ignore this. The link stops working in ${RESET_TTL_MINUTES} minutes.`,
-        });
+        await deps.sendEmail(await emailFor(deps, input.userId, 'reset', link));
         return;
       }
       // No transport. The reset was still CREATED — the row exists and the
@@ -246,6 +286,15 @@ export function authRoutePorts(deps: Deps): AuthRoutePorts {
       return { ...result, canEmail: deps.sendEmail !== null };
     },
     completeReset: (input) => completePasswordReset(input, ports, deps.now()),
+    async sendVerification(userId) {
+      const user = await db.accounts.getUser({ userId });
+      if (user === null) return { sent: false };
+      // Already confirmed: nothing to send, and saying "on its way" would be
+      // a lie somebody waits on.
+      if (user.emailVerifiedAt !== null) return { sent: false };
+      return sendEmailVerification({ userId, email: user.email }, ports, deps.now());
+    },
+    confirmEmail: (token) => confirmEmail({ token }, ports, deps.now()),
   };
 }
 
@@ -629,6 +678,10 @@ export function readPorts(deps: Deps): ReadPorts {
           id: user.id, name: user.displayName, timeZone: user.timeZone,
           languageStyle: user.languageStyle, language, plan: user.plan,
           themePreference: user.themePreference,
+          // A boolean, not the timestamp: the screen needs to know whether to
+          // ask, and WHEN somebody confirmed is nobody's business but the
+          // security screen's.
+          emailVerified: user.emailVerifiedAt !== null,
         },
         assistant: {
           id: assistant.id, name: assistant.name, gender: assistant.gender, mood,

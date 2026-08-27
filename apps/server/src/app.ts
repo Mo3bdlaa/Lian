@@ -13,6 +13,7 @@ import { shell } from './shell.ts';
 import type { JobDeps } from '@lian/jobs';
 import { httpSpeechProvider, DEFAULT_SPEECH } from '@lian/voice';
 import { s3Store, memoryStore, type ObjectStore } from '@lian/storage';
+import { httpEmailProvider } from '@lian/email';
 import { stripeClient } from '@lian/billing';
 import type { Fetcher } from '@lian/push';
 import type { Server } from 'node:http';
@@ -146,7 +147,14 @@ export function createApplication(config: Config, overrides: Overrides = {}): Ap
         // transport's narrower signature. A test that needs to intercept
         // Stripe passes a client, which is a smaller thing to fake.
         : stripeClient(config.stripe),
-    sendEmail: overrides.sendEmail ?? null,
+    // The transport. Null when unconfigured, which every caller already
+    // handles by saying so rather than by pretending — recovery records the
+    // request either way, so nothing is lost when one is added later.
+    sendEmail: overrides.sendEmail !== undefined
+      ? overrides.sendEmail
+      : config.email === null
+        ? null
+        : (message) => httpEmailProvider(config.email!).send(message),
     runTick: runSchedule,
   };
 

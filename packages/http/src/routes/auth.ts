@@ -23,6 +23,10 @@ export type AuthRoutePorts = MiddlewarePorts & {
     token: string; password: string;
     device: { fingerprint: string; userAgent: string | null; locationLabel: string | null };
   }): Promise<{ status: string; sessionToken?: string; sessionsRevoked?: number }>;
+  /** UI-UX §21. Confirming blocks nothing; it is what makes recovery
+   *  reachable. `sent` is false when the deployment has no transport. */
+  sendVerification(userId: string): Promise<{ sent: boolean }>;
+  confirmEmail(token: string): Promise<{ status: string }>;
   revokeAllSessions(userId: string): Promise<number>;
   now(): Date;
 };
@@ -86,6 +90,12 @@ export function authRoutes(ports: AuthRoutePorts, options: { secureCookies: bool
             email, password: body.password!, timeZone, device: fingerprintOf(context),
             consent: { isAdult: true, agreed: true },
           });
+          // Sent at sign-up, and never blocking it: a wall here would be a
+          // wall in front of the first conversation, which PRD §8 will not
+          // have. A transport that refuses must not lose the account either,
+          // so the failure is swallowed — the address is unconfirmed, the
+          // app says so, and the person can ask again.
+          await ports.sendVerification(created.userId).catch(() => ({ sent: false }));
           return { status: 201, json: { userId: created.userId, sessionToken: created.sessionToken } };
         });
         const token = (result.json as { sessionToken?: string }).sessionToken;
@@ -151,6 +161,39 @@ export function authRoutes(ports: AuthRoutePorts, options: { secureCookies: bool
             ? {}
             : { headers: { 'set-cookie': sessionCookie(outcome.sessionToken, options.secureCookies) } }),
         };
+      },
+    },
+
+    {
+      method: 'POST',
+      pattern: '/api/auth/confirm-email',
+      handler: async (context) => {
+        // No session: the link is followed from an inbox, possibly in a
+        // browser that has never seen this account.
+        await enforceRate({ bucket: `auth:ip:${context.ip}`, rule: RATE_RULES.auth, now: ports.now() }, ports);
+        const body = context.body<{ token?: string }>();
+        const outcome = await ports.confirmEmail(body.token ?? '');
+        if (outcome.status !== 'confirmed') {
+          // Expired, spent, forged, or issued for an address the account no
+          // longer has — one answer for all four.
+          throw new HttpError(400, 'verification_invalid', 'that link has expired or has already been used');
+        }
+        return { status: 200, json: { status: 'confirmed' } };
+      },
+    },
+
+    {
+      method: 'POST',
+      pattern: '/api/auth/resend-verification',
+      handler: async (context) => {
+        const session = await requireSession(context, ports, ports.now());
+        // The reset bucket, not the write one: this sends mail to an address
+        // and the same reasoning applies — three in fifteen minutes.
+        await enforceRate({ bucket: `verify:${session.userId}`, rule: RATE_RULES.resetRequest, now: ports.now() }, ports);
+        const { sent } = await ports.sendVerification(session.userId);
+        // `sent` is about the DEPLOYMENT, not the account: it lets the screen
+        // say the link cannot arrive rather than leaving somebody waiting.
+        return { status: 202, json: { status: 'accepted', sent } };
       },
     },
 

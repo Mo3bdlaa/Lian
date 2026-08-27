@@ -41,6 +41,7 @@ export const ROUTES: readonly Route[] = [
   { pattern: '/sign-in', screen: 'signIn' },
   { pattern: '/forgot', screen: 'forgot' },
   { pattern: '/reset-password', screen: 'resetPassword' },
+  { pattern: '/confirm-email', screen: 'confirmEmail' },
   { pattern: '/sign-up', screen: 'signUp' },
   { pattern: '/confirm-device', screen: 'confirmDevice' },
 ];

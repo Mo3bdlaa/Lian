@@ -202,6 +202,26 @@ export function resetPassword(state: EntryState): Html {
 }
 
 /**
+ * Following a confirmation link (UI-UX §21).
+ *
+ * Entry-shaped, because it is opened from an inbox — possibly in a browser
+ * that has never seen this account, and possibly on a different device from
+ * the one that signed up.
+ */
+export function confirmEmailScreen(state: EntryState & { done: boolean }): Html {
+  return html`<div class="entry">
+    <div class="entry__body">
+      ${icon(state.done ? 'i-check-circle' : 'i-key', 'lg')}
+      <h1 class="entry__promise">${t(state.done ? 'verify.confirmed' : 'verify.unconfirmed', state.language)}</h1>
+      <p class="entry__detail">${state.done ? t('verify.done', state.language) : (state.error ?? t('verify.expired', state.language))}</p>
+    </div>
+    <div class="entry__actions">
+      <a class="button button--block" href="/chat" data-link>${t('app.back_to_chat', state.language)}</a>
+    </div>
+  </div>`;
+}
+
+/**
  * Terms and Privacy, as screens (UI-UX §22).
  *
  * Inside the app, not behind a link to a website — that is the spec's rule,

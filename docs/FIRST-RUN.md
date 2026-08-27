@@ -7,10 +7,10 @@ says what to run, what right looks like, and what each way of failing looks
 like — because the failures that cost a day are the ones where three
 different problems produce the same message.
 
-**Four integrations in here have never touched a live service:** object
-storage, the speech provider, Stripe, and web push. Everything about them is
+**Five integrations in here have never touched a live service:** email,
+object storage, the speech provider, Stripe, and web push. Everything about them is
 written from a specification and tested against a fake, which is a different
-claim from working. Steps 3–6 are those four, and `npm run preflight` exists
+claim from working. Steps 3–7 are those five, and `npm run preflight` exists
 for them specifically: it makes the real calls in their smallest form and
 tells you *which* of the possible causes it was.
 
@@ -107,7 +107,68 @@ Production refuses to start without one; development says so and continues.
 
 ---
 
-## 3. Object storage — the first real SigV4
+## 3. Email — do this one first
+
+**Needs:** an account with a transactional email provider, and a domain you
+control.
+
+```
+LIAN_EMAIL_API_KEY=re_…
+LIAN_EMAIL_FROM=Lian <hello@yourdomain>
+```
+
+Both or neither: with one of them, every send fails at the provider rather
+than being skipped, and the app believes it has a transport.
+
+**This is first because recovery that reaches nobody is not recovery.** A
+password reset and a new-device confirmation are both *created* without a
+transport and neither is delivered — the rows are real, so adding a transport
+later loses nothing, but until then anybody who forgets their password is
+locked out with no way back.
+
+```sh
+LIAN_PREFLIGHT_EMAIL=you@example.com npm run preflight email
+```
+
+Without `LIAN_PREFLIGHT_EMAIL` it checks the configuration and does not send.
+With it, it sends one message and reads the provider's own refusal back.
+
+**Wrong looks like:**
+
+| what the preflight says | what it is |
+|---|---|
+| `not_authorised` | the key, **or** — far more likely on a first send — the DOMAIN of `LIAN_EMAIL_FROM` is not verified. Adding the DNS records is the step people skip: the key works and nothing sends. Check the domains page, not the API keys page |
+| `bad_recipient` | that address specifically — malformed, or suppressed after an earlier bounce. Try a different one before touching the config |
+| `throttled` | rate limit or quota. A plan state, not a bug |
+| `unreachable` | DNS or the network; the provider was never reached |
+
+A note on that first row: the provider answers a bad key with `401` *and*
+`"name":"validation_error"`, so a naive reading calls it a bad recipient and
+sends you to check the address. The preflight found that on its first live
+send and it is now a regression test. If you are debugging email and the tool
+says `bad_recipient`, believe it — but if it says `not_authorised`, check DNS
+before the key.
+
+**Then go and look at the inbox.** A provider accepting a message is not an
+inbox receiving one, and only you can check the second. **Check spam too** — a
+reset link in spam is a locked-out account, and a brand-new sending domain
+lands there until it has a reputation.
+
+**Then the three real flows:**
+
+1. Sign up. A confirmation should arrive; the app does not block on it.
+   Follow the link and `/security` should stop asking.
+2. `/forgot` with that address. The link should arrive; setting a new password
+   should sign you in and end every other session.
+3. Sign in from a different browser. The sign-in is *held* and a "Was this
+   you?" message should arrive.
+
+All three are in the reader's language, so if the account is set to Arabic the
+message should be Arabic.
+
+---
+
+## 4. Object storage — the first real SigV4
 
 **Needs:** an S3-compatible bucket and a key with read, write and delete on
 it. Cloudflare R2 is the cheapest way to get one; MinIO on the laptop also
@@ -164,7 +225,7 @@ browser.
 
 ---
 
-## 4. Speech
+## 5. Speech
 
 **Needs:** one key for both directions.
 
@@ -201,7 +262,7 @@ and the route answers `402` — that is the plan gate, not a failure.
 
 ---
 
-## 5. Stripe — the one you said you would do on hardware
+## 6. Stripe — the one you said you would do on hardware
 
 **Needs:** a Stripe account, a recurring price, and a webhook endpoint on a
 public URL.
@@ -288,7 +349,7 @@ Only move `sk_test_` to `sk_live_` after all of that. The preflight prints
 
 ---
 
-## 6. Web push — the one that cannot be checked from a terminal
+## 7. Web push — the one that cannot be checked from a terminal
 
 **Needs:** VAPID keys, HTTPS, and a phone.
 
@@ -350,7 +411,7 @@ gap closes.
 
 ---
 
-## 7. Before a stranger
+## 8. Before a stranger
 
 Things that are true right now and should not be when somebody who is not you
 uses this:
@@ -361,20 +422,14 @@ uses this:
    hand a lawyer — 46 strings, both languages. Flipping that constant to
    `true` removes the banner everywhere at once; a test will remind you it
    was a deliberate act.
-2. **There is no email transport.** `sendEmail` is `null`, so a device
-   confirmation and a password reset are both created and neither is
-   delivered. The reset *row* is real, so a deployment that gains a transport
-   later loses nothing — but until then, account recovery does not work for
-   anyone who cannot read the server log. This is the highest-value thing
-   left that is entirely in your hands.
-3. **Nobody has done an accessibility pass.** `prefers-reduced-motion` is
+2. **Nobody has done an accessibility pass.** `prefers-reduced-motion` is
    honoured; there has been no screen-reader run and no keyboard-only pass.
    The sheets and the full-screen photo viewer are focus traps by shape.
-4. **Arabic has not had a native pass.** The catalogue is 393 strings. The
+3. **Arabic has not had a native pass.** The catalogue is 407 strings. The
    gate proves none of them assumes the *user's* gender; it cannot prove the
    register is right, and male-voice Arabic is still mostly the feminine
    string returned unchanged.
-5. **Set the free-tier ceilings against real traffic.** `npm run report`
+4. **Set the free-tier ceilings against real traffic.** `npm run report`
    prints per-account pressure against every ceiling — `nearCeiling` is the
    number that moves first. `npm run report:economics` prints the assumptions
    the ceilings were chosen with. Both say plainly which numbers are measured
@@ -386,7 +441,7 @@ uses this:
 
 ```sh
 npm run preflight           # the four live integrations, each diagnosed
-npm run preflight storage   # or speech, stripe, push
+npm run preflight email     # or storage, speech, stripe, push
 npm run verify              # typecheck, 12 gates, 624 tests
 npm run report              # retention and cost, with their definitions
 npm run report:economics    # the free tier, every assumption named

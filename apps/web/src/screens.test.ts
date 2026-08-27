@@ -22,7 +22,7 @@ import { initial, type Message, type Snapshot, type State } from './state.ts';
 import { t, CONSENT_VERSION, TERMS, PRIVACY, type LegalDocument } from './copy.ts';
 
 const me = (overrides: Partial<Snapshot> = {}): Snapshot => ({
-  user: { id: 'u-1', name: 'Adam', timeZone: 'Asia/Dubai', languageStyle: 'en', language: 'en', plan: 'free', themePreference: 'auto' },
+  user: { id: 'u-1', name: 'Adam', timeZone: 'Asia/Dubai', languageStyle: 'en', language: 'en', plan: 'free', themePreference: 'auto', emailVerified: true },
   assistant: { id: 'a-1', name: 'Lian', gender: 'female', mood: 'warm', moodPhrase: 'Feeling warm today' },
   theme: 'day', direction: 'ltr', localHour: 9,
   conversation: { id: 'c-1' },
@@ -143,7 +143,7 @@ describe('every screen speaks both languages', () => {
   // contain no English label. The gate proves the strings are in the
   // catalogue; this proves the screens actually read from it.
   const arabic = me({
-    user: { id: 'u-1', name: 'آدم', timeZone: 'Asia/Dubai', languageStyle: 'ar-eg', language: 'ar', plan: 'free', themePreference: 'auto' },
+    user: { id: 'u-1', name: 'آدم', timeZone: 'Asia/Dubai', languageStyle: 'ar-eg', language: 'ar', plan: 'free', themePreference: 'auto', emailVerified: true },
     assistant: { id: 'a-1', name: 'لين', gender: 'female', mood: 'warm', moodPhrase: 'اليوم فيه دفء' },
     direction: 'rtl',
     // The capacity line is resolved server-side, so an Arabic reader gets the

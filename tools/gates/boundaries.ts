@@ -38,6 +38,10 @@ const ALLOWED: Record<string, string[]> = {
   // it verifies a signature and parses a subscription. What that MEANS for a
   // user is decided in the composition root.
   billing: [],
+  // Email knows nothing about the product either: an address, a subject and a
+  // body. WHAT to send is composed in the composition root, from the
+  // catalogue, in the reader's language.
+  email: [],
   // The HTTP layer is transport only: it knows about sessions and rate
   // limits, and reaches everything else through ports the app wires up.
   http: ['domain'],

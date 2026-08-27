@@ -26,6 +26,7 @@ export type Config = {
   readonly vapid: { readonly publicKey: string; readonly privateKey: string; readonly subject: string } | null;
   readonly embedder: { readonly model: string; readonly apiKey: string; readonly url: string | undefined };
   readonly speechApiKey: string | null;
+  readonly email: { readonly apiKey: string; readonly from: string } | null;
   /** Null when Stripe is not configured: checkout says so plainly rather
    *  than failing halfway through a payment. */
   readonly stripe: {
@@ -117,6 +118,23 @@ export function loadConfig(env: Env): { config: Config; degraded: string[] } {
     );
   }
 
+  const emailKey = env['LIAN_EMAIL_API_KEY'] ?? '';
+  const emailFrom = env['LIAN_EMAIL_FROM'] ?? '';
+  const hasEmail = emailKey !== '' && emailFrom !== '';
+  if (!hasEmail) {
+    require(
+      'LIAN_EMAIL_API_KEY / LIAN_EMAIL_FROM',
+      undefined,
+      'nothing can be emailed: a password reset and a new-device confirmation are both CREATED and neither is delivered, so anyone who forgets their password is locked out',
+    );
+  }
+  if (!hasEmail && (emailKey !== '' || emailFrom !== '')) {
+    problems.push('email needs both LIAN_EMAIL_API_KEY and LIAN_EMAIL_FROM — with one of them, every send fails at the provider rather than being skipped');
+  }
+  if (hasEmail && !/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(emailFrom.replace(/^.*</, '').replace(/>$/, ''))) {
+    problems.push(`LIAN_EMAIL_FROM ('${emailFrom}') is not an address — it may be "Name <a@b.c>" or "a@b.c", and its DOMAIN must be verified with the provider`);
+  }
+
   const stripeSecret = env['LIAN_STRIPE_SECRET_KEY'] ?? '';
   const stripePrice = env['LIAN_STRIPE_PRICE_ID'] ?? '';
   const stripeWebhook = env['LIAN_STRIPE_WEBHOOK_SECRET'] ?? '';
@@ -164,6 +182,10 @@ export function loadConfig(env: Env): { config: Config; degraded: string[] } {
       },
       embedder: { model: embedderModel, apiKey: embedderKey, url: env['LIAN_EMBEDDER_URL'] },
       speechApiKey: speechApiKey === '' ? null : speechApiKey,
+      /** Null when no transport is configured. Recovery still records the
+       *  request, so a deployment that gains a transport later loses nothing
+       *  — what is missing is the delivery, and the app says so. */
+      email: hasEmail ? { apiKey: emailKey, from: emailFrom } : null,
       stripe: hasStripe
         ? {
             secretKey: stripeSecret, priceId: stripePrice, webhookSecret: stripeWebhook,

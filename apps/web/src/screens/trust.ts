@@ -126,6 +126,17 @@ export function dataScreen(me: Snapshot, state: DataState): Html {
           <a class="button button--block" data-action="download" href="#" download="${state.export.filename}">${t('data.download', language, gender)}</a>
         </div>`}
 
+    ${me.user.emailVerified ? '' : html`
+      <div class="section">${t('verify.unconfirmed', language, gender)}</div>
+      <!-- Quiet, and repeated, and it says WHY. Confirming blocks nothing;
+           it is the thing that makes getting back in possible, and somebody
+           who mistyped their address will not find that out until the worst
+           possible day. -->
+      <p class="screen__lede">${t('verify.why', language, gender)}</p>
+      <button class="button button--quiet button--block" data-action="resend-verification">
+        ${t('verify.send', language, gender)}
+      </button>`}
+
     <div class="section">${t('legal.terms_title', language, gender)}</div>
     <a class="row" href="/terms" data-link>
       <span class="row__label">${t('legal.terms_title', language, gender)}</span>

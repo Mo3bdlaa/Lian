@@ -47,3 +47,17 @@ export type RecoveryPorts = {
   /** Sends the link. Like the device confirmation, the inbox is the factor. */
   sendPasswordReset(input: { userId: string; email: string; token: string }): Promise<void>;
 };
+
+/**
+ * What confirming an address needs.
+ *
+ * `sendEmailVerification` returns whether a message actually went out —
+ * unlike the other two send ports, which return void. It is the only one
+ * whose result is shown to somebody: the app tells them the link cannot
+ * arrive rather than leaving them waiting for mail nothing sends.
+ */
+export type VerificationPorts = {
+  createEmailVerification(userId: string, input: { email: string; tokenHash: string; expiresAt: Date }): Promise<string>;
+  claimEmailVerification(tokenHash: string, now: Date): Promise<{ userId: string } | null>;
+  sendEmailVerification(input: { userId: string; email: string; token: string }): Promise<boolean>;
+};

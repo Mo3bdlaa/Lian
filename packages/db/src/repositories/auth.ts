@@ -246,3 +246,61 @@ export async function sweepPasswordResets(before: Date, sql: Sql = db()): Promis
   return rowCount ?? 0;
 }
 
+// ── confirming an email address ───────────────────────────────────────────
+
+export async function createEmailVerification(
+  scope: UserScope,
+  input: { email: string; tokenHash: string; expiresAt: Date },
+  sql: Sql = db(),
+): Promise<string> {
+  // Like a reset: an earlier unused token is spent, so the newest link is the
+  // only one that works and an older one sitting in an inbox is not a
+  // standing key.
+  await sql.query(`UPDATE email_verifications SET used_at = now() WHERE user_id = $1 AND used_at IS NULL`, [scope.userId]);
+  const { rows } = await sql.query<{ id: string }>(
+    `INSERT INTO email_verifications (user_id, email, token_hash, expires_at)
+     VALUES ($1, $2, $3, $4) RETURNING id`,
+    [scope.userId, input.email, input.tokenHash, input.expiresAt],
+  );
+  return rows[0]!.id;
+}
+
+/**
+ * Spend a verification token and mark the address confirmed — in ONE
+ * statement, so a token cannot be spent by a request that then fails to
+ * record what it proved.
+ *
+ * The `users.email = v.email` condition is the part worth reading twice: a
+ * token proves control of the address it was SENT to. If the account's
+ * address changed while the mail was in flight, the token proves nothing
+ * about the new one, and confirming it would mark an unproven address as
+ * proven.
+ */
+export async function claimEmailVerification(tokenHash: string, now: Date, sql: Sql = db()): Promise<{ userId: string } | null> {
+  // db-scoping:allow-unscoped — the person following the link is not signed
+  // in; the single-use expiring token IS the credential and names the user.
+  const { rows } = await sql.query<{ user_id: string }>(
+    `WITH claimed AS (
+       UPDATE email_verifications SET used_at = $2
+       WHERE token_hash = $1 AND used_at IS NULL AND expires_at > $2
+       RETURNING user_id, email
+     )
+     UPDATE users u SET email_verified_at = $2
+     FROM claimed c
+     WHERE u.id = c.user_id AND u.email = c.email AND u.deleted_at IS NULL
+     RETURNING u.id AS user_id`,
+    [tokenHash, now],
+  );
+  return rows[0] === undefined ? null : { userId: rows[0].user_id };
+}
+
+/** Expired and spent verification rows. Swept by the tick, like the resets. */
+export async function sweepEmailVerifications(before: Date, sql: Sql = db()): Promise<number> {
+  // db-scoping:allow-unscoped — a sweep over every user's dead rows.
+  const { rowCount } = await sql.query(
+    `DELETE FROM email_verifications WHERE expires_at < $1 OR (used_at IS NOT NULL AND used_at < $1)`,
+    [before],
+  );
+  return rowCount ?? 0;
+}
+

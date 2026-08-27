@@ -1,8 +1,12 @@
 // ==========================================================================
-// PREFLIGHT — the four integrations, against the real services.
+// PREFLIGHT — the live integrations, against the real services.
 //
 //   node tools/preflight.ts            # everything that is configured
-//   node tools/preflight.ts storage    # one of: storage, speech, stripe, push
+//   node tools/preflight.ts email      # one of: email, storage, speech, stripe, push
+//
+// Email is FIRST because recovery that reaches nobody is not recovery, and
+// because it is the one whose first failure is almost always the same thing:
+// a sending domain nobody verified.
 //
 // Everything else in this repository is tested against a fake. These four are
 // not testable that way — a fake of S3 proves the fake, and a signature is
@@ -26,6 +30,7 @@
 import { s3Store, presign } from '@lian/storage';
 import { httpSpeechProvider, DEFAULT_SPEECH } from '@lian/voice';
 import { STRIPE_API_VERSION } from '@lian/billing';
+import { httpEmailProvider, EmailError } from '@lian/email';
 import { loadConfig } from '../apps/server/src/config.ts';
 
 const only = process.argv[2] ?? 'all';
@@ -225,6 +230,68 @@ async function checkSpeech(): Promise<void> {
   }
 }
 
+// ── email ──────────────────────────────────────────────────────────────────
+
+/**
+ * What each classification means and what to do about it.
+ *
+ * The transport's `classify` turns a status and a body into one of five
+ * states; this turns a state into an instruction. They are separate because
+ * the first is a property of the provider and the second is a property of
+ * being at a laptop trying to make a first send work.
+ */
+const EMAIL_FIX: Record<string, string> = {
+  not_authorised:
+    'either LIAN_EMAIL_API_KEY is wrong, or — far more likely on a first send — the DOMAIN of LIAN_EMAIL_FROM '
+    + 'is not verified with the provider. Adding the DNS records is the step people skip; the key works and '
+    + 'nothing sends. Check the domains page in the provider dashboard, not the API keys page.',
+  bad_recipient:
+    'the address this was sent TO was refused: malformed, or on the provider suppression list from an earlier bounce. '
+    + 'Try a different address before assuming the configuration is wrong.',
+  throttled: 'rate limited or over the daily quota. A billing or plan state, not a bug — the same send later would work.',
+  refused: 'the provider said no for a reason this does not recognise. The message below is its own; paste it into the issue.',
+  unreachable: 'the provider was never reached. DNS or the network.',
+};
+
+async function checkEmail(): Promise<void> {
+  console.log('\n── EMAIL ─────────────────────────────────────────────────');
+  if (config.email === null) {
+    skip('email', 'LIAN_EMAIL_API_KEY / LIAN_EMAIL_FROM not set — recovery reaches nobody');
+    return;
+  }
+  console.log(`  from      ${config.email.from}`);
+
+  // Where to send it. Sending to a real inbox is the point — a provider will
+  // happily accept a message for an address that never receives it, and the
+  // only proof is somebody looking.
+  const to = process.env['LIAN_PREFLIGHT_EMAIL'] ?? '';
+  if (to === '') {
+    skip('the send', 'set LIAN_PREFLIGHT_EMAIL=you@example.com to actually send one');
+    console.log('      Everything above is configuration. A provider accepting a message');
+    console.log('      is not the same as an inbox receiving it, and only you can check');
+    console.log('      the second one.');
+    return;
+  }
+
+  try {
+    await httpEmailProvider(config.email).send({
+      to,
+      subject: 'Lian preflight',
+      body: 'This is the preflight check from tools/preflight.ts.\n\nIf it arrived, the transport works.',
+    });
+    pass('send', `accepted for ${to}`);
+    console.log('      Now go and look. A provider accepting a message is not an inbox');
+    console.log('      receiving it — check the spam folder too, because a reset link in');
+    console.log('      spam is a locked-out account.');
+  } catch (error) {
+    if (error instanceof EmailError) {
+      fail('send', `${error.failure} (${error.status}) — ${error.detail.slice(0, 200)}`, EMAIL_FIX[error.failure] ?? EMAIL_FIX['refused']!);
+    } else {
+      fail('send', String((error as Error).message), 'not an error the transport produced — network, or a bug here.');
+    }
+  }
+}
+
 // ── stripe ─────────────────────────────────────────────────────────────────
 
 async function checkStripe(): Promise<void> {
@@ -292,7 +359,7 @@ async function checkPush(): Promise<void> {
   console.log('      that has never worked end to end. There is no service to call:');
   console.log('      a push endpoint only exists once a browser subscribes to one.');
   console.log('');
-  console.log('      The real check is in FIRST-RUN.md step 6: open the app on a');
+  console.log('      The real check is in FIRST-RUN.md step 7: open the app on a');
   console.log('      phone, allow notifications, lock the screen, run the tick, and');
   console.log('      see whether her sentence arrives.');
 }
@@ -300,6 +367,7 @@ async function checkPush(): Promise<void> {
 async function main(): Promise<void> {
   console.log('\nLIAN — preflight');
   console.log(`${new Date().toISOString()}   NODE_ENV=${config.nodeEnv}   public url ${config.publicUrl}`);
+  if (wants('email')) await checkEmail();
   if (wants('storage')) await checkStorage();
   if (wants('speech')) await checkSpeech();
   if (wants('stripe')) await checkStripe();
