@@ -27,7 +27,7 @@ import { tasksScreen, moneyScreen, storyScreen, type Task, type Note, type Money
 import { healthScreen, albumScreen, type Health, type Album } from './screens/album.ts';
 import { searchScreen, briefingScreen, profileScreen, type Search, type Briefing, type Profile } from './screens/find.ts';
 import { planScreen, type Plan } from './screens/plan.ts';
-import { identityScreen, dialsScreen, quietHoursScreen, assistantsScreen, type Settings } from './screens/her.ts';
+import { identityScreen, dialsScreen, quietHoursScreen, assistantsScreen, languageScreen, type Settings } from './screens/her.ts';
 import { settingsScreen, securityScreen, dataScreen, type Security, type DataState } from './screens/trust.ts';
 import { correctionSheet, type Correcting, type CorrectKind } from './screens/correct.ts';
 
@@ -232,6 +232,8 @@ function screenFor(screen: string, state: State, me: Snapshot): Html {
     case 'briefing': return screenData.briefing === null ? html`` : briefingScreen(me, screenData.briefing);
     case 'profile': return screenData.profile === null ? html`` : profileScreen(me, screenData.profile, screenData.savedSection);
     case 'identity': return screenData.settings === null ? html`` : identityScreen(me, screenData.settings);
+    // Reads only from the snapshot, so unlike its neighbours it needs no fetch.
+    case 'language': return languageScreen(me);
     case 'personality': return screenData.settings === null ? html`` : dialsScreen(me, screenData.settings);
     case 'quietHours': return screenData.settings === null ? html`` : quietHoursScreen(me, screenData.settings);
     case 'assistants': return screenData.settings === null ? html`` : assistantsScreen(me, screenData.settings);
@@ -272,7 +274,8 @@ window.addEventListener('popstate', () => {
 async function load(path: string): Promise<void> {
   const state = current();
   if (state.me === null) return;
-  const screen = match(path)?.screen ?? 'notFound';
+  const found = match(path);
+  const screen = found?.screen ?? 'notFound';
   set({ busy: true });
   try {
     if (screen === 'chat') {
@@ -293,8 +296,47 @@ async function load(path: string): Promise<void> {
     }
     else if (screen === 'profile') { screenData.profile = await get('/api/profile'); screenData.savedSection = null; }
     else if (screen === 'search' && screenData.search === null) screenData.search = { query: '', conversations: [], memories: [] };
+    // UI-UX §4: a capture chip points at ITS correction, not at a list. The
+    // id was parsed by match() and dropped on the floor, so tapping "AED 400
+    // · gym · Today" opened the Money screen and left somebody to find the
+    // row again — on the one interaction the whole product is built around.
+    if (found !== null && found.params['id'] !== undefined) openCorrection(screen, found.params['id']);
   } finally {
     set({ busy: false });
+  }
+}
+
+/**
+ * Open the correction the URL names, if the thing it names is there.
+ *
+ * Silent when it is not: a deleted transaction whose chip is still in the
+ * conversation should leave you on the Money screen, not looking at an error
+ * about a row that used to exist. The screen behind the sheet is the answer
+ * either way.
+ */
+function openCorrection(screen: string, id: string): void {
+  if (screen === 'money') {
+    const transaction = screenData.money?.recent.find((candidate) => candidate.id === id);
+    if (transaction === undefined) return;
+    screenData.correcting = {
+      kind: 'transactions', id,
+      values: {
+        amountMinor: String(transaction.amountMinor / 100),
+        category: transaction.line, occurredOn: transaction.occurredOn, direction: transaction.direction,
+      },
+    };
+  } else if (screen === 'tasks') {
+    const task = screenData.tasks.tasks.find((candidate) => candidate.id === id);
+    if (task !== undefined) {
+      screenData.correcting = { kind: 'tasks', id, values: { title: task.title, dueOn: task.dueOn ?? '' } };
+      return;
+    }
+    // /notes/:id and /tasks/:id are the same screen; a note is looked for
+    // only when no task matched, so one path serves both.
+    const note = screenData.tasks.notes.find((candidate) => candidate.id === id);
+    if (note !== undefined) {
+      screenData.correcting = { kind: 'notes', id, values: { title: note.title ?? '', body: note.body } };
+    }
   }
 }
 
@@ -752,6 +794,8 @@ document.addEventListener('click', (event) => {
     draw(current());
   } else if (action === 'notifications') {
     void enableNotifications();
+  } else if (action === 'set-language') {
+    void saveSetting({ languageStyle: actor.dataset['key'] });
   } else if (action === 'set-gender') {
     void saveSetting({ assistantGender: actor.dataset['key'] });
   } else if (action === 'set-dial') {

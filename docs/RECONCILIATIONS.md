@@ -158,3 +158,33 @@ reason):* the correction sheet can only ever change something she already
 wrote down. There is no route that creates a task, a transaction or a note —
 the server has no create endpoint at all, which is what makes this checkable
 rather than a habit.
+
+**14. "Our story" rendered five stages as a ladder.** *(2026-08-27.)*
+UI-UX §8's words are "Show current state as prose, not progression". The
+screen rendered every stage as a card — the one you are in, the ones behind
+you, and the three ahead with their prose spelled out. That is a progression:
+a five-rung ladder with named rungs, three of them locked, on the page whose
+own copy reads *"There is nothing to unlock and nothing to lose."*
+
+The standing rule says the screens are the built truth for visual
+implementation and the specs are the truth for behaviour and scope. "Not
+progression" is a scope statement, so *decision: the spec wins.* One stage,
+the one you are in. The view still carries all five — the server decides
+what is true and the client decides what to show — so this is a rendering
+choice, reversible in a line, which is where a decision like this belongs.
+
+Found by opening the screen as a new user rather than by reading the spec
+again: on day one the ladder shows you four rungs you have not reached, which
+is the exact impression LESSONS §6 exists to prevent.
+
+**15. The Money headline was "What's left" on a first month.** *(2026-08-27.)*
+UI-UX §7 asks for money in, money out, and what's left, "one-glance". It does
+not say which is the headline, and the build made it "What's left" — which is
+in-minus-out, and is therefore a NEGATIVE number for anybody who has told her
+about a payment and not about their salary. On day one the biggest figure on
+the screen read as debt.
+
+*Decision: no spec change, a rendering rule.* With no income recorded the
+headline is what went out; "What's left" returns the moment it can be true.
+All three figures are still on the screen, as §7 asks — only which one is
+large changed.

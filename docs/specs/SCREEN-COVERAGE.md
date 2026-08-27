@@ -1,6 +1,7 @@
 # Lian — Screen Coverage Matrix
 
-Status: ✅ purpose-built · ◐ standard desktop fallback
+Status: ✅ purpose-built · ◐ standard desktop fallback, or (in the Mobile
+column) **partly built — the row says which part**
 
 | Area | Mobile | Desktop | RTL | Key states |
 |---|---:|---:|---:|---|
@@ -8,7 +9,7 @@ Status: ✅ purpose-built · ◐ standard desktop fallback
 | Tasks & notes | ✅ | ◐ | ✅ | empty, recurring, edit task/note, delete |
 | Money | ✅ | ✅ | ✅ | summary, correction, receipt, empty |
 | Memory | ✅ | ✅ | ✅ | full, empty, add, edit, delete, search, provenance, free-limit queue |
-| Our story | ✅ | ◐ | ✅ | timeline, earned stages, empty |
+| Our story | ◐ | ◐ | ✅ | stage as prose (built); **timeline NOT BUILT** |
 | Health | ✅ | ◐ | ✅ | chat capture, week, correction, empty |
 | Album | ✅ | ◐ | ✅ | grid, user sends, assistant sends, viewer, empty |
 | Assistants | ✅ | ◐ | ✅ | single-assistant state, create second, switch (2+), active identity, gender, profile |
@@ -25,7 +26,7 @@ Status: ✅ purpose-built · ◐ standard desktop fallback
 | Morning briefing | ✅ | ◐ | ✅ | proactive, requested, chat, dedicated screen |
 | Search | ✅ | ◐ | ✅ | conversations, grouped results, open in place, memory search |
 | User profile | ✅ | ◐ | ✅ | name, about me, what assistant should know, self-authored notes |
-| Free limit | ✅ | ◐ | ✅ | message limit approaching/reached, memory capacity approaching/full (100 per assistant), pending memories, quiet upgrade |
+| Free limit | ◐ | ◐ | ✅ | reached (built); **approaching NOT SHOWN**; memory capacity, pending memories, quiet upgrade |
 | Conversation types | ✅ | ◐ | ✅ | main, side, incognito, scenario role, edit/clear, switcher |
 | Account recovery | ✅ | ◐ | ✅ | forgot, link sent, new password, every other session ended |
 | Navigation drawer / rail | ✅ | ✅ | ✅ | grouped secondary nav, assistant header, open/close, desktop rail |
@@ -34,23 +35,37 @@ Status: ✅ purpose-built · ◐ standard desktop fallback
 
 Every `◐` row uses persistent left rail + centered 720px main column at 900px+ (800px for legal/long-form), no bottom navigation, desktop dialogs/side sheets, and RTL mirroring. Only Chat, Money, Memory require purpose-built wide layouts for v1.
 
-**Audited row by row, key state by key state (2026-08-27).** Not by reading
-the ticks — by grepping for each key state and following it to the code that
-serves it. Three looked missing and two were not: `recurring` is built as
-habits (a habit is a task with a recurrence, one capability, one correction
-screen), and `quick lock` is `sign-out-everywhere` on the security screen.
+## This matrix was wrong, and how it was caught
 
-The third was real, and its shape is the reason this audit was worth doing.
-**`scenario role` was built on the server and nowhere else** — the column, its
-CHECK constraint, the prompt block in the override zone, an injection test,
-and a `POST /api/conversations` that accepted the field. Nothing in the
-product could set it, read it back or show it, so none of that had ever run
-for a person. Every one of those pieces looks like coverage from the outside;
-together they are a hole with tests around it. It is built now, on both
-sides, with the mood phrase suppressed and the chip rendering from what the
-server says is in effect.
+**Audited by grep, then audited by USE — and use found more (2026-08-27).**
 
-**Every mobile row is built (2026-08-27).** The switcher was the last screen:
+The first pass followed each key state to the code that serves it. It found
+one row overclaiming: **`scenario role` was built on the server and nowhere
+else** — the column, its CHECK constraint, the prompt block in the override
+zone, an injection test, and a create route that accepted the field, with
+nothing a person could touch. (Two others looked missing and were not:
+`recurring` is built as habits, and `quick lock` is `sign-out-everywhere`.)
+
+Then I signed up and used the product, and found **two more rows this file
+claimed**, both of which the grep pass had missed because I had not thought to
+grep for the word:
+
+- **Our story's timeline.** `story_events` has held the three types UI-UX §8
+  names since migration 0001, with an index, and no code has ever written a
+  row. There is no repository, no route and no screen. `tools/gates/wired.ts`
+  now prints it as a named "NOT BUILT" exemption on every CI run.
+- **Free limit's "approaching".** `messagesRemaining` reaches the client in
+  every snapshot and **no screen reads it**. The *reached* state is built and
+  good; the quiet indicator near the end is not there at all.
+
+The lesson is in LESSONS §20, and the point of writing it here is that **a
+coverage matrix is a claim checked by the person making it**. Two of these
+rows survived seven runs of review with a ✅ against them. What broke them was
+one afternoon of using the product as a person rather than reading it as an
+author — see `docs/FIRST-IMPRESSIONS.md`.
+
+**Every other mobile row is built (2026-08-27).** The switcher was the last
+screen:
 `/api/conversations` lists every thread including incognito — unlike search,
 which must never see one — and closing a side thread keeps its messages,
 because they are the provenance of what she remembered, while deleting an

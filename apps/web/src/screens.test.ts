@@ -17,7 +17,7 @@ import { memoryScreen } from './screens/memory.ts';
 import { tasksScreen, moneyScreen, storyScreen } from './screens/life.ts';
 import { settingsScreen, securityScreen, dataScreen } from './screens/trust.ts';
 import { healthScreen, albumScreen, type Health, type Album } from './screens/album.ts';
-import { dialsScreen, quietHoursScreen, DIALS, STOPS, type Settings } from './screens/her.ts';
+import { dialsScreen, quietHoursScreen, languageScreen, LANGUAGE_STYLES, DIALS, STOPS, type Settings } from './screens/her.ts';
 import { threadSheet, incognitoChip, scenarioSheet, type Thread } from './screens/threads.ts';
 import { head } from './components/head.ts';
 import { MAX_SCENARIO_LENGTH } from '@lian/domain';
@@ -218,6 +218,24 @@ describe('what the screens must not contain (PRD §14, §10)', () => {
     assert.ok(!/\d+\s*%/.test(markup));
     assert.ok(!/\b\d+\s*(days?|weeks?)\b/i.test(markup));
     assert.ok(!/progress-|streak/i.test(markup));
+  });
+
+  test('our story shows the stage they are in, and not the ones they are not', () => {
+    // UI-UX §8: "Show current state as prose, not progression." All five
+    // stages were rendered as a list of cards, which is a five-rung ladder
+    // with three rungs locked — on the screen whose own copy says "There is
+    // nothing to unlock and nothing to lose".
+    const markup = render(storyScreen(me(), {
+      now: 'We are finding a rhythm.', footer: 'Nothing to unlock.',
+      stages: [
+        { key: 'getting_acquainted', name: 'Getting acquainted', prose: 'Names, days.', current: false },
+        { key: 'finding_a_rhythm', name: 'Finding a rhythm', prose: 'We are finding a rhythm.', current: true },
+        { key: 'noticing_without_asking', name: 'Noticing without asking', prose: 'I notice patterns now.', current: false },
+      ],
+    }));
+    assert.ok(markup.includes('Finding a rhythm'));
+    assert.ok(!markup.includes('Noticing without asking'), 'a stage they have not reached was shown as a rung ahead of them');
+    assert.ok(!markup.includes('Getting acquainted'), 'a stage they have left was shown as a rung behind them');
   });
 
   test('the memory screen shows provenance and both ways to change it', () => {
@@ -523,5 +541,58 @@ describe('the incognito role (PRD §27, UI-UX §46)', () => {
     // Optional, and it says so — §46 calls it optional and a required-looking
     // field in front of an incognito thread is a reason not to start one.
     assert.ok(markup.includes(t('scenario.optional', 'en')));
+  });
+});
+
+describe('what using it found', () => {
+  test('language & style offers §47\u2019s eight, by name', () => {
+    const markup = render(languageScreen(me()));
+    assert.equal(LANGUAGE_STYLES.length, 8);
+    for (const style of LANGUAGE_STYLES) assert.ok(markup.includes(t(`language.${style}` as never, 'en')), style);
+    // The raw codes are the DATA, never the label — `ar-eg` on a screen is
+    // what this replaced.
+    assert.ok(!/>\s*ar-eg\s*</.test(markup), 'a language code was shown as a label');
+    assert.ok(markup.includes(t('language.sample', 'en')), '§47\u2019s sample line: what a choice sounds like, not its name');
+  });
+
+  test('the money headline is not a negative "what\u2019s left" before any income', () => {
+    // A first month: she has been told about one payment and no income, so
+    // in-minus-out is −400 and "What's left" was the biggest thing on screen.
+    const first = render(moneyScreen(me(), {
+      month: '2026-08', inMinor: 0, outMinor: 40_000, leftMinor: -40_000, currency: 'AED',
+      categories: [{ category: 'gym', totalMinor: 40_000 }],
+      recent: [{ id: 't-1', line: 'gym', amountMinor: 40_000, direction: 'out', occurredOn: '2026-08-27', fromReceipt: false }],
+    }));
+    // The HEADLINE, not the page: the comment above that code says why it is
+    // shaped this way and quotes the old label, and a substring match over
+    // the whole render would read the explanation as the bug.
+    // The label as it is RENDERED — dom.ts escapes text, so "What's left"
+    // reaches the page as "What&#39;s left" and a raw catalogue string never
+    // matches it.
+    const headline = (markup: string): string => {
+      const slice = markup.slice(markup.indexOf('money__headline'), markup.indexOf('money__flow'));
+      return slice.replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+    };
+    assert.ok(headline(first).includes(t('money.spent', 'en')));
+    assert.ok(!headline(first).includes(t('money.left', 'en')), 'a first month was headlined with a figure that cannot be true yet');
+    // Both figures are still there underneath — §7 asks for all three.
+    assert.ok(first.includes(t('money.in', 'en')) && first.includes(t('money.out', 'en')));
+
+    // Once something has come in, "What's left" means something and returns.
+    const later = render(moneyScreen(me(), {
+      month: '2026-08', inMinor: 900_000, outMinor: 40_000, leftMinor: 860_000, currency: 'AED',
+      categories: [], recent: [],
+    }));
+    assert.ok(headline(later).includes(t('money.left', 'en')));
+  });
+
+  test('the first conversation does not claim a continuity that has not happened', () => {
+    // 'Still with you' above somebody's very first message. The string is
+    // correct, authored, in both languages, and wrong for that moment — the
+    // exact class of thing no copy test catches, because nothing about it
+    // looks wrong until you read it in place.
+    assert.ok(!t('mood.new.day', 'en').toLowerCase().includes('still'));
+    assert.notEqual(t('mood.new.day', 'en'), t('mood.neutral.day', 'en'));
+    assert.notEqual(t('mood.new.day', 'ar'), t('mood.neutral.day', 'ar'));
   });
 });

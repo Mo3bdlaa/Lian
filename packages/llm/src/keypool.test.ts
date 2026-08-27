@@ -1,6 +1,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { KeyPool, COOLDOWN_STATUSES, cooldownMs, type KeyPoolStore, type KeyState } from './keypool.ts';
+import { pooledProvider } from './pooled.ts';
+import { ProviderError, type Provider } from './provider.ts';
 
 /** A store standing in for the database — shared state, not module state. */
 function memoryStore(): KeyPoolStore & { states: Map<string, KeyState> } {
@@ -91,5 +93,95 @@ describe('§12 the key pool rotates and cools down', () => {
     await one.report('A', 429, NOW);
     const two = new KeyPool('anthropic', store, read);
     assert.equal(await two.take(NOW), null, 'in-process state would let the second instance through');
+  });
+});
+
+describe('the pool, joined to a provider (LESSONS §12)', () => {
+  const AT = new Date('2026-05-18T09:00:00.000Z');
+
+  /** A provider whose every call fails with one status, counted per key. */
+  function failing(statusFor: (key: string) => number | null): { provider: (key: string) => Provider; calls: string[] } {
+    const calls: string[] = [];
+    return {
+      calls,
+      provider: (key: string) => ({
+        id: `fake:${key}`,
+        capabilities: () => ({ streaming: true, toolCalling: false, vision: false, contextTokens: 1_000, maxOutputTokens: 100 }),
+        async stream() {
+          calls.push(key);
+          const status = statusFor(key);
+          if (status !== null) throw new ProviderError(`status ${status}`, status, status >= 500);
+          return { usage: { inputTokens: 1, outputTokens: 1, cacheWriteTokens: 0, cacheReadTokens: 0 }, stopReason: 'end_turn' };
+        },
+      }),
+    };
+  }
+
+  const request = { model: 'm', system: [], messages: [], maxOutputTokens: 10, effort: 'low' } as never;
+
+  test('a 429 on the first key is answered by the second', async () => {
+    // The whole point, and what was missing: KeyPool was constructed nowhere
+    // outside this file, and app.ts took modelApiKeys[0]. An operator who set
+    // ANTHROPIC_API_KEY_2 had it validated at startup and never used, so a
+    // rate-limited first key meant she stopped answering.
+    const store = memoryStore();
+    const pool = new KeyPool('anthropic', store, (ref) => ({ A: 'key-a', B: 'key-b' })[ref]);
+    await pool.prime(['A', 'B']);
+    const fake = failing((key) => (key === 'key-a' ? 429 : null));
+
+    const result = await pooledProvider(pool, fake.provider, () => AT).stream(request, () => {});
+
+    assert.equal(result.stopReason, 'end_turn');
+    assert.deepEqual(fake.calls, ['key-a', 'key-b'], 'the second key was never reached');
+    // And the first one is out of rotation, so the next call does not pay the
+    // same 429 again.
+    assert.ok(store.states.get('A')!.cooldownUntil! > AT);
+  });
+
+  test('a 400 is not retried on another key — the REQUEST is wrong', async () => {
+    const store = memoryStore();
+    const pool = new KeyPool('anthropic', store, (ref) => ({ A: 'key-a', B: 'key-b' })[ref]);
+    await pool.prime(['A', 'B']);
+    const fake = failing(() => 400);
+
+    await assert.rejects(
+      () => pooledProvider(pool, fake.provider, () => AT).stream(request, () => {}),
+      /status 400/,
+    );
+    // Sending the same bad request with a different key only spends the pool.
+    assert.deepEqual(fake.calls, ['key-a']);
+    assert.equal(store.states.get('A')?.cooldownUntil ?? null, null);
+  });
+
+  test('every key cooling down is a refusal, not a loop', async () => {
+    const store = memoryStore();
+    const pool = new KeyPool('anthropic', store, (ref) => ({ A: 'key-a', B: 'key-b' })[ref]);
+    await pool.prime(['A', 'B']);
+    const fake = failing(() => 429);
+
+    await assert.rejects(() => pooledProvider(pool, fake.provider, () => AT).stream(request, () => {}), /status 429/);
+    // Each key tried exactly once. Without that bound this is an infinite
+    // retry that looks like a hang rather than a refusal.
+    assert.deepEqual(fake.calls, ['key-a', 'key-b']);
+
+    // And with all of them cooling down, the next call says so rather than
+    // reporting somebody else's stale 429.
+    await assert.rejects(
+      () => pooledProvider(pool, fake.provider, () => AT).stream(request, () => {}),
+      /every API key is cooling down/,
+    );
+  });
+
+  test('a success clears the streak, so yesterday does not lengthen today', async () => {
+    const store = memoryStore();
+    const pool = new KeyPool('anthropic', store, () => 'key-a');
+    await pool.prime(['A']);
+    await pool.report('A', 429, AT);
+    assert.equal(store.states.get('A')!.consecutiveFails, 1);
+
+    const later = new Date(AT.getTime() + 60 * 60_000);
+    const fake = failing(() => null);
+    await pooledProvider(pool, fake.provider, () => later).stream(request, () => {});
+    assert.equal(store.states.get('A')!.consecutiveFails, 0);
   });
 });

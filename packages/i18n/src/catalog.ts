@@ -81,12 +81,17 @@ export const CATALOG = {
   'tasks.habits': { en: 'Habits', ar: 'عادات', addressee: 'none' },
   'tasks.notes': { en: 'Notes', ar: 'ملاحظات', addressee: 'none' },
   'tasks.done': { en: 'Done', ar: 'خلصت', addressee: 'none' },
+  // On the briefing, beside something she was asked to remind them about
+  // and that has no day attached. It is not "whenever": it is the reason the
+  // thing is on this list at all.
+  'briefing.no_date': { en: 'No day set', ar: 'من غير يوم', addressee: 'none' },
   'tasks.no_date': { en: 'No date', ar: 'بدون تاريخ', addressee: 'none' },
   'tasks.correct_hint': { en: 'Tap anything to correct it. Nothing here is added by a form.', ar: 'أي حاجة هنا تتصحح باللمس. ومافيش إضافة بنموذج.', addressee: 'none' },
 
   // ── money (PRD §6.5) ────────────────────────────────────────────────────
   'money.title': { en: 'Money', ar: 'المال', addressee: 'none' },
   'money.left': { en: "What's left", ar: 'المتبقي', addressee: 'none' },
+  'money.spent': { en: 'Spent this month', ar: 'المصروف الشهر ده', addressee: 'none' },
   'money.in': { en: 'In', ar: 'داخل', addressee: 'none' },
   'money.out': { en: 'Out', ar: 'خارج', addressee: 'none' },
   'money.where': { en: 'Where it went', ar: 'أكتر أربع بنود', addressee: 'none' },
@@ -634,6 +639,29 @@ export const CATALOG = {
   'app.retry': { en: 'Try again', ar: 'إعادة المحاولة', addressee: 'none' },
 
   // ── her identity, her dials, quiet hours (UI-UX §15, §23, Q13) ──────────
+  // ── language & style (UI-UX §47) ────────────────────────────────────────
+  // The eight options, in §47's exact wording, which the spec says to use
+  // EXACTLY. They were only ever authored for the model's prompt — the person
+  // choosing between them was shown the raw code, `ar-eg`, both on the
+  // capture chip and on a settings screen that did not exist.
+  'language.title': { en: 'Language & style', ar: 'اللغة والأسلوب', addressee: 'none' },
+  'language.explanation': {
+    en: "I'll write to you this way, and you can change it whenever you like.",
+    ar: 'هكتب لك بالطريقة دي، والتغيير متاح في أي وقت.',
+    addressee: 'user',
+  },
+  'language.auto': { en: 'Auto — match the user', ar: 'تلقائي — حسب أسلوبك', addressee: 'none' },
+  'language.en': { en: 'English', ar: 'الإنجليزية', addressee: 'none' },
+  'language.ar-eg': { en: 'Egyptian Arabic', ar: 'العربية المصرية', addressee: 'none' },
+  'language.ar-lv': { en: 'Levantine Arabic', ar: 'العربية الشامية', addressee: 'none' },
+  'language.ar-gulf': { en: 'Gulf Arabic', ar: 'العربية الخليجية', addressee: 'none' },
+  'language.ar-mgh': { en: 'Maghrebi Arabic', ar: 'العربية المغاربية', addressee: 'none' },
+  'language.ar-msa': { en: 'Modern Standard Arabic', ar: 'العربية الفصحى', addressee: 'none' },
+  'language.fr': { en: 'French', ar: 'الفرنسية', addressee: 'none' },
+  // §47's neutral sample, verbatim — the one line that shows what a choice
+  // sounds like rather than naming it.
+  'language.sample': { en: 'Shall I talk to you like this?', ar: 'أتكلم معك بالطريقة دي؟', addressee: 'user' },
+
   'identity.title': { en: 'Who she is', ar: 'مين هي', arMale: 'مين هو', addressee: 'none' },
   'identity.her_name': { en: 'What she is called', ar: 'اسمها', arMale: 'اسمه', addressee: 'none' },
   'identity.your_name': { en: 'What she calls you', ar: 'بتناديك بإيه', arMale: 'بيناديك بإيه', addressee: 'none' },
@@ -799,6 +827,15 @@ export const CATALOG = {
   'mood.quiet.day': { en: 'A little quiet', ar: 'هدوء شوية', addressee: 'none' },
   'mood.quiet.night': { en: 'Quiet, late', ar: 'هدوء، ووقت متأخر', addressee: 'none' },
   'mood.neutral.day': { en: 'Still with you', ar: 'موجودة معك', arMale: 'موجود معك', addressee: 'user' },
+  // The first conversation, before there is a "still".
+  //
+  // 'Still with you' is the right phrase for somebody coming back and the
+  // wrong one for somebody who has just arrived: it claims a continuity that
+  // has not happened yet, and it was the FIRST thing a new person read,
+  // above the very first message. Authored rather than suppressed — a blank
+  // where the phrase goes reads as a loading state.
+  'mood.new.day': { en: 'Getting to know you', ar: 'بتعرف عليك', arMale: 'بتعرف عليك', addressee: 'user' },
+  'mood.new.night': { en: 'Meeting you, late', ar: 'أول تعارف، ووقت متأخر', addressee: 'none' },
   'mood.neutral.night': { en: 'Late-night thoughts', ar: 'أفكار آخر الليل', addressee: 'none' },
   // PRD §27: in incognito the mood label is suppressed and the role shows
   // instead.  The label itself is authored here so nothing generates it.

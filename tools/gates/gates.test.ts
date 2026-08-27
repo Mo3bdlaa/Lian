@@ -120,6 +120,47 @@ describe('every gate objects to a deliberate violation (LESSONS §15)', () => {
     });
   });
 
+  // ── wired (§20) ───────────────────────────────────────────────────────
+  // Two seams, two cases. The fixture is small on purpose: this gate reads
+  // migrations, @lian/db, the router and main.ts, and a fixture that had to
+  // mirror the real tree would be a copy of the product.
+
+  const WIRED_BASE: Record<string, string> = {
+    'packages/db/migrations/0001_init.sql': 'CREATE TABLE widgets (id uuid PRIMARY KEY);\n',
+    'packages/db/src/repositories/widgets.ts': "export const q = `SELECT id FROM widgets`;\n",
+    'apps/web/src/router.ts':
+      "export const ROUTES = [\n  { pattern: '/', screen: 'chat' },\n  { pattern: '/money', screen: 'money' },\n];\n",
+    'apps/web/src/main.ts':
+      "const ENTRY = {\n  welcome, signUp,\n};\n"
+      + "function screenFor(screen) {\n  switch (screen) {\n    case 'money': return moneyScreen();\n    default: return chatScreen();\n  }\n}\n",
+  };
+
+  test('wired: a table a migration creates and no repository names (§20)', () => {
+    // `story_events` has held UI-UX §8's three types since migration 0001 and
+    // nothing has ever written a row — while the coverage matrix said ✅.
+    proves('wired', {
+      clean: WIRED_BASE,
+      dirty: {
+        'packages/db/migrations/0002_more.sql': 'CREATE TABLE gadgets (id uuid PRIMARY KEY);\n',
+      },
+      says: /table 'gadgets' is created by a migration and named by no repository/,
+    });
+  });
+
+  test('wired: a route with no screen renders the CONVERSATION (§20)', () => {
+    // /settings/language, exactly: in ROUTES, no case in screenFor, so the
+    // address bar said /settings/language and the conversation was on screen.
+    proves('wired', {
+      clean: WIRED_BASE,
+      dirty: {
+        'apps/web/src/router.ts':
+          "export const ROUTES = [\n  { pattern: '/', screen: 'chat' },\n  { pattern: '/money', screen: 'money' },\n"
+          + "  { pattern: '/settings/language', screen: 'language' },\n];\n",
+      },
+      says: /declares screen 'language' and screenFor has no case for it/,
+    });
+  });
+
   test('db:scoping: a `--` comment is prose, not a table reference (§11)', () => {
     // A false positive this gate actually reported. Its parser read `--`
     // comments as SQL, so a comment reading "deduced from BOTH the column it

@@ -5,3 +5,4 @@ export { MODELS, DEFAULT_MODEL, modelEntry, costMicros, turnCostMicros, typicalT
 export { budgetFor, fitHistory, estimateTokens, type Budget, type BudgetInput } from './budget.ts';
 export { ProviderError, type Provider, type CompletionRequest, type CompletionResult, type Usage } from './provider.ts';
 export { anthropicProvider } from './providers/anthropic.ts';
+export { pooledProvider } from './pooled.ts';

@@ -3,7 +3,7 @@
 // Separate from main.ts so a test can build the same application against the
 // same database with a provider that does not call an API — the routes a test
 // drives are the routes that ship, not a second table built for testing.
-import { anthropicProvider, type Provider } from '@lian/llm';
+import { anthropicProvider, pooledProvider, KeyPool, type Provider } from '@lian/llm';
 import { resolveEmbedder, type AnalysisModel, type Embedder } from '@lian/analysis';
 import { createLianServer, manifestJson, SERVICE_WORKER, PUSH_CLIENT } from '@lian/http';
 import { resolveTheme } from '@lian/design';
@@ -15,6 +15,7 @@ import { httpSpeechProvider, DEFAULT_SPEECH } from '@lian/voice';
 import { s3Store, memoryStore, type ObjectStore } from '@lian/storage';
 import { httpEmailProvider } from '@lian/email';
 import { stripeClient } from '@lian/billing';
+import { keys as keyPoolStore } from '@lian/db';
 import type { Fetcher } from '@lian/push';
 import type { Server } from 'node:http';
 import { analysisModelFrom } from './analysis.ts';
@@ -96,7 +97,27 @@ export function createApplication(config: Config, overrides: Overrides = {}): Ap
   const log = overrides.log ?? ((line: string) => { console.log(line); });
   const now = overrides.now ?? (() => new Date());
 
-  const provider = overrides.provider ?? anthropicProvider(config.modelApiKeys[0] ?? '');
+  // LESSONS §12's rotation, connected. With one key this is the single-key
+  // path with one extra round trip per call; with two it is the difference
+  // between "she stopped answering" and "the other key answered".
+  //
+  // `prime()` is deliberately NOT awaited here — createApplication is
+  // synchronous, and a pool that has not been primed yet simply has no usable
+  // key, which the first call resolves by priming and retrying. The env map is
+  // captured from config rather than read from process.env, so a test can
+  // hand it keys without setting environment variables.
+  const keyValues = new Map(config.modelKeyRefs.map((ref, index) => [ref, config.modelApiKeys[index]!]));
+  const pool = new KeyPool('anthropic', keyPoolStore, (ref) => keyValues.get(ref));
+  const primed = pool.prime(config.modelKeyRefs).catch((error: unknown) => {
+    log(`key pool could not be primed: ${(error as Error).message}`);
+  });
+  const provider = overrides.provider ?? pooledProvider({
+    // Priming is awaited on the first take rather than at construction:
+    // createApplication is synchronous, and a pool with nothing registered
+    // would refuse the first call rather than the first key.
+    take: async (at) => { await primed; return pool.take(at); },
+    report: (ref, status, at) => pool.report(ref, status, at),
+  }, anthropicProvider, now);
   const analysisModel = overrides.analysisModel ?? analysisModelFrom(provider);
   const embedder = overrides.embedder !== undefined
     ? overrides.embedder

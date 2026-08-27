@@ -738,8 +738,16 @@ export function readPorts(deps: Deps): ReadPorts {
         },
         assistant: {
           id: assistant.id, name: assistant.name, gender: assistant.gender, mood,
+          // Onboarding first: her real mood is a reading of a history that
+          // does not exist yet, and 'Still with you' above somebody's very
+          // first message claims a continuity that has not happened.
+          //
+          // (The incognito branch below is kept for the shape, but the MAIN
+          // conversation is never incognito — suppression for a thread being
+          // READ happens in the client, which is the only place that knows
+          // which thread that is.)
           moodPhrase: moodPhrase(
-            conversation?.kind === 'incognito' ? 'incognito' : mood,
+            step !== 'done' ? 'new' : conversation?.kind === 'incognito' ? 'incognito' : mood,
             timeBand(hour), language, assistant.gender,
           ),
         },
@@ -990,9 +998,24 @@ export function readPorts(deps: Deps): ReadPorts {
         today: open
           .filter((task) => task.kind === 'task' && task.dueOn === localDay)
           .map((task) => ({ id: task.id, title: task.title, done: doneToday.has(task.id) })),
-        // "Carried over" is a date that has passed, not a judgement about it.
+        // "Carried over" is a date that has passed, not a judgement about it
+        // — AND a task that never had one.
+        //
+        // An undated task used to appear in no block at all: `today` wants
+        // dueOn === localDay, this wanted dueOn !== null, and `habits` wants a
+        // recurrence. It was also invisible to outreach, whose query is
+        // `due_on = $2::date`. So "remind me to call the bank" → "I'll remind
+        // you" → a row that nothing would ever raise again, on any day,
+        // forever. She kept a promise she had no mechanism to keep, and the
+        // Tasks screen said "No date", which reads as whenever rather than
+        // never.
+        //
+        // Surfaced here rather than added to outreach on purpose: this is a
+        // screen somebody opens, and a dateless task that generated a push
+        // every morning until it was done would be the nagging LESSONS §4 is
+        // about. It comes up when she lists what is on; it does not chase.
         carriedOver: open
-          .filter((task) => task.kind === 'task' && task.dueOn !== null && task.dueOn < localDay)
+          .filter((task) => task.kind === 'task' && (task.dueOn === null || task.dueOn < localDay))
           .map((task) => ({ id: task.id, title: task.title, dueOn: task.dueOn })),
         habits: open
           .filter((task) => task.kind === 'habit')

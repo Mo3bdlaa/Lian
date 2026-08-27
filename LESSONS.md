@@ -439,3 +439,48 @@ voice note of every calendar month was transcribed and paid for, forever.
   couldn't make out that recording" — a sentence that says the product is
   broken when the truth is the feature is on the other plan. A ceiling
   enforced by returning the wrong error is a ceiling nobody can read.
+
+## 20. A feature with five of its six parts looks finished from every angle
+
+**Something declared in one place and connected in none passes every review,
+because each reviewer sees the part that is there.**
+
+Three of these were found in one afternoon of USING the product rather than
+building it, and all three had been in the repository for runs:
+
+- **The incognito role** (PRD §27). A column since migration 0001, a CHECK
+  constraint, a prompt block in the override zone, a prefix stating what a
+  role may not change, an injection test, and a create route that accepted
+  the field. No way for a person to set it, read it back, or see it.
+- **The story timeline** (UI-UX §8). `story_events` since migration 0001,
+  with the three types the spec names and an index. No repository, no route,
+  no screen, no row ever written. The coverage matrix said ✅.
+- **The key pool** (LESSONS §12's own rule). `KeyPool` implemented and
+  tested, `api_key_pool` in migration 0002, `ANTHROPIC_API_KEY_2` read and
+  validated at startup — and `anthropicProvider(modelApiKeys[0])` in the
+  composition root. A second key was configured, checked, and discarded. The
+  first key rate-limits and she stops answering.
+
+A fourth was smaller and worse: **`/settings/language` was in ROUTES with no
+case in `screenFor`**, so it fell to the default and rendered the
+CONVERSATION with `/settings/language` still in the address bar. It is where
+the onboarding capture chip points — the first correction a new person is
+offered, and it went nowhere. The router's own comment promises "a path that
+is not in that list renders the 404, not the conversation"; a path that IS in
+the list and has no screen was the case nobody had.
+
+- **No existing gate could see any of them.** Every one is well-formed on its
+  own side of a seam. A migration reviewer sees a table; a prompt reviewer
+  sees a block; a router reviewer sees a route.
+- **The matrix was the wrong instrument.** A coverage row is a claim, and it
+  was checked by the person making it.
+- `tools/gates/wired.ts` reads across two seams: every table a migration
+  creates is named by @lian/db, and every route in ROUTES has a case in
+  screenFor. Narrow on purpose. It found two of the four immediately and now
+  cannot lose them again.
+- **`story_events` is a named exemption, printed on every run**, with the
+  reason "NOT BUILT". A hole that announces itself once per CI run is a
+  different thing from a hole.
+- These were found by SIGNING UP and TALKING TO HER. Not by a test, not by a
+  gate, not by reading the specs again. `docs/FIRST-IMPRESSIONS.md` is what
+  that afternoon produced.

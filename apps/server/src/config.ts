@@ -22,6 +22,8 @@ export type Config = {
   readonly publicUrl: string;
   readonly secureCookies: boolean;
   readonly modelApiKeys: readonly string[];
+  /** The environment variable NAMES, in the same order — what the pool stores. */
+  readonly modelKeyRefs: readonly string[];
   readonly tickSecret: string | null;
   readonly vapid: { readonly publicKey: string; readonly privateKey: string; readonly subject: string } | null;
   readonly embedder: { readonly model: string; readonly apiKey: string; readonly url: string | undefined };
@@ -81,8 +83,14 @@ export function loadConfig(env: Env): { config: Config; degraded: string[] } {
   // The one value with no degraded mode: there is nowhere to put anything.
   if (databaseUrl === '') problems.push('DATABASE_URL is not set — there is no database to connect to');
 
-  const modelApiKeys = [env['ANTHROPIC_API_KEY'], env['ANTHROPIC_API_KEY_2']]
-    .filter((key): key is string => key !== undefined && key !== '');
+  // The NAMES of the variables, in order, alongside the values. The pool
+  // stores a name and never a key (packages/db/src/repositories/keys.ts), so
+  // the composition root has to know which names it is offering — and until
+  // this run nothing did: the second key was validated here and then dropped
+  // by `modelApiKeys[0]`.
+  const MODEL_KEY_REFS = ['ANTHROPIC_API_KEY', 'ANTHROPIC_API_KEY_2'] as const;
+  const modelKeyRefs = MODEL_KEY_REFS.filter((ref) => (env[ref] ?? '') !== '');
+  const modelApiKeys = modelKeyRefs.map((ref) => env[ref]!);
   if (modelApiKeys.length === 0) {
     require('ANTHROPIC_API_KEY', undefined, 'she cannot answer without a model key');
   }
@@ -175,7 +183,7 @@ export function loadConfig(env: Env): { config: Config; degraded: string[] } {
     config: {
       nodeEnv, databaseUrl, port, publicUrl,
       secureCookies: publicUrl.startsWith('https://'),
-      modelApiKeys, tickSecret: tickSecret === '' ? null : tickSecret,
+      modelApiKeys, modelKeyRefs, tickSecret: tickSecret === '' ? null : tickSecret,
       vapid: vapidPublic === '' || vapidPrivate === '' ? null : {
         publicKey: vapidPublic, privateKey: vapidPrivate,
         subject: env['LIAN_VAPID_SUBJECT'] ?? 'mailto:ops@example.com',

@@ -102,6 +102,12 @@ const COVERAGE: Record<string, Coverage[]> = {
     { where: 'tools/gates/boundaries.ts', marker: /composes INTO the prompt/ },
     { where: 'packages/capabilities/src/capabilities.test.ts', marker: /adding a capability stayed cheap/ },
   ],
+  '20': [
+    { where: 'tools/gates/wired.ts', marker: /nothing is declared in one place and connected in none/ },
+    { where: 'tools/gates/gates.test.ts', marker: /a route with no screen renders the CONVERSATION/ },
+    { where: 'packages/llm/src/pooled.ts', marker: /validated at startup, and\s*\n?\/\/ discarded|LESSONS §12's rotation, finally connected/ },
+    { where: 'docs/FIRST-IMPRESSIONS.md', marker: /./ },
+  ],
   '19': [
     { where: 'packages/db/src/repositories/usage.ts', marker: /THE INSERT NEEDS ITS OWN GUARD/ },
     { where: 'packages/db/src/repositories/limits.ts', marker: /the way somebody closes a route in a hurry/ },

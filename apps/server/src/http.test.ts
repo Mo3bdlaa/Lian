@@ -261,6 +261,35 @@ describe('the HTTP layer', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, ()
     assert.equal(response.status, 404);
   });
 
+  test('a task with no day is still somewhere she will raise it', async () => {
+    // "Remind me to call the bank." → "I'll remind you." → a row with
+    // due_on NULL, which appeared in NO briefing block (`today` wants
+    // dueOn === localDay, `carriedOver` wanted dueOn !== null, `habits`
+    // wants a recurrence) and was invisible to outreach, whose query is
+    // `due_on = $2::date`. She kept a promise she had no mechanism to keep,
+    // and the Tasks screen said "No date", which reads as whenever.
+    //
+    // Found by asking her for a reminder and then looking, which is the only
+    // way this was ever going to be found: every part of it is correct.
+    const user = await signUp(app.base);
+    const { rows } = await db().query<{ id: string }>(
+      `SELECT a.id FROM assistants a WHERE a.user_id = $1`, [user.userId],
+    );
+    await db().query(
+      `INSERT INTO tasks (user_id, kind, title, due_on, origin_assistant_id) VALUES ($1, 'task', 'call the bank', NULL, $2)`,
+      [user.userId, rows[0]!.id],
+    );
+
+    const briefing = await get(app.base, '/api/briefing', user.token);
+    assert.equal(briefing.status, 200);
+    const carried = briefing.json['carriedOver'] as { title: string; dueOn: string | null }[];
+    const found = carried.find((task) => task.title === 'call the bank');
+    assert.ok(found !== undefined, 'a task she promised to remind them about appears in no block of the briefing');
+    // Null travels, so the screen can say "No day set" rather than leaving an
+    // empty slot that reads as a rendering failure.
+    assert.equal(found.dueOn, null);
+  });
+
   // ── idempotency, on every write route ───────────────────────────────────
 
   test('a retried chat turn replays the first answer and does not pay twice', async () => {

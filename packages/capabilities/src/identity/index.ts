@@ -17,6 +17,10 @@
 import type { Capability, CaptureOutcome, ExportSlice } from '@lian/domain';
 import type { CapabilityPorts } from '../ports.ts';
 import { line } from '../copy.ts';
+// The eight names are authored once, in the catalogue, in both languages —
+// inlining them here would be a second copy of a list the spec says to use
+// exactly (UI-UX §47).
+import { t, type CopyKey } from '@lian/i18n';
 
 const LANGUAGE_STYLES = ['auto', 'en', 'ar-eg', 'ar-lv', 'ar-gulf', 'ar-mgh', 'ar-msa', 'fr'] as const;
 
@@ -82,7 +86,17 @@ export const identityCapability: Capability<CapabilityPorts> = {
       await ports.identity.setLanguage(context.userId, style);
       return {
         ok: true, entityTable: 'users', entityId: context.userId,
-        summary: { capability: 'identity', icon: 'i-language', line: style, correctionRoute: '/settings/language' },
+        // The NAME of the language, not its code. This chip is the moment
+        // she confirms what she heard — the first correction a new person is
+        // offered — and it read `ar-eg`. The eight names were authored for
+        // the model's prompt and nowhere for the person (UI-UX §47).
+        summary: {
+          capability: 'identity', icon: 'i-language',
+          // Gender is not passed: these eight are language NAMES, with no
+          // masculine variant to choose between.
+          line: t(`language.${style}` as CopyKey, context.language),
+          correctionRoute: '/settings/language',
+        },
       };
     }
 

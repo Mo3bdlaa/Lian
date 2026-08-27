@@ -93,7 +93,12 @@ export function briefingScreen(me: Snapshot, data: Briefing): Html {
           ${data.carriedOver.map((task) => html`<button class="row" data-action="open-task" data-id="${task.id}">
             ${icon('i-clock', 'sm', 'icon--muted')}
             <span class="row__label">${task.title}</span>
-            <span class="row__value">${task.dueOn === null ? '' : dateLabel(task.dueOn, language, me.user.timeZone)}</span>
+            <!-- A task that never had a date is here too, and says so:
+                 an empty value slot beside "call the bank" reads as a
+                 rendering failure rather than as an answer. -->
+            <span class="row__value">${task.dueOn === null
+              ? t('briefing.no_date', language, gender)
+              : dateLabel(task.dueOn, language, me.user.timeZone)}</span>
           </button>`)}`}
 
         ${data.habits.length === 0 ? '' : html`

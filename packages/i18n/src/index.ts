@@ -39,9 +39,13 @@ export function t(key: CopyKey, language: Language, gender: AssistantGender = 'f
  *
  * In incognito the mood label is suppressed and the role line shows instead
  * (PRD §27), so the caller passes 'incognito' and gets the label, not a mood.
+ *
+ * 'new' is the first conversation, before there is a "still" to be still
+ * with. It is a state rather than a mood, which is why it is passed in
+ * rather than derived here: only the caller knows whether onboarding is done.
  */
 export function moodPhrase(
-  mood: 'warm' | 'quiet' | 'neutral' | 'incognito',
+  mood: 'warm' | 'quiet' | 'neutral' | 'incognito' | 'new',
   band: 'day' | 'night',
   language: Language,
   gender: AssistantGender = 'female',

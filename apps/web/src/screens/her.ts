@@ -51,6 +51,42 @@ export function identityScreen(me: Snapshot, data: Settings): Html {
   `;
 }
 
+/**
+ * Language & style (UI-UX §47).
+ *
+ * This screen did not exist. `/settings/language` was in ROUTES with
+ * `screen: 'language'` and screenFor had no case for it, so it fell to the
+ * default and rendered the CONVERSATION — with the address bar still saying
+ * /settings/language. And it is the destination the onboarding language
+ * capture chip points at, which makes it the first correction a new person is
+ * offered and the first one that goes nowhere.
+ *
+ * The current choice comes from the snapshot rather than /api/settings: the
+ * snapshot already carries `languageStyle`, and a second source for the same
+ * value is a second thing to keep in step.
+ */
+export const LANGUAGE_STYLES = ['auto', 'en', 'ar-eg', 'ar-lv', 'ar-gulf', 'ar-mgh', 'ar-msa', 'fr'] as const;
+
+export function languageScreen(me: Snapshot): Html {
+  const language = me.user.language;
+  const gender = me.assistant.gender;
+  return html`
+    <h1 class="screen__title">${t('language.title', language, gender)}</h1>
+    <p class="screen__lede">${t('language.explanation', language, gender)}</p>
+    <div class="chips">
+      ${LANGUAGE_STYLES.map((style) => html`<button
+          class="chip ${me.user.languageStyle === style ? 'chip--on' : ''}"
+          data-action="set-language" data-key="${style}">
+        ${t(`language.${style}`, language, gender)}
+      </button>`)}
+    </div>
+    <!-- §47's neutral sample: what a choice SOUNDS like, rather than its
+         name. It is rendered in the language being read, so switching to
+         Arabic changes this line — which is the demonstration. -->
+    <p class="screen__lede">${t('language.sample', language, gender)}</p>
+  `;
+}
+
 export function dialsScreen(me: Snapshot, data: Settings): Html {
   const language = me.user.language;
   const gender = me.assistant.gender;

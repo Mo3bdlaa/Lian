@@ -70,9 +70,16 @@ export function moneyScreen(me: Snapshot, data: Money): Html {
     <h1 class="screen__title">${t('money.title', language, gender)}</h1>
     <div class="split">
     <div class="split__main">
+    <!-- "What's left" is in-minus-out, and it only means something once
+         something has come in. On a first month nobody has told her about
+         income, so the headline read "What's left: −AED 400" — the biggest
+         number on the screen, negative, for somebody who has mentioned one
+         payment. §7 asks for all three figures and does not say which is the
+         headline; when there is no income the headline is what went out, and
+         "What's left" waits until it is true. -->
     <div class="card money__headline">
-      <div class="money__label">${t('money.left', language, gender)}</div>
-      <div class="money__figure">${amount(data.leftMinor)}</div>
+      <div class="money__label">${t(data.inMinor === 0 ? 'money.spent' : 'money.left', language, gender)}</div>
+      <div class="money__figure">${amount(data.inMinor === 0 ? data.outMinor : data.leftMinor)}</div>
       <div class="money__flow">
         <span>${t('money.in', language, gender)} <strong>${amount(data.inMinor)}</strong></span>
         <span>${t('money.out', language, gender)} <strong>${amount(data.outMinor)}</strong></span>
@@ -103,23 +110,35 @@ export function moneyScreen(me: Snapshot, data: Money): Html {
 }
 
 /**
- * Our story (PRD §10).
+ * Our story (PRD §10, UI-UX §8).
  *
  * LESSONS §6 is what shapes this screen: the stage has a NAME and prose, and
  * there is no progress bar, no day count and no percentage — because the
- * client is never told how far through a stage they are. The footer says
- * plainly that nothing is being unlocked.
+ * client is never told how far through a stage they are.
+ *
+ * ONE STAGE, NOT FIVE. §8's words are "Show current state as prose, not
+ * progression", and this screen rendered all five stages as a list of cards,
+ * with the four not yet reached spelled out. That is a progression: a
+ * five-step ladder with named rungs, three of them locked, on the screen whose
+ * own copy says "There is nothing to unlock and nothing to lose". The page
+ * argued with itself, and the ladder won, because the ladder was the part
+ * with pictures.
+ *
+ * The view still carries all five — the server decides what is true and the
+ * client decides what to show — so this is a rendering choice, reversible in
+ * a line, and RECONCILIATIONS.md records which way it went and why.
  */
 export function storyScreen(me: Snapshot, data: Story): Html {
   const language = me.user.language;
   const gender = me.assistant.gender;
+  const now = data.stages.find((stage) => stage.current);
   return html`
     <h1 class="screen__title">${t('story.title', language, gender)}</h1>
     <p class="screen__lede">${t('story.not_a_score', language, gender)}</p>
-    ${data.stages.map((stage) => html`<article class="card stage ${stage.current ? 'stage--now' : ''}">
-      <div class="stage__name">${stage.name}</div>
-      <p class="stage__prose">${stage.prose}</p>
-    </article>`)}
+    ${now === undefined ? '' : html`<article class="card stage stage--now">
+      <div class="stage__name">${now.name}</div>
+      <p class="stage__prose">${now.prose}</p>
+    </article>`}
     <p class="screen__lede">${t('story.nothing_to_lose', language, gender)}</p>
   `;
 }
