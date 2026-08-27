@@ -13,6 +13,16 @@ export type AuthRoutePorts = MiddlewarePorts & {
   signUp(input: { email: string; password: string; timeZone: string; device: DeviceFrom; consent: { isAdult: boolean; agreed: boolean } }): Promise<{ userId: string; sessionToken: string }>;
   signIn(input: { email: string; password: string; device: DeviceFrom }): Promise<{ status: 'signed_in'; userId: string; sessionToken: string } | { status: 'held_new_device'; userId: string } | { status: 'rejected' }>;
   resolveConfirmation(input: { token: string; decision: 'confirmed' | 'denied' }): Promise<{ status: string; sessionToken?: string }>;
+  /** UI-UX §21. Always resolves the same way — see @lian/auth/recovery. */
+  /** `canEmail` is a property of the DEPLOYMENT, not of the account, so
+   *  returning it reveals nothing about whether an address is known — and it
+   *  lets the screen say "the link cannot arrive here" rather than leaving
+   *  somebody waiting for mail nothing sends. */
+  requestReset(input: { email: string; ip: string | null; userAgent: string | null }): Promise<{ status: 'accepted'; canEmail: boolean }>;
+  completeReset(input: {
+    token: string; password: string;
+    device: { fingerprint: string; userAgent: string | null; locationLabel: string | null };
+  }): Promise<{ status: string; sessionToken?: string; sessionsRevoked?: number }>;
   revokeAllSessions(userId: string): Promise<number>;
   now(): Date;
 };
@@ -86,6 +96,64 @@ export function authRoutes(ports: AuthRoutePorts, options: { secureCookies: bool
         };
       },
     },
+    {
+      method: 'POST',
+      pattern: '/api/auth/forgot',
+      handler: async (context) => {
+        const body = context.body<{ email?: string }>();
+        const email = (body.email ?? '').trim().toLowerCase();
+        // Two buckets, and the second one is the point: per IP stops a script
+        // walking a list, per ADDRESS stops a hundred IPs filling one
+        // person's inbox with links to an account they do not own.
+        await enforceRate({ bucket: `reset:ip:${context.ip}`, rule: RATE_RULES.resetRequest, now: ports.now() }, ports);
+        if (email !== '') {
+          await enforceRate({ bucket: `reset:account:${hashToken(email)}`, rule: RATE_RULES.resetRequest, now: ports.now() }, ports);
+        }
+        // No idempotency key: this is not a write the client can retry into a
+        // different outcome, and requiring one would be a header a phishing
+        // page could not produce — which is not a defence, just an obstacle
+        // for the real client.
+        const answer = await ports.requestReset({
+          email, ip: context.ip,
+          userAgent: context.headers['user-agent'] ?? null,
+        });
+        // ONE response, always. Not "if the account exists" in prose — the
+        // route has no branch, so there is nothing to time and nothing to
+        // read. An enumeration oracle is what this endpoint would otherwise
+        // be, and the whole of sign-in is already careful about that.
+        return { status: 202, json: { status: 'accepted', canEmail: answer.canEmail } };
+      },
+    },
+
+    {
+      method: 'POST',
+      pattern: '/api/auth/reset',
+      handler: async (context) => {
+        await enforceRate({ bucket: `auth:ip:${context.ip}`, rule: RATE_RULES.auth, now: ports.now() }, ports);
+        const body = context.body<{ token?: string; password?: string }>();
+        const outcome = await ports.completeReset({
+          token: body.token ?? '',
+          password: body.password ?? '',
+          device: fingerprintOf(context),
+        });
+        if (outcome.status === 'weak_password') {
+          throw new HttpError(400, 'weak_password', 'passwords need to be at least 10 characters');
+        }
+        if (outcome.status !== 'reset') {
+          // Expired, spent, or never real — one answer for all three, for the
+          // same reason the request has one answer.
+          throw new HttpError(400, 'reset_invalid', 'that link has expired or has already been used');
+        }
+        return {
+          status: 200,
+          json: { status: 'reset', sessionsRevoked: outcome.sessionsRevoked ?? 0 },
+          ...(outcome.sessionToken === undefined
+            ? {}
+            : { headers: { 'set-cookie': sessionCookie(outcome.sessionToken, options.secureCookies) } }),
+        };
+      },
+    },
+
     {
       method: 'POST',
       pattern: '/api/auth/sign-in',

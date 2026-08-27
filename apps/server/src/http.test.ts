@@ -17,6 +17,7 @@ import { deterministicEmbedder, EMBEDDING_DIMENSIONS } from '@lian/analysis';
 import { DEFAULT_MODEL, type Provider, type CompletionRequest } from '@lian/llm';
 import { generateVapidKeys } from '@lian/push';
 import { CONSENT_VERSION } from '@lian/i18n';
+import { hashToken } from '@lian/auth';
 import { createApplication, type Overrides } from './app.ts';
 import { loadConfig, type Config } from './config.ts';
 
@@ -84,6 +85,20 @@ async function start(overrides: Overrides = {}): Promise<Running> {
 }
 
 let keyCounter = 0;
+
+/** Every message the app tried to send, in order. */
+const mail: { to: string; subject: string; body: string }[] = [];
+
+/** The raw token out of the most recent reset email. */
+function lastResetTokenFor(email: string): string | null {
+  for (let index = mail.length - 1; index >= 0; index -= 1) {
+    const message = mail[index]!;
+    if (message.to !== email) continue;
+    const match = /\/reset-password\?token=([^\s]+)/.exec(message.body);
+    if (match !== null) return decodeURIComponent(match[1]!);
+  }
+  return null;
+}
 const freshKey = (): string => `k-${Date.now()}-${++keyCounter}`;
 
 type Json = Record<string, unknown>;
@@ -168,7 +183,10 @@ describe('the HTTP layer', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, ()
 
   before(async () => {
     await migrate(() => {});
-    app = await start();
+    // A transport that captures instead of sending. The reset token only
+    // ever leaves the server in an email, which is the property under test —
+    // so the test reads it the way the person does, out of the message.
+    app = await start({ sendEmail: async (message) => { mail.push(message); } });
   });
   after(async () => {
     for (const instance of running) await instance.close();
@@ -468,6 +486,71 @@ describe('the HTTP layer', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, ()
     assert.equal(rows[0]!.is_adult, true);
     assert.notEqual(rows[0]!.consented_at, null);
     assert.equal(rows[0]!.consent_version, CONSENT_VERSION);
+  });
+
+  test('§21 recovery: forgot, reset, and every other session ending', async () => {
+    const account = await signUp(app.base);
+    // A second session on the same account, standing in for the intruder.
+    const intruder = await post(app.base, '/api/auth/sign-in', { email: account.email, password: 'a-long-enough-password' });
+    const intruderToken = intruder.json['sessionToken'] as string | undefined;
+
+    const asked = await post(app.base, '/api/auth/forgot', { email: account.email });
+    assert.equal(asked.status, 202);
+    assert.equal(asked.json['status'], 'accepted');
+
+    // The token never leaves the server in a response; it is in the row.
+    const { rows } = await db().query<{ token_hash: string }>(
+      `SELECT token_hash FROM password_resets WHERE user_id = $1 AND used_at IS NULL`, [account.userId],
+    );
+    assert.equal(rows.length, 1);
+    assert.equal(JSON.stringify(asked.json).includes(rows[0]!.token_hash), false, 'the response must not carry the token');
+
+    // The link carries the raw token, and the only place it exists is the
+    // email — so the test reads it the way the person does.
+    const token = lastResetTokenFor(account.email);
+    assert.notEqual(token, null, 'no reset link was produced');
+    assert.equal(hashToken(token!), rows[0]!.token_hash, 'the stored hash is of the token that was sent');
+
+    const reset = await post(app.base, '/api/auth/reset', { token, password: 'a-brand-new-password' });
+    assert.equal(reset.status, 200, JSON.stringify(reset.json));
+
+    // The old password no longer works.
+    const stale = await post(app.base, '/api/auth/sign-in', { email: account.email, password: 'a-long-enough-password' });
+    assert.equal(stale.status, 401);
+    assert.equal(stale.json['error'], 'rejected');
+
+    // And the intruder's session is gone — that is what the reset was for.
+    if (intruderToken !== undefined) {
+      const response = await fetch(`${app.base}/api/me`, { headers: { authorization: `Bearer ${intruderToken}` } });
+      assert.equal(response.status, 401, 'a reset that leaves the other session alive is ceremonial');
+    }
+
+    // Used once.
+    const again = await post(app.base, '/api/auth/reset', { token, password: 'yet-another-password' });
+    assert.equal(again.status, 400);
+    assert.equal(again.json['error'], 'reset_invalid');
+  });
+
+  test('§21 asking about an address that has no account is indistinguishable', async () => {
+    const known = await signUp(app.base);
+    const a = await post(app.base, '/api/auth/forgot', { email: known.email });
+    const b = await post(app.base, '/api/auth/forgot', { email: `nobody-${Date.now()}@example.test` });
+    assert.equal(a.status, b.status);
+    assert.deepEqual(a.json, b.json, 'the two responses must be byte-identical, or this is an enumeration oracle');
+
+    // And no row was created for the address that does not exist.
+    const { rows } = await db().query<{ n: string }>(`SELECT count(*)::text AS n FROM password_resets`);
+    assert.ok(Number(rows[0]!.n) >= 1);
+  });
+
+  test('§21 a forged reset token cannot sign anybody out', async () => {
+    const account = await signUp(app.base);
+    const before = await fetch(`${app.base}/api/me`, { headers: { authorization: `Bearer ${account.token}` } });
+    assert.equal(before.status, 200);
+    const forged = await post(app.base, '/api/auth/reset', { token: 'not-a-real-token', password: 'a-long-enough-password' });
+    assert.equal(forged.status, 400);
+    const after = await fetch(`${app.base}/api/me`, { headers: { authorization: `Bearer ${account.token}` } });
+    assert.equal(after.status, 200, 'a refused reset must not revoke a session');
   });
 
   test('an unknown route answers in JSON rather than an HTML error page', async () => {

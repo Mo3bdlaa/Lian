@@ -21,7 +21,7 @@ export const USER_SCOPED_TABLES = [
   'assistants',
   'attachments', 'profile_notes', 'tasks', 'task_completions', 'notes', 'transactions',
   'health_entries', 'captures', 'push_subscriptions', 'quiet_hours', 'devices', 'sessions',
-  'device_confirmations', 'usage_counters', 'subscriptions',
+  'device_confirmations', 'usage_counters', 'subscriptions', 'password_resets',
 ] as const;
 
 /** Tables keyed to a single assistant. */

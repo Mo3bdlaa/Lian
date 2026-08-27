@@ -42,6 +42,14 @@ export const RATE_RULES = {
   /** Export and deletion: expensive, and nobody needs to do either twice a
    *  minute. */
   heavy: { limit: 3, windowSeconds: 3_600 },
+  /**
+   * Asking for a password reset. Deliberately tighter than `auth`, and
+   * applied per ADDRESS ASKED FOR as well as per IP: the endpoint sends mail
+   * to an address the requester names, so an unlimited one is both an
+   * enumeration oracle with a delay and a way to have somebody else's inbox
+   * filled from a hundred IPs.
+   */
+  resetRequest: { limit: 3, windowSeconds: 900 },
 } as const satisfies Record<string, RateRule>;
 
 export function hashToken(token: string): string {

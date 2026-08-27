@@ -40,12 +40,15 @@ export function signIn(state: EntryState): Html {
     submit: t('entry.sign_in', state.language),
     footnote: null,
     alternate: { href: '/sign-up', label: t('entry.create', state.language) },
+    // UI-UX §21 lists "Forgot password" as one of the account screens, and
+    // the place somebody looks for it is the screen that just refused them.
+    recover: true,
   });
 }
 
 function credentials(
   state: EntryState,
-  options: { action: string; submit: string; footnote: string | null; alternate: { href: string; label: string } },
+  options: { action: string; submit: string; footnote: string | null; alternate: { href: string; label: string }; recover?: boolean },
 ): Html {
   return html`<div class="entry">
     <form class="entry__body entry__form" data-action="${options.action}">
@@ -66,6 +69,7 @@ function credentials(
       </button>
       ${options.footnote === null ? '' : html`<p class="entry__footnote">${options.footnote}</p>`}
       <a class="button button--plain button--block" href="${options.alternate.href}" data-link>${options.alternate.label}</a>
+      ${options.recover === true ? html`<a class="button button--plain button--block" href="/forgot" data-link>${t('recover.forgot', state.language)}</a>` : ''}
     </form>
   </div>`;
 }
@@ -143,6 +147,57 @@ export function consent(state: EntryState & { adult: boolean | null; agreed: boo
         ${t('consent.continue', state.language)}
       </a>
     </div>
+  </div>`;
+}
+
+/**
+ * Account recovery (UI-UX §21).
+ *
+ * Two screens. The first says the same thing whether or not the address has
+ * an account — that sentence is the security property, not a nicety, and the
+ * screen has no branch that could contradict it.
+ */
+export function forgotPassword(state: EntryState & { sent: boolean; canEmail: boolean }): Html {
+  return html`<div class="entry">
+    <form class="entry__body entry__form" data-action="forgot">
+      ${icon('i-key', 'lg')}
+      <h1 class="entry__promise">${t('recover.title', state.language)}</h1>
+
+      ${state.sent
+        ? html`<p class="entry__detail">${t('recover.sent', state.language)}</p>
+               ${state.canEmail ? '' : html`<p class="entry__footnote">${t('recover.no_email_yet', state.language)}</p>`}`
+        : html`
+            <p class="entry__detail">${t('recover.lede', state.language)}</p>
+            <div class="field">
+              <label class="field__label" for="email">${t('entry.email', state.language)}</label>
+              <input class="field__input" id="email" name="email" type="email" autocomplete="email" inputmode="email" required>
+            </div>
+            ${state.error === null ? '' : html`<div class="field__error" role="alert">${state.error}</div>`}
+            <button class="button button--block" type="submit" ${state.busy ? html`disabled` : ''}>
+              ${state.busy ? t('action.loading', state.language) : t('recover.send', state.language)}
+            </button>`}
+
+      <a class="button button--plain button--block" href="/sign-in" data-link>${t('entry.sign_in', state.language)}</a>
+    </form>
+  </div>`;
+}
+
+export function resetPassword(state: EntryState): Html {
+  return html`<div class="entry">
+    <form class="entry__body entry__form" data-action="reset">
+      ${icon('i-key', 'lg')}
+      <h1 class="entry__promise">${t('recover.new_title', state.language)}</h1>
+      <div class="field">
+        <label class="field__label" for="password">${t('recover.new_password', state.language)}</label>
+        <input class="field__input" id="password" name="password" type="password" autocomplete="new-password" required>
+        <span class="field__label">${t('entry.password_hint', state.language)}</span>
+      </div>
+      ${state.error === null ? '' : html`<div class="field__error" role="alert">${state.error}</div>`}
+      <button class="button button--block" type="submit" ${state.busy ? html`disabled` : ''}>
+        ${state.busy ? t('action.loading', state.language) : t('recover.save', state.language)}
+      </button>
+      <a class="button button--plain button--block" href="/forgot" data-link>${t('recover.forgot', state.language)}</a>
+    </form>
   </div>`;
 }
 

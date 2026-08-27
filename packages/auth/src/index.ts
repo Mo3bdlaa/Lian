@@ -1,4 +1,8 @@
 export { hashPassword, verifyPassword } from './password.ts';
 export { newToken, hashToken, tokensMatch } from './tokens.ts';
 export { signUp, signIn, UnderageError, ConsentRequiredError, resolveDeviceConfirmation, SESSION_TTL_DAYS, CONFIRMATION_TTL_MINUTES, type SignInResult, type DeviceInfo } from './signin.ts';
-export type { AuthPorts, AuthUser, AuthDevice, AttemptOutcome } from './ports.ts';
+export type { AuthPorts, RecoveryPorts, AuthUser, AuthDevice, AttemptOutcome } from './ports.ts';
+export {
+  requestPasswordReset, completePasswordReset, RESET_TTL_MINUTES, MIN_PASSWORD_LENGTH,
+  type ResetRequest, type ResetOutcome,
+} from './recovery.ts';

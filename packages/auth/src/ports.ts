@@ -1,7 +1,11 @@
 // What the auth flow needs.  Adapted to @lian/db in the composition root.
 export type AuthUser = { id: string; email: string; passwordHash: string; timeZone: string };
 export type AuthDevice = { id: string; fingerprint: string; trustedAt: Date | null; revokedAt: Date | null };
-export type AttemptOutcome = 'success' | 'bad_password' | 'unknown_email' | 'held_new_device' | 'confirmed' | 'denied';
+export type AttemptOutcome =
+  | 'success' | 'bad_password' | 'unknown_email' | 'held_new_device' | 'confirmed' | 'denied'
+  /** Recovery (UI-UX §21). Both are shown on the security screen: a reset
+   *  somebody did not ask for is exactly what that screen is for. */
+  | 'reset_requested' | 'reset_completed';
 
 export type AuthPorts = {
   findUserByEmail(email: string): Promise<AuthUser | null>;
@@ -22,9 +26,24 @@ export type AuthPorts = {
   /** Sends the confirm/deny link.  The email is the second factor. */
   sendDeviceConfirmation(input: { userId: string; email: string; token: string; locationLabel: string | null; userAgent: string | null }): Promise<void>;
   /** Lets her raise it in chat, calmly (UI-UX §16).  Never a bank-style alert. */
-  raiseSecurityEvent(input: { userId: string; kind: 'held_new_device'; locationLabel: string | null; confirmationId: string }): Promise<void>;
+  raiseSecurityEvent(input: { userId: string; kind: 'held_new_device' | 'password_reset'; locationLabel: string | null; confirmationId: string }): Promise<void>;
   /** PRD §18's success metrics only exist if the events do.  Recorded here
    *  rather than by the caller, because the caller is where one gets
    *  forgotten. */
   recordEvent(input: { name: 'account_created' | 'session_started'; userId: string }): Promise<void>;
+};
+
+/**
+ * What recovery needs, on top of AuthPorts.
+ *
+ * Separate so that the shape of a reset is visible in one place: four
+ * operations, none of which can be used to ask whether an address has an
+ * account.
+ */
+export type RecoveryPorts = {
+  createPasswordReset(userId: string, input: { tokenHash: string; expiresAt: Date; ip: string | null; userAgent: string | null }): Promise<string>;
+  claimPasswordReset(tokenHash: string, now: Date): Promise<{ userId: string } | null>;
+  setPasswordHash(userId: string, passwordHash: string): Promise<void>;
+  /** Sends the link. Like the device confirmation, the inbox is the factor. */
+  sendPasswordReset(input: { userId: string; email: string; token: string }): Promise<void>;
 };

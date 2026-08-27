@@ -11,7 +11,8 @@
 import * as db from '@lian/db';
 import {
   signUp as authSignUp, signIn as authSignIn, resolveDeviceConfirmation,
-  type AuthPorts, type DeviceInfo,
+  requestPasswordReset, completePasswordReset, RESET_TTL_MINUTES,
+  type AuthPorts, type RecoveryPorts, type DeviceInfo,
 } from '@lian/auth';
 import {
   runTurn, promptPorts, capabilityPorts, turnPorts, absorbPort, ownershipPorts,
@@ -107,7 +108,7 @@ export function middlewarePorts(deps: Deps): MiddlewarePorts {
 
 // ── auth ──────────────────────────────────────────────────────────────────
 
-function authPorts(deps: Deps): AuthPorts {
+function authPorts(deps: Deps): AuthPorts & RecoveryPorts {
   return {
     async findUserByEmail(email) {
       const user = await db.accounts.findUserByEmail(email);
@@ -159,10 +160,42 @@ function authPorts(deps: Deps): AuthPorts {
         {
           kind: 'security', source: 'assistant_initiated', scheduledFor: deps.now(),
           // One question per confirmation, however many times a stranger
-          // retries the password.
-          dedupeKey: `security:${input.confirmationId}`,
+          // retries the password. A reset has no confirmation id, so it is
+          // keyed by the minute instead: two resets a month apart are two
+          // things worth mentioning, two in the same minute are one.
+          dedupeKey: input.confirmationId === ''
+            ? `security:${input.kind}:${deps.now().toISOString().slice(0, 16)}`
+            : `security:${input.confirmationId}`,
         },
       );
+    },
+
+    // ── recovery (UI-UX §21) ────────────────────────────────────────────
+    async createPasswordReset(userId, input) {
+      return db.auth.createPasswordReset({ userId }, input);
+    },
+    async claimPasswordReset(tokenHash, now) {
+      return db.auth.claimPasswordReset(tokenHash, now);
+    },
+    async setPasswordHash(userId, passwordHash) {
+      await db.auth.setPasswordHash({ userId }, passwordHash);
+    },
+    async sendPasswordReset(input) {
+      const link = `${deps.config.publicUrl}/reset-password?token=${encodeURIComponent(input.token)}`;
+      if (deps.sendEmail !== null) {
+        await deps.sendEmail({
+          to: input.email,
+          subject: 'Setting a new password',
+          body: `Someone asked to reset the password on your account.\n\nIf it was you: ${link}\n\nIf it was not, nothing has changed and you can ignore this. The link stops working in ${RESET_TTL_MINUTES} minutes.`,
+        });
+        return;
+      }
+      // No transport. The reset was still CREATED — the row exists and the
+      // token is valid — so a deployment that later gains a transport does
+      // not lose the request. What is missing is the delivery, and the token
+      // is not logged: a link in a log file is a credential in a log file.
+      deps.log(`password reset for ${input.userId} could not be emailed: no transport configured.`);
+      if (deps.config.logConfirmationLinks) deps.log(`[development] reset link: ${link}`);
     },
 
     async recordEvent(input) {
@@ -206,6 +239,13 @@ export function authRoutePorts(deps: Deps): AuthRoutePorts {
     signIn: (input) => authSignIn(input as { email: string; password: string; device: DeviceInfo }, ports, deps.now()),
     resolveConfirmation: (input) => resolveDeviceConfirmation(input, ports, deps.now()),
     revokeAllSessions: (userId) => ports.revokeAllSessions(userId),
+    async requestReset(input) {
+      const result = await requestPasswordReset(input, ports, deps.now());
+      // Whether this deployment has a transport at all. Not about the
+      // account, so it gives nothing away.
+      return { ...result, canEmail: deps.sendEmail !== null };
+    },
+    completeReset: (input) => completePasswordReset(input, ports, deps.now()),
   };
 }
 

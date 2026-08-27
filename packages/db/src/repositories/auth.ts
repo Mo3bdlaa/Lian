@@ -103,7 +103,11 @@ export async function revokeAllSessions(scope: UserScope, sql: Sql = db()): Prom
 }
 
 // ── attempts ──────────────────────────────────────────────────────────────
-export type AttemptOutcome = 'success' | 'bad_password' | 'unknown_email' | 'held_new_device' | 'confirmed' | 'denied';
+export type AttemptOutcome =
+  | 'success' | 'bad_password' | 'unknown_email' | 'held_new_device' | 'confirmed' | 'denied'
+  /** Recovery (UI-UX §21). Both appear on the security screen: a reset
+   *  nobody asked for is exactly what that screen exists to show. */
+  | 'reset_requested' | 'reset_completed';
 
 export async function recordAttempt(
   input: { userId: string | null; email: string; fingerprint?: string | null; locationLabel?: string | null; userAgent?: string | null; outcome: AttemptOutcome },
@@ -160,3 +164,67 @@ export async function claimConfirmation(
   );
   return rows[0] === undefined ? null : { userId: rows[0].user_id, deviceId: rows[0].device_id };
 }
+
+// ── account recovery (UI-UX §21) ──────────────────────────────────────────
+
+/**
+ * Open a reset.
+ *
+ * Every previous unused reset for this user is spent first. Two live links at
+ * once means an old one, possibly sitting in an inbox somebody else can read,
+ * still works after a newer one was requested — and "I clicked the newest
+ * link" is what a person will do.
+ */
+export async function createPasswordReset(
+  scope: UserScope,
+  input: { tokenHash: string; expiresAt: Date; ip: string | null; userAgent: string | null },
+  sql: Sql = db(),
+): Promise<string> {
+  await sql.query(
+    `UPDATE password_resets SET used_at = now() WHERE user_id = $1 AND used_at IS NULL`,
+    [scope.userId],
+  );
+  const { rows } = await sql.query<{ id: string }>(
+    `INSERT INTO password_resets (user_id, token_hash, expires_at, requested_ip, requested_agent)
+     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    [scope.userId, input.tokenHash, input.expiresAt, input.ip, input.userAgent],
+  );
+  return rows[0]!.id;
+}
+
+/**
+ * Spend a reset token, or refuse.
+ *
+ * The UPDATE is the claim: `used_at IS NULL` in the WHERE means two requests
+ * racing the same token produce exactly one winner, decided by the database
+ * rather than by a read-then-write that could interleave.
+ */
+export async function claimPasswordReset(tokenHash: string, now: Date, sql: Sql = db()): Promise<{ userId: string } | null> {
+  // db-scoping:allow-unscoped — the person following the link is not signed
+  // in, so there is no session to scope by: the single-use expiring token IS
+  // the credential, and the row it matches names the user. Scoping by a user
+  // id from the URL would mean trusting one, which is strictly worse.
+  const { rows } = await sql.query<{ user_id: string }>(
+    `UPDATE password_resets SET used_at = $2
+     WHERE token_hash = $1 AND used_at IS NULL AND expires_at > $2
+     RETURNING user_id`,
+    [tokenHash, now],
+  );
+  return rows[0] === undefined ? null : { userId: rows[0].user_id };
+}
+
+export async function setPasswordHash(scope: UserScope, passwordHash: string, sql: Sql = db()): Promise<void> {
+  await sql.query(`UPDATE users SET password_hash = $2 WHERE id = $1`, [scope.userId, passwordHash]);
+}
+
+/** Expired and spent resets. Swept by the tick — a used token that lingers is
+ *  a row somebody could try to reopen, and an expired one is dead weight. */
+export async function sweepPasswordResets(before: Date, sql: Sql = db()): Promise<number> {
+  // db-scoping:allow-unscoped — a sweep over every user's dead reset rows.
+  const { rowCount } = await sql.query(
+    `DELETE FROM password_resets WHERE expires_at < $1 OR (used_at IS NOT NULL AND used_at < $1)`,
+    [before],
+  );
+  return rowCount ?? 0;
+}
+

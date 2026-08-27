@@ -421,6 +421,39 @@ export const CATALOG = {
     addressee: 'none',
   },
 
+  // ── account recovery (UI-UX §21) ────────────────────────────────────────
+  //
+  // The copy here is careful about one thing: it never confirms whether an
+  // address has an account. "If there is an account, a link is on its way" is
+  // the whole sentence, and it is the same sentence either way.
+  'recover.forgot': { en: 'I forgot my password', ar: 'نسيت الباسورد', addressee: 'none' },
+  'recover.title': { en: 'Setting a new password', ar: 'باسورد جديد', addressee: 'none' },
+  'recover.lede': { en: 'Give the email address on the account and a link comes to it.', ar: 'اكتب إيميل الحساب وهيوصله لينك.', addressee: 'none' },
+  'recover.send': { en: 'Send the link', ar: 'ابعت اللينك', addressee: 'none' },
+  'recover.sent': {
+    en: 'If there is an account for that address, a link is on its way. It works once and stops working in half an hour.',
+    ar: 'لو في حساب على الإيميل ده، اللينك في الطريق. بيشتغل مرة واحدة وبيقف بعد نص ساعة.',
+    addressee: 'none',
+  },
+  'recover.no_email_yet': {
+    en: 'This deployment has no way to send email yet, so the link cannot arrive. Nothing is wrong with the account.',
+    ar: 'النسخة دي لسه ما بتبعتش إيميل، فاللينك مش هيوصل. مفيش حاجة غلط في الحساب.',
+    addressee: 'none',
+  },
+  'recover.new_title': { en: 'Choose a new password', ar: 'اختر باسورد جديد', addressee: 'none' },
+  'recover.new_password': { en: 'New password', ar: 'الباسورد الجديد', addressee: 'none' },
+  'recover.save': { en: 'Save it and sign in', ar: 'احفظه وسجّل الدخول', addressee: 'none' },
+  'recover.expired': {
+    en: 'That link has expired or has already been used. Asking for a new one takes a moment.',
+    ar: 'اللينك ده انتهى أو اتستخدم قبل كده. طلب واحد جديد مش هياخد وقت.',
+    addressee: 'none',
+  },
+  'recover.done': {
+    en: 'Done — you are signed in here, and every other session has ended. If someone else was signed in, they are not now.',
+    ar: 'تمام — إنت داخل هنا، وكل الجلسات التانية اتقفلت. لو كان في حد تاني داخل، مبقاش.',
+    addressee: 'none',
+  },
+
   // ── consent, the text itself (UI-UX §22) ────────────────────────────────
   // The headings and the two checkbox lines are above, with the other short
   // labels. This is the part the spec is actually about.

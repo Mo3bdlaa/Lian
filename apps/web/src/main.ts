@@ -20,7 +20,7 @@ import { head } from './components/head.ts';
 import { nav, railGroups } from './components/nav.ts';
 import { drawer } from './components/drawer.ts';
 import { chatScreen, composer, recorder, actionSheet, deleteSheet, thinking, permissionCard, installCard } from './screens/chat.ts';
-import { welcome, signUp, signIn, heldDevice, consent, legalScreen, notFound, outage } from './screens/entry.ts';
+import { welcome, signUp, signIn, heldDevice, consent, legalScreen, forgotPassword, resetPassword, notFound, outage } from './screens/entry.ts';
 import { memoryScreen, memoryEditor, memoryDeleteSheet, type Memory, type MemoryState } from './screens/memory.ts';
 import { tasksScreen, moneyScreen, storyScreen, type Task, type Note, type Money, type Story } from './screens/life.ts';
 import { healthScreen, albumScreen, type Health, type Album } from './screens/album.ts';
@@ -65,6 +65,8 @@ const ENTRY: Record<string, (state: { language: 'en' | 'ar'; error: string | nul
   // Both documents render before an account exists and after it does, from
   // the same route — somebody reads them at the gate, and looks them up again
   // from Settings a month later.
+  forgot: (state) => forgotPassword({ ...state, sent: recovery.sent, canEmail: recovery.canEmail }),
+  resetPassword,
   terms: (state) => legalScreen({ ...state, document: TERMS, back: legalBack() }),
   privacy: (state) => legalScreen({ ...state, document: PRIVACY, back: legalBack() }),
 };
@@ -72,6 +74,11 @@ const ENTRY: Record<string, (state: { language: 'en' | 'ar'; error: string | nul
 /** Back to wherever they came from: the consent gate before an account, the
  *  data screen after one. */
 const legalBack = (): string => (current().me === null ? '/consent' : '/data');
+
+/** Whether the link was asked for, and whether this deployment can send one.
+ *  The second is told by the server, so the screen can say "the link cannot
+ *  arrive" rather than leaving somebody waiting for an email nothing sends. */
+const recovery = { sent: false, canEmail: true };
 
 /** The two answers, held until sign-up sends them. Nothing is written until
  *  the account is created — an under-18 answer must not leave a trace. */
@@ -679,6 +686,18 @@ document.addEventListener('submit', (event) => {
     if (value !== '') void saveSetting({ [field]: value });
     return;
   }
+  const forgotForm = target.closest('[data-action="forgot"]') as HTMLFormElement | null;
+  if (forgotForm !== null) {
+    event.preventDefault();
+    void requestReset(String(new FormData(forgotForm).get('email') ?? ''));
+    return;
+  }
+  const resetForm = target.closest('[data-action="reset"]') as HTMLFormElement | null;
+  if (resetForm !== null) {
+    event.preventDefault();
+    void completeReset(String(new FormData(resetForm).get('password') ?? ''));
+    return;
+  }
   const profileForm = target.closest('[data-action="save-profile"]') as HTMLFormElement | null;
   if (profileForm !== null) {
     event.preventDefault();
@@ -962,6 +981,51 @@ async function boot(): Promise<void> {
 }
 
 // ── accounts ──────────────────────────────────────────────────────────────
+
+/**
+ * Ask for a reset link.
+ *
+ * The screen shows the same sentence whatever happens, INCLUDING when the
+ * request fails — a network error that revealed nothing is still nothing, and
+ * a different message here would be the enumeration oracle the endpoint was
+ * built to avoid. A rate-limit refusal is the one exception, because being
+ * told to slow down is about the requester rather than the account.
+ */
+async function requestReset(email: string): Promise<void> {
+  set({ busy: true, error: null });
+  try {
+    const answer = await post<{ status: string; canEmail?: boolean }>('/api/auth/forgot', { email });
+    recovery.canEmail = answer.canEmail !== false;
+    recovery.sent = true;
+    set({ busy: false });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 429) {
+      set({ busy: false, error: error.message });
+      return;
+    }
+    recovery.sent = true;
+    set({ busy: false });
+  }
+}
+
+async function completeReset(password: string): Promise<void> {
+  const language = document.documentElement.getAttribute('dir') === 'rtl' ? 'ar' : 'en';
+  const token = new URLSearchParams(location.search).get('token') ?? '';
+  set({ busy: true, error: null });
+  try {
+    await post('/api/auth/reset', { token, password });
+    set({ busy: false });
+    await boot();
+    go('/chat', true);
+  } catch (error) {
+    const message = error instanceof ApiError
+      ? error.code === 'weak_password' ? t('entry.weak_password', language)
+        : error.code === 'reset_invalid' ? t('recover.expired', language)
+        : error.message
+      : t('error.send_failed', language);
+    set({ busy: false, error: message });
+  }
+}
 
 async function submitCredentials(form: HTMLFormElement, route: 'sign-up' | 'sign-in'): Promise<void> {
   const data = new FormData(form);
