@@ -162,6 +162,7 @@ const COVERAGE: Record<string, Coverage[]> = {
     { where: 'tools/gates/lib.ts', marker: /Skipped by PATH, not by name/ },
     { where: 'tools/gates/gates.test.ts', marker: /the gates can see the product screens at all/ },
     { where: 'packages/capabilities/src/registry.test.ts', marker: /Eastern Arabic numerals, like every other number on the screen/ },
+    { where: 'tools/gates/formatting.ts', marker: /THE OUTCOME, NOT THE API/ },
   ],
 };
 

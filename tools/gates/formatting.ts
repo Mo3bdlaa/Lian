@@ -41,6 +41,22 @@
 // numerals. A gate that only knows one spelling of the mistake catches the
 // mistake it was written for and nothing else — so `toFixed` is checked too,
 // because it is what a hand-rolled number formatter is made of.
+//
+// THE OUTCOME, NOT THE API. That is the rule this gate is written to, and it
+// is the correction to how it was written first. A gate that says "the right
+// mechanism must only appear here" cannot see code that reaches the same
+// result WITHOUT the mechanism — and it does not report a hole, it reports a
+// tick with a plausible number beside it.
+//
+// So the rule is "a reader-facing amount, date or count is formatted in one
+// place", and the patterns below are SPELLINGS of a violation rather than a
+// definition of one. There will be a third: string concatenation, a table of
+// currency symbols, a regex on a decimal point. When it turns up it is
+// another pattern in this file — not another gate, and not an exemption.
+//
+// The question that finds the next one is: WHAT WOULD A VIOLATION LOOK LIKE
+// IF SOMEBODY AVOIDED Intl ENTIRELY? Asking it turned up the third money
+// formatter, and asking is cheaper than a screenshot.
 import { walk, rel, read, lineOf, report, ROOT, type Violation } from './lib.ts';
 
 /** The one file allowed to format for a reader. */

@@ -22,6 +22,7 @@ import { deterministicEmbedder, EMBEDDING_DIMENSIONS, type AnalysisModel } from 
 import { DEFAULT_MODEL, type Provider } from '@lian/llm';
 import { generateVapidKeys } from '@lian/push';
 import { CONSENT_VERSION } from '@lian/i18n';
+import { localDayKey, PLAN_LIMITS } from '@lian/domain';
 import { createApplication } from './app.ts';
 import { loadConfig } from './config.ts';
 import { Browser, chromiumPath } from '../../../tools/browser.ts';
@@ -604,6 +605,83 @@ describe('the app, in a browser', { skip: SKIP }, () => {
     // The thread is still incognito — clearing the role is not leaving it.
     assert.match(await page.evaluate<string>('document.querySelector(".incognito").innerText'), /Nothing here is kept/);
     assert.deepEqual(await page.errors(), []);
+  });
+
+  test('a message refused at the day\u2019s limit gives back what was typed', async () => {
+    // The bubble disappearing is CORRECT — nothing was written server-side
+    // and nothing was charged, so re-reading the window drops it. The
+    // composer having been cleared on submit is not: somebody who has just
+    // hit a wall should not also lose their sentence.
+    //
+    // Driven end to end because that is the only place it is true: the
+    // refusal comes back as an SSE event, mid-stream, and the restoration
+    // happens in a callback that no unit test reaches.
+    const page = browser!;
+    await page.goto(`${base}/chat`);
+    await page.waitFor('!!document.querySelector(".composer__input")', 10_000);
+    const userId = await page.evaluate<string>("fetch('/api/me').then((r) => r.json()).then((m) => m.user.id)");
+    const { rows: [user] } = await db().query<{ time_zone: string }>('SELECT time_zone FROM users WHERE id = $1', [userId]);
+    const today = localDayKey(new Date(), user!.time_zone);
+
+    // ONBOARDING IS A DIFFERENT SURFACE, and it does not spend the daily
+    // message budget — which is right (nobody should hit the free wall while
+    // still being asked their name) and is why the first version of this test
+    // watched a normal reply arrive and timed out waiting for a refusal.
+    //
+    // So the facts are completed directly. They are the PRECONDITION, not the
+    // thing under test: the refusal path below is still the real one.
+    await db().query(
+      `UPDATE users SET display_name = coalesce(display_name, 'Adam'),
+                        language_style = CASE WHEN language_style = 'auto' THEN 'en' ELSE language_style END,
+                        notification_prompted_at = coalesce(notification_prompted_at, now())
+       WHERE id = $1`,
+      [userId],
+    );
+    await db().query('UPDATE assistants SET named_by_user = true WHERE user_id = $1', [userId]);
+    const { rows: [assistant] } = await db().query<{ id: string }>('SELECT id FROM assistants WHERE user_id = $1 LIMIT 1', [userId]);
+    await db().query(
+      `INSERT INTO memories (assistant_id, type, statement, salience, status)
+       SELECT $1, 'fact', 'They run every morning before work.', 0.7, 'active'
+       WHERE NOT EXISTS (SELECT 1 FROM memories WHERE assistant_id = $1 AND deleted_at IS NULL)`,
+      [assistant!.id],
+    );
+    // Spend the day, through the same counter the server reads. A flag would
+    // prove a flag; this proves the refusal path.
+    await db().query(
+      `INSERT INTO usage_counters (user_id, kind, period_key, value, updated_at)
+       VALUES ($1, 'messages', $2, $3, now())
+       ON CONFLICT (user_id, kind, period_key) DO UPDATE SET value = EXCLUDED.value`,
+      [userId, today, PLAN_LIMITS.free.messagesPerDay],
+    );
+    try {
+      const words = 'one more thing before bed';
+      await page.type('.composer__input', words);
+      await page.evaluate('document.querySelector(".composer__bar").requestSubmit()');
+      await page.waitFor('!!document.querySelector(".bubble--limit")', 20_000);
+
+      // Her line arrived, in the conversation, in her voice — not a modal.
+      assert.equal(await page.evaluate('document.querySelectorAll(".sheet, dialog").length'), 0);
+      // And their sentence is back where they can reach it.
+      assert.equal(
+        await page.evaluate<string>('document.querySelector(".composer__input").value'), words,
+        'the day was refused AND the words were lost, which is two walls for the price of one',
+      );
+      // Not also left in the conversation: it was never written, and a bubble
+      // that survives a refusal is a message somebody thinks she received.
+      assert.equal(
+        await page.evaluate<number>(
+          `[...document.querySelectorAll('.chat__group--mine .bubble')].filter((b) => b.textContent === ${JSON.stringify(words)}).length`,
+        ),
+        0,
+      );
+      assert.deepEqual(await page.errors(), []);
+    } finally {
+      // The rest of the suite shares this account; leaving it at the ceiling
+      // would fail whatever runs next for a reason that has nothing to do
+      // with it.
+      await db().query(`DELETE FROM usage_counters WHERE user_id = $1 AND kind = 'messages'`, [userId]);
+      await page.evaluate('(document.querySelector(".composer__input").value = "", true)');
+    }
   });
 
   test('the PWA is installable: manifest, icons, worker', async () => {

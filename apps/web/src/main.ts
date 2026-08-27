@@ -541,6 +541,34 @@ document.addEventListener('visibilitychange', () => {
 
 // ── a turn ────────────────────────────────────────────────────────────────
 
+/**
+ * Give somebody back what they typed, when the write was REFUSED.
+ *
+ * A refusal is not a failure. Nothing was written server-side and nothing was
+ * charged, which is right — so the optimistic bubble is reconciled away when
+ * the window is re-read, which is also right. But the composer had already
+ * been cleared on submit, so the sentence vanished from both places at once:
+ * somebody who had just hit the day's limit also lost what they wrote.
+ *
+ * THE RULE, and it holds anywhere a write is refused rather than failed: if
+ * the message is not going to remain on screen, the text goes back in the
+ * box. They can copy it, or send it tomorrow.
+ *
+ * Not restored over something they have started typing while waiting — their
+ * newer sentence is the one they care about, and clobbering it would be the
+ * same mistake pointed the other way.
+ *
+ * A FAILED send is the other case and is deliberately not this: the bubble
+ * stays, marked "not sent", with a Try again beside it. The words are still
+ * on screen, so putting them in the box as well would duplicate them.
+ */
+function restoreComposer(text: string): void {
+  if (text === '') return;
+  const input = regions().composer.querySelector('.composer__input') as HTMLInputElement | null;
+  if (input === null || input.value !== '') return;
+  input.value = text;
+}
+
 async function send(text: string, attachment: { id: string; kind: string; contentType: string } | null = null): Promise<void> {
   const state = current();
   const me = state.me!;
@@ -580,11 +608,16 @@ async function send(text: string, attachment: { id: string; kind: string; conten
         } else if (event.event === 'capture') {
           hers.captures = [...hers.captures, event.data as unknown as Message['captures'][number]];
         } else if (event.event === 'limit') {
+          // A REFUSAL. The message was not written, so it will disappear when
+          // the window is re-read — and their words would disappear with it.
           set({ limitLine: String(event.data['line'] ?? '') });
+          restoreComposer(text);
         } else if (event.event === 'attachment_failed') {
           // Her sentence, in the conversation. Nothing was charged and no
-          // message was written, so the composer comes back.
+          // message was written, so the composer comes back — with what they
+          // typed still in it, for the same reason as above.
           set({ error: String(event.data['line'] ?? '') });
+          restoreComposer(text);
         } else if (event.event === 'error') {
           throw new Error(String(event.data['message'] ?? 'error'));
         }

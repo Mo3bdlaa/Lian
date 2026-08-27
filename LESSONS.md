@@ -593,3 +593,28 @@ to all fifteen gates.**
   a gate that has never been shown to fail is a gate nobody has shown to run —
   has a sibling: **a gate that has never been shown to READ something is a
   gate nobody has shown to look.**
+
+### The general form: detect the wrong shape, not the absence of the right one
+
+**Both halves above are one mistake.** The formatting gate looked for a
+*second `Intl` call* — the correct mechanism, in the wrong place. Code that
+used **no mechanism at all** was therefore not a violation to it, it was
+nothing at all. And `walk` looked for the files it had been pointed at, so a
+whole tree it never entered was not a hole, it was a healthy count.
+
+A gate written as *"the right mechanism must only appear here"* is blind to
+every implementation that reaches the same result by other means, and blind
+in the worst way — it says green, with a plausible number beside it.
+
+- **Write the rule against the OUTCOME, not the API.** "A reader-facing amount
+  is formatted in one place" is the rule. `Intl` is one spelling of it,
+  `toFixed` is another, and there will be a third — string concatenation,
+  a regex, a lookup table of symbols. Each new spelling is a new pattern in
+  the same gate, not a new gate.
+- **Ask what a violation would look like if somebody avoided the API entirely.**
+  That question is what turned up the third money formatter, and it is
+  cheaper to ask than a screenshot.
+- **This is `[a-z]+` and `--bw-1-5` again** — a pattern that matched the
+  cases in front of it and reported green on the ones it could not express.
+  The count beside a gate's tick is not evidence; it is the size of the set
+  the gate happened to look at.
