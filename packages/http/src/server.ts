@@ -21,8 +21,75 @@ export type ServerOptions = {
    * bookmarks anything.
    */
   readonly appShell?: string;
+  /**
+   * The origin this app is served from, for the cross-origin check below.
+   * Omit it and the check is skipped — which is honest for a deployment that
+   * does not know its own URL, and loud, because config.ts requires one.
+   */
+  readonly origin?: string;
   readonly onError?: (error: unknown, path: string) => void;
 };
+
+/** Methods that change something. GET and HEAD are excluded because a browser
+ *  will send a cross-site one on any navigation and refusing those breaks
+ *  every ordinary link into the app. */
+const CHANGES_SOMETHING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+/**
+ * Refuse a state-changing request that a DIFFERENT SITE sent.
+ *
+ * Belt and braces. The session cookie is already `SameSite=Lax`, which means
+ * a browser does not attach it to a cross-site POST at all — so this should
+ * never fire in a working browser. It exists because that is one mechanism,
+ * enforced by somebody else's code, and the cost of a second one is six lines.
+ *
+ * An ABSENT Origin is allowed, deliberately. It means the request did not come
+ * from a browser page: the tick, Stripe's webhook, curl, a test. Those carry
+ * their own credential — an HMAC, a signature, a bearer token — and none of
+ * them is what CSRF is about. CSRF is a browser being made to act with a
+ * cookie it holds, and a browser always sends Origin on these methods.
+ */
+function crossOrigin(request: { method?: string; headers: Record<string, unknown> }, configured: string | undefined): boolean {
+  if (!CHANGES_SOMETHING.has(request.method ?? 'GET')) return false;
+  const origin = request.headers['origin'];
+  if (typeof origin !== 'string' || origin === '') return false;
+
+  let host: string;
+  try {
+    host = new URL(origin).host;
+  } catch {
+    // An Origin that is not a URL is not one that can match anything.
+    return true;
+  }
+
+  // Compared against the request's OWN Host first, not only against the
+  // configured URL — and that ordering is the whole lesson of this function.
+  //
+  // Checking Origin against LIAN_PUBLIC_URL alone looks stricter and is a
+  // trap: any drift between what an operator configured and what a browser
+  // actually asks for — http vs https, a port, www vs apex, a proxy that
+  // rewrites the scheme — makes every write 403 while reads keep working,
+  // which presents as a total outage with no error in any log. This was
+  // caught by the browser tests going red, on a server whose configured URL
+  // was localhost and whose real one was 127.0.0.1. In production it would
+  // have been caught by nobody being able to send a message.
+  //
+  // Host is safe to compare against: in the attack this defends, the browser
+  // sets Host to the SITE BEING ATTACKED and Origin to the attacker's page,
+  // so they differ. An attacker who can control both is already the site.
+  const requestHost = request.headers['host'];
+  if (typeof requestHost === 'string' && host === requestHost) return false;
+
+  if (configured !== undefined) {
+    try {
+      if (host === new URL(configured).host) return false;
+    } catch {
+      // A configured URL that does not parse is a configuration problem, not
+      // a reason to accept a foreign origin.
+    }
+  }
+  return true;
+}
 
 /** A body this size is refused before it is read (see MAX_BODY_BYTES). */
 export function createLianServer(options: ServerOptions): Server {
@@ -58,6 +125,13 @@ export function createLianServer(options: ServerOptions): Server {
         // in the catalogue; this is the machine half.
         response.writeHead(404, { 'content-type': 'application/json' });
         response.end(JSON.stringify({ error: 'not_found' }));
+        return;
+      }
+
+      if (crossOrigin(request as unknown as { method?: string; headers: Record<string, unknown> }, options.origin)) {
+        // Before the body is read: a cross-site request should cost nothing.
+        response.writeHead(403, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ error: 'cross_origin', message: 'that request came from somewhere else' }));
         return;
       }
 

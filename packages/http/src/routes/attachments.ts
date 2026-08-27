@@ -114,7 +114,12 @@ export function attachmentRoutes(ports: AttachmentPorts): { method: 'GET' | 'POS
         const session = await requireSession(context, ports, ports.now());
         await enforceRate({ bucket: `write:${session.userId}`, rule: RATE_RULES.write, now: ports.now() }, ports);
         const result = await withIdempotency({ context, userId: session.userId, route: 'attachment:delete' }, ports, async () => {
-          return { status: 200, json: { deleted: await ports.removeAttachment({ userId: session.userId, attachmentId: context.params['id']! }) } };
+          const deleted = await ports.removeAttachment({ userId: session.userId, attachmentId: context.params['id']! });
+          // 404 for "not yours" AND for "no such id", the same as GET — a
+          // 200 saying deleted:false is a different answer for the two, and
+          // two different answers is an existence oracle.
+          if (!deleted) throw new HttpError(404, 'no_attachment', 'I cannot find that');
+          return { status: 200, json: { deleted: true } };
         });
         return { status: result.status, json: result.json };
       },

@@ -347,3 +347,60 @@ outside an aggregate or an existence check. It cannot see a filter
 applied downstream in TypeScript — that part is still judgement — but it
 makes the half that can be seen impossible to reintroduce.
 
+## 17. A scope column is not a permission check
+
+**Carrying `user_id` proves who is writing. It proves nothing about the
+id they are writing ABOUT.**
+
+`POST /api/messages/:id/reactions` wrote a row keyed
+`(message_id, user_id)`. The user id came from the session. The message
+id came from the URL and was checked against nothing. Every scope rule
+in the product was satisfied — the gate passed, the query had its
+scope column, review would have seen a correctly scoped write — and a
+stranger could write a reaction against any message id in the database.
+
+They could not read the message. What they got was an oracle for which
+ids exist and rows nobody could account for. The severity is not the
+point; the shape is. The same shape with a different table is a real
+breach, and nothing in the scoping story would have caught it either.
+
+The two questions are different and only one of them is mechanical:
+
+  WHO IS ASKING     the scope column. Structural, gated, hard to get
+                    wrong once the gate exists.
+  WHAT ARE THEY     every foreign id in the request. Judgement, every
+  ASKING ABOUT      time, on every route that takes an id.
+
+- An id from a URL or a body is an assertion by the client, exactly like
+  a body field. It gets validated in the same query that uses it —
+  `INSERT ... SELECT ... WHERE it_is_theirs`, not a separate read that a
+  later edit can drift away from.
+- "Not yours" and "does not exist" get the SAME answer. Two answers is
+  an existence oracle, and a 404 for both costs nothing.
+- The test is a second account. Not a mock, not a review: a real
+  request, with a real session, against somebody else's id. If it is not
+  in the suite, nobody has checked it.
+
+## 18. A confirmation nobody earned is worse than an error
+
+**A route that answers 200 for work it did not do teaches somebody to
+believe a thing that is not true.**
+
+`revokeDevice` was correctly scoped and returned `void`; the port
+returned a hard-coded `true`; the route answered 200. Revoking a device
+id belonging to nobody — or to somebody else — told the person on the
+SECURITY screen that a device had been signed out. Nothing had happened.
+
+That is PRD §19's "false sense of certainty" arriving on the one screen
+where being trusted matters most. An error would have been better: an
+error is retried, and a confirmation is acted on.
+
+- A write reports what it WROTE, not that it ran. `void` is the return
+  type that makes this bug possible.
+- The same rule caught a second one in the same pass: deleting an
+  attachment that was not yours answered 200 with `deleted: false`,
+  which is both a false confirmation and an existence oracle.
+- Both were found by attacking the product with a second account, which
+  is now `apps/server/src/hardening.test.ts`. Every other test in the
+  repository was written by somebody trying to make it work.
+

@@ -19,7 +19,7 @@
 import { assemblePrompt, type PromptPorts, type Surface } from '@lian/prompt';
 import { TagStream, type Provider, type TagSpec, turnCostMicros, modelEntry, budgetFor } from '@lian/llm';
 import { ownerOfTag, tagSpecs, type CapabilityPorts } from '@lian/capabilities';
-import { limitsFor, localDayKey, SUBSTANTIVE_MESSAGES_PER_QUALIFYING_DAY, type CaptureSummary, type Plan } from '@lian/domain';
+import { limitsFor, localDayKey, stripOurMarkers, SUBSTANTIVE_MESSAGES_PER_QUALIFYING_DAY, type CaptureSummary, type Plan } from '@lian/domain';
 import { t } from '@lian/i18n';
 
 export type AbsorbFn = (input: {
@@ -208,7 +208,11 @@ export async function runTurn(input: TurnInput, ports: TurnPorts, sink: TurnSink
   // worth being deliberate about.
   const finalTurn = [
     assembled.turnPrefix === '' ? null : `<<context>>\n${assembled.turnPrefix}\n<</context>>`,
-    input.userMessage,
+    // Their words, with OUR markers taken out and nothing else touched. The
+    // stored message keeps them — it is what they typed and the conversation
+    // shows it back unchanged — but a message that could close the block we
+    // opened is a message that can make its own text look like the frame.
+    input.userMessage === null ? null : stripOurMarkers(input.userMessage),
     assembled.turnSuffix === '' ? null : assembled.turnSuffix,
   ].filter((part): part is string => part !== null && part !== '').join('\n\n');
 

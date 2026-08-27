@@ -159,6 +159,9 @@ export function createApplication(config: Config, overrides: Overrides = {}): Ap
     routes: routesFor(deps),
     staticFiles: files,
     appShell: String(files['/']!.body),
+    // The origin a state-changing request must come from, when it declares
+    // one. Belt and braces behind the SameSite=Lax session cookie.
+    origin: config.publicUrl,
     onError: (error, path) => { log(`unhandled error on ${path}: ${String(error)}`); },
   });
 

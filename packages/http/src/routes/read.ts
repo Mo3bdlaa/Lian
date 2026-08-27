@@ -145,7 +145,9 @@ export type ReadPorts = MiddlewarePorts & {
     /** Only what is newer than this — the open app catching up. */
     since: { at: string; id: string } | null;
   }): Promise<{ messages: MessageView[]; hasOlder: boolean } | null>;
-  react(input: { userId: string; messageId: string; kind: string | null }): Promise<string | null>;
+  /** `ok` is false when the message is not theirs OR does not exist — the
+   *  caller turns both into a 404, so neither is an existence oracle. */
+  react(input: { userId: string; messageId: string; kind: string | null }): Promise<{ ok: boolean; reaction: string | null }>;
   deleteMessage(input: { userId: string; messageId: string; keepDerived: boolean }): Promise<{ deleted: boolean; memoriesRemoved: number }>;
   memories(input: { userId: string; query: string | null }): Promise<MemoryView[]>;
   tasks(userId: string): Promise<{ tasks: TaskView[]; notes: NoteView[] }>;
@@ -341,7 +343,12 @@ export function readRoutes(ports: ReadPorts): { method: 'GET' | 'POST' | 'PATCH'
         const session = await requireSession(context, ports, ports.now());
         await enforceRate({ bucket: `write:${session.userId}`, rule: RATE_RULES.write, now: ports.now() }, ports);
         const result = await withIdempotency({ context, userId: session.userId, route: 'revoke-device' }, ports, async () => {
-          return { status: 200, json: { revoked: await ports.revokeDevice({ userId: session.userId, deviceId: context.params['id']! }) } };
+          const revoked = await ports.revokeDevice({ userId: session.userId, deviceId: context.params['id']! });
+          // 404 for a device that is not theirs and for one that does not
+          // exist. A 200 with revoked:false is a confirmation somebody acts
+          // on — the worst answer available on a security screen.
+          if (!revoked) throw new HttpError(404, 'no_device', 'I cannot find that device');
+          return { status: 200, json: { revoked: true } };
         });
         return { status: result.status, json: result.json };
       },
@@ -394,7 +401,9 @@ export function readRoutes(ports: ReadPorts): { method: 'GET' | 'POST' | 'PATCH'
           throw new HttpError(422, 'unknown_reaction', 'that is not one of the reactions');
         }
         const result = await withIdempotency({ context, userId: session.userId, route: 'react' }, ports, async () => {
-          return { status: 200, json: { reaction: await ports.react({ userId: session.userId, messageId: context.params['id']!, kind }) } };
+          const outcome = await ports.react({ userId: session.userId, messageId: context.params['id']!, kind });
+          if (!outcome.ok) throw new HttpError(404, 'no_message', 'I cannot find that message');
+          return { status: 200, json: { reaction: outcome.reaction } };
         });
         return { status: result.status, json: result.json };
       },

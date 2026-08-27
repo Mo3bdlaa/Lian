@@ -307,20 +307,53 @@ export type Reaction = (typeof REACTIONS)[number];
  * twice removes it, which is what every messaging app has taught people a
  * second tap means.
  */
+/**
+ * React to a message, or take a reaction back.
+ *
+ * SCOPED BY ASSISTANT, not only by user, and that distinction is the whole
+ * point of this comment. The row written here is keyed (message_id, user_id),
+ * so `user_id = $1` satisfies every scope check there is — and the message_id
+ * came from a URL and was, until this was found, never checked against
+ * anything. A stranger could write a reaction row against any message id in
+ * the product: they could not READ the message, but a foreign-key violation
+ * versus a success is an oracle for which ids exist, and rows against
+ * arbitrary ids are rows nobody can account for.
+ *
+ * The INSERT ... SELECT is the fix: the row exists only if the message does
+ * AND belongs to this assistant. Returning null for "not yours" and for "no
+ * such message" is deliberate — the caller turns both into a 404.
+ *
+ * The general lesson is in LESSONS §17: carrying a scope column is not the
+ * same as validating a foreign id, and only the first of those is mechanical.
+ */
 export async function react(
-  scope: UserScope, messageId: string, kind: Reaction | null, sql: Sql = db(),
-): Promise<Reaction | null> {
+  scope: AssistantScope, messageId: string, kind: Reaction | null, sql: Sql = db(),
+): Promise<{ ok: boolean; reaction: Reaction | null }> {
   if (kind === null) {
-    await sql.query(`DELETE FROM message_reactions WHERE user_id = $1 AND message_id = $2`, [scope.userId, messageId]);
-    return null;
+    const { rowCount } = await sql.query(
+      `DELETE FROM message_reactions r
+       USING messages m
+       WHERE r.message_id = m.id AND r.user_id = $1 AND r.message_id = $2 AND m.assistant_id = $3`,
+      [scope.userId, messageId, scope.assistantId],
+    );
+    // Removing a reaction that was not there is not an error — but removing
+    // one from a message that is not theirs is not a no-op, it is a refusal.
+    if ((rowCount ?? 0) > 0) return { ok: true, reaction: null };
+    const { rows } = await sql.query(
+      `SELECT 1 FROM messages WHERE id = $1 AND assistant_id = $2 AND deleted_at IS NULL`,
+      [messageId, scope.assistantId],
+    );
+    return { ok: rows.length > 0, reaction: null };
   }
   const { rows } = await sql.query<{ kind: Reaction }>(
-    `INSERT INTO message_reactions (message_id, user_id, kind) VALUES ($2, $1, $3)
+    `INSERT INTO message_reactions (message_id, user_id, kind)
+     SELECT m.id, $1, $3 FROM messages m
+     WHERE m.id = $2 AND m.assistant_id = $4 AND m.deleted_at IS NULL
      ON CONFLICT (message_id, user_id) DO UPDATE SET kind = EXCLUDED.kind, created_at = now()
      RETURNING kind`,
-    [scope.userId, messageId, kind],
+    [scope.userId, messageId, kind, scope.assistantId],
   );
-  return rows[0]?.kind ?? null;
+  return rows[0] === undefined ? { ok: false, reaction: null } : { ok: true, reaction: rows[0].kind };
 }
 
 export async function reactionsFor(

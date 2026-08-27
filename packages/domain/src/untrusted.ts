@@ -65,6 +65,27 @@ const DIRECTIVE_SHAPES: { readonly pattern: RegExp; readonly replacement: string
  * It stays READABLE — this is not escaping, and she still needs to be able to
  * use what it says. What it loses is the ability to look like structure.
  */
+/**
+ * Take OUR framing markers out of text a person typed, and nothing else.
+ *
+ * Distinct from sanitiseRecalled on purpose, and the difference is the whole
+ * point. Recalled text is a record and gets the full treatment — directive
+ * shapes flattened, length bounded. A message somebody is sending RIGHT NOW
+ * is them speaking: flattening it would edit what they said, and they are
+ * allowed to say anything.
+ *
+ * What they are not allowed to do is close a block we opened. The turn is
+ * `<<context>> … <</context>>` then their words, and the system block tells
+ * her that only what follows the block is them speaking now. A message
+ * containing `<</context>>` could make part of their own text look like it
+ * came from the frame — so the markers come out here, at render, while the
+ * STORED message keeps them: it is what they typed, and the conversation
+ * should show it back to them unchanged.
+ */
+export function stripOurMarkers(text: string): string {
+  return text.replace(OUR_MARKERS, ' ');
+}
+
 export function sanitiseRecalled(text: string, maxLength = MAX_RECALLED_LENGTH): string {
   let out = text.replace(OUR_MARKERS, ' ');
   for (const { pattern, replacement } of DIRECTIVE_SHAPES) out = out.replace(pattern, replacement);

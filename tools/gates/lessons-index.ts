@@ -102,6 +102,14 @@ const COVERAGE: Record<string, Coverage[]> = {
     { where: 'tools/gates/boundaries.ts', marker: /composes INTO the prompt/ },
     { where: 'packages/capabilities/src/capabilities.test.ts', marker: /adding a capability stayed cheap/ },
   ],
+  '18': [
+    { where: 'packages/db/src/repositories/auth.ts', marker: /Revoke a device, and say whether one actually was/ },
+    { where: 'apps/server/src/hardening.test.ts', marker: /a stranger could \$\{attempt\.what\}|written by someone trying to get at somebody/ },
+  ],
+  '17': [
+    { where: 'packages/db/src/repositories/conversations.ts', marker: /SCOPED BY ASSISTANT, not only by user/ },
+    { where: 'apps/server/src/hardening.test.ts', marker: /every id-bearing route refuses a stranger/ },
+  ],
   '16': [
     { where: 'packages/db/src/repositories/outreach.ts', marker: /ORDER BY is not decoration/ },
     { where: 'packages/jobs/src/reflect.ts', marker: /applied after a LIMIT is how a job silently serves/ },

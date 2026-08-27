@@ -54,9 +54,27 @@ export async function trustDevice(scope: UserScope, deviceId: string, sql: Sql =
   );
 }
 
-export async function revokeDevice(scope: UserScope, deviceId: string, sql: Sql = db()): Promise<void> {
-  await sql.query(`UPDATE devices SET revoked_at = now(), trusted_at = NULL WHERE user_id = $1 AND id = $2`, [scope.userId, deviceId]);
+/**
+ * Revoke a device, and say whether one actually was.
+ *
+ * The boolean is not decoration. This returned void, the port returned a
+ * hard-coded `true`, and the route answered 200 — so revoking a device id
+ * that belonged to somebody else, or to nobody, told the person their device
+ * had been signed out when nothing had happened. The query was correctly
+ * scoped the whole time; what was wrong was the answer.
+ *
+ * On the security screen specifically, that is the "false sense of certainty"
+ * PRD §19 names as a risk: a confirmation somebody acts on is worse than an
+ * error they retry.
+ */
+export async function revokeDevice(scope: UserScope, deviceId: string, sql: Sql = db()): Promise<boolean> {
+  const { rowCount } = await sql.query(
+    `UPDATE devices SET revoked_at = now(), trusted_at = NULL WHERE user_id = $1 AND id = $2`,
+    [scope.userId, deviceId],
+  );
+  if ((rowCount ?? 0) === 0) return false;
   await sql.query(`UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND device_id = $2 AND revoked_at IS NULL`, [scope.userId, deviceId]);
+  return true;
 }
 
 export async function listDevices(scope: UserScope, sql: Sql = db()): Promise<Device[]> {

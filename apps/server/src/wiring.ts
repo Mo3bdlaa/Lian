@@ -1157,12 +1157,21 @@ export function readPorts(deps: Deps): ReadPorts {
     },
 
     async revokeDevice({ userId, deviceId }) {
-      await db.auth.revokeDevice({ userId }, deviceId);
-      return true;
+      // Whether a device was ACTUALLY revoked. Returning true regardless told
+      // people on the security screen that a device had been signed out when
+      // nothing had happened.
+      return db.auth.revokeDevice({ userId }, deviceId);
     },
 
     async react({ userId, messageId, kind }) {
-      return db.conversations.react({ userId }, messageId, kind as db.conversations.Reaction | null);
+      const assistant = await assistantOf(userId);
+      if (assistant === null) return { ok: false, reaction: null };
+      // Scoped by ASSISTANT: the message id came from a URL, and carrying a
+      // user_id on the row it writes is not the same as checking the message
+      // belongs to them (LESSONS §17).
+      return db.conversations.react(
+        { userId, assistantId: assistant.id }, messageId, kind as db.conversations.Reaction | null,
+      );
     },
 
     async deleteMessage({ userId, messageId, keepDerived }) {
