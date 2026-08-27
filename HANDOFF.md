@@ -520,6 +520,15 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
 
 ## 3. What will block me next
 
+**READY AND WAITING ON A KEY: the real-model FIRST-IMPRESSIONS run.**
+`npm run preflight model` first — four output tokens, a fraction of a cent,
+and it separates the four failures that all look like "she did not answer".
+Then the session: **≈ $0.25**, computed from the catalogue rather than
+guessed, and bounded at $3.00 by the free plan's own ceiling whatever
+happens. `docs/FIRST-RUN.md` has the arithmetic and its assumptions. This is
+the one thing in the repository that has never happened, and it is the half of
+FIRST-IMPRESSIONS that is not first-hand.
+
 **One thing needs deciding, and it is first because it is the first screen.**
 
 0. **Does she speak first?** The screenshot of a brand-new account

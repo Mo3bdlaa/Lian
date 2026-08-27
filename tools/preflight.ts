@@ -2,9 +2,15 @@
 // PREFLIGHT — the live integrations, against the real services.
 //
 //   node tools/preflight.ts            # everything that is configured
-//   node tools/preflight.ts email      # one of: email, storage, speech, stripe, push
+//   node tools/preflight.ts model      # one of: model, email, storage, speech, stripe, push
 //
-// Email is FIRST because recovery that reaches nobody is not recovery, and
+// MODEL is first, because without it she does not answer at all and every
+// other check is about a feature of a product that cannot talk. It is also
+// the cheapest thing here by a wide margin — one four-token reply, which at
+// the catalogue's prices is a fraction of a cent — so it is the right thing
+// to run before spending anything on a real session.
+//
+// Email is next because recovery that reaches nobody is not recovery, and
 // because it is the one whose first failure is almost always the same thing:
 // a sending domain nobody verified.
 //
@@ -31,6 +37,7 @@ import { s3Store, presign } from '@lian/storage';
 import { httpSpeechProvider, DEFAULT_SPEECH } from '@lian/voice';
 import { STRIPE_API_VERSION } from '@lian/billing';
 import { httpEmailProvider, EmailError } from '@lian/email';
+import { DEFAULT_MODEL } from '@lian/llm';
 import { loadConfig } from '../apps/server/src/config.ts';
 
 const only = process.argv[2] ?? 'all';
@@ -48,6 +55,67 @@ const skip = (what: string, why: string): void => { console.log(`  – ${what}  
 
 const { config, degraded } = loadConfig(process.env as Record<string, string | undefined>);
 void degraded;
+
+/**
+ * The model.
+ *
+ * ONE reply, four tokens, on the cheapest useful path. This is the check to
+ * run first when a key arrives: it costs a fraction of a cent and it
+ * distinguishes the four things that all present as "she did not answer".
+ *
+ * The status is what the KEY POOL cools down on (LESSONS §12), so the codes
+ * below are the same ones that take a key out of rotation — and if a second
+ * key is configured, this reports that too, because an operator who set
+ * ANTHROPIC_API_KEY_2 had it silently discarded until the ninth run.
+ */
+async function checkModel(): Promise<void> {
+  console.log('\nmodel');
+  if (config.modelApiKeys.length === 0) {
+    skip('model', 'ANTHROPIC_API_KEY not set — she cannot answer at all');
+    return;
+  }
+  pass('keys configured', `${config.modelApiKeys.length} (${config.modelKeyRefs.join(', ')})`);
+  if (config.modelApiKeys.length === 1) {
+    console.log('      note           one key means no rotation: a 429 stops her until it clears.');
+  }
+
+  const started = Date.now();
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': config.modelApiKeys[0]!,
+        'anthropic-version': '2023-06-01',
+      },
+      // Four tokens out, a handful in. The point is the round trip, not the
+      // answer, so it asks for the shortest possible one.
+      body: JSON.stringify({
+        model: DEFAULT_MODEL,
+        max_tokens: 4,
+        messages: [{ role: 'user', content: 'Reply with the single word: ok' }],
+      }),
+    });
+    const body = await response.text();
+
+    if (response.ok) {
+      const usage = (JSON.parse(body) as { usage?: { input_tokens?: number; output_tokens?: number } }).usage;
+      pass('one reply', `${Date.now() - started}ms, ${usage?.input_tokens ?? '?'} in / ${usage?.output_tokens ?? '?'} out, model ${DEFAULT_MODEL}`);
+      return;
+    }
+
+    // The four that all look like "she did not answer".
+    const diagnosis =
+      response.status === 401 ? ['the key is wrong or revoked', 'check ANTHROPIC_API_KEY — this is the key itself, not a permission.']
+      : response.status === 403 ? ['the key is real and not allowed to do this', 'check the key\'s permissions and the organisation it belongs to.']
+      : response.status === 429 ? ['rate limited or out of credit', 'these are DIFFERENT: read the message below. Out of credit does not clear by waiting.']
+      : response.status === 404 ? [`the model id ${DEFAULT_MODEL} was not found`, 'the id in packages/llm/catalogue.ts is not one this key can reach.']
+      : [`HTTP ${response.status}`, 'the message below is the provider\'s own.'];
+    fail('one reply', `${diagnosis[0]} — ${body.slice(0, 300)}`, diagnosis[1]!);
+  } catch (error) {
+    fail('reaching the model', String((error as Error).message), 'network, DNS, or a proxy in front of api.anthropic.com.');
+  }
+}
 
 // ── storage ────────────────────────────────────────────────────────────────
 
@@ -367,6 +435,7 @@ async function checkPush(): Promise<void> {
 async function main(): Promise<void> {
   console.log('\nLIAN — preflight');
   console.log(`${new Date().toISOString()}   NODE_ENV=${config.nodeEnv}   public url ${config.publicUrl}`);
+  if (wants('model')) await checkModel();
   if (wants('email')) await checkEmail();
   if (wants('storage')) await checkStorage();
   if (wants('speech')) await checkSpeech();

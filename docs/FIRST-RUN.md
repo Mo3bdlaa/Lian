@@ -454,3 +454,46 @@ npm run report:economics    # the free tier, every assumption named
 | `docs/DEPLOY.md` | the two processes and the database |
 | `HANDOFF.md` §2 | what has never touched a live service, and why that is a different claim from working |
 | `LESSONS.md` | eighteen rules, each of which is a bug this project actually had |
+
+## The real-model FIRST-IMPRESSIONS run
+
+Everything is ready for this; it needs one thing, which is a key.
+
+```sh
+export ANTHROPIC_API_KEY=sk-ant-...
+npm run preflight model      # do this FIRST
+```
+
+**The preflight call is four output tokens** — a fraction of a cent — and it
+separates the four things that all present as "she did not answer": a wrong
+key (401), a key that is real and not allowed (403), rate-limited vs out of
+credit (both 429, and they are different — out of credit does not clear by
+waiting), and a model id this key cannot reach (404). It also says how many
+keys are configured, because one key means no rotation.
+
+Then the session, which is the one thing in this repository that has never
+happened: sign up as a new person, talk to her, let ticks pass, come back,
+correct something, delete a memory, hit the free limit — and write down
+whether she sounds like herself.
+
+**WHAT IT COSTS, with the assumptions named.** Computed from
+`packages/llm/catalogue.ts` at Sonnet 5's priced-on-2026-06-24 rates of
+$2/$10 per million tokens, not estimated:
+
+| | |
+|---|---|
+| ~30 chat turns (9 onboarding + 20 to the free limit + 1) | **$0.14** |
+| ~60 extraction calls beside them (memory + canon per exchange) | **$0.11** |
+| **total** | **≈ $0.25** |
+| if every turn runs long and nothing caches | **≈ $0.75** |
+
+ASSUMPTIONS: a turn is 3,000 in / 200 out (`TYPICAL_TURN`), blended at
+one cache write in ten — which is the same arithmetic the free tier's $3.00
+ceiling rests on, so if this number is wrong the free tier's is wrong by the
+same factor, and that is worth knowing. An extraction call is ~600 in / 60
+out. The free plan's own monthly ceiling would stop the account at $3.00
+regardless, so **the session cannot cost more than that whatever happens.**
+
+`docs/FIRST-IMPRESSIONS.md` says in its own header which half of it is
+first-hand and which is not. The half about her voice is the half this run
+fills in.
