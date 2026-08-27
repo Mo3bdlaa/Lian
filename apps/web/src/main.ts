@@ -14,13 +14,13 @@ import { get, patch as patch_, post, remove, stream, upload, newKey, ApiError } 
 import { current, set, subscribe, type Message, type Snapshot, type State } from './state.ts';
 import { match, tabFor } from './router.ts';
 import { html, render, type Html } from './dom.ts';
-import { t } from './copy.ts';
+import { t, TERMS, PRIVACY } from './copy.ts';
 import { applyTheme as writeTheme, THEME_COOKIE, DIRECTION_COOKIE, type ThemeName } from '@lian/design';
 import { head } from './components/head.ts';
 import { nav, railGroups } from './components/nav.ts';
 import { drawer } from './components/drawer.ts';
 import { chatScreen, composer, recorder, actionSheet, deleteSheet, thinking, permissionCard, installCard } from './screens/chat.ts';
-import { welcome, signUp, signIn, heldDevice, consent, notFound, outage } from './screens/entry.ts';
+import { welcome, signUp, signIn, heldDevice, consent, legalScreen, notFound, outage } from './screens/entry.ts';
 import { memoryScreen, memoryEditor, memoryDeleteSheet, type Memory, type MemoryState } from './screens/memory.ts';
 import { tasksScreen, moneyScreen, storyScreen, type Task, type Note, type Money, type Story } from './screens/life.ts';
 import { healthScreen, albumScreen, type Health, type Album } from './screens/album.ts';
@@ -62,7 +62,16 @@ const ENTRY: Record<string, (state: { language: 'en' | 'ar'; error: string | nul
   // Consent is an entry screen even for someone who is signed in: it has no
   // header and no nav, because agreeing to something is not a place to be.
   consent: (state) => consent({ ...state, adult: consentState.adult, agreed: consentState.agreed }),
+  // Both documents render before an account exists and after it does, from
+  // the same route — somebody reads them at the gate, and looks them up again
+  // from Settings a month later.
+  terms: (state) => legalScreen({ ...state, document: TERMS, back: legalBack() }),
+  privacy: (state) => legalScreen({ ...state, document: PRIVACY, back: legalBack() }),
 };
+
+/** Back to wherever they came from: the consent gate before an account, the
+ *  data screen after one. */
+const legalBack = (): string => (current().me === null ? '/consent' : '/data');
 
 /** The two answers, held until sign-up sends them. Nothing is written until
  *  the account is created — an under-18 answer must not leave a trace. */

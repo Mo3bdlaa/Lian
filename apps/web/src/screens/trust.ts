@@ -126,6 +126,16 @@ export function dataScreen(me: Snapshot, state: DataState): Html {
           <a class="button button--block" data-action="download" href="#" download="${state.export.filename}">${t('data.download', language, gender)}</a>
         </div>`}
 
+    <div class="section">${t('legal.terms_title', language, gender)}</div>
+    <a class="row" href="/terms" data-link>
+      <span class="row__label">${t('legal.terms_title', language, gender)}</span>
+      ${icon('i-chevron', 'sm', 'icon--muted icon--flip')}
+    </a>
+    <a class="row" href="/privacy" data-link>
+      <span class="row__label">${t('legal.privacy_title', language, gender)}</span>
+      ${icon('i-chevron', 'sm', 'icon--muted icon--flip')}
+    </a>
+
     <div class="section">${t('data.delete_everything', language, gender)}</div>
     <p class="screen__lede">${t('data.delete_warning', language, gender)}</p>
     ${lines.map((line) => html`<div class="row row--static">

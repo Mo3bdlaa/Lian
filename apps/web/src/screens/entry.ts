@@ -6,7 +6,7 @@
 // and no "continue with" row, because there is no third party to continue
 // with: the account is an email and a password on your own database.
 import { html, icon, type Html } from '../dom.ts';
-import { t } from '../copy.ts';
+import { t, CONSENT_VERSION, LEGAL_REVIEWED, type LegalDocument } from '../copy.ts';
 import type { Language } from '../format.ts';
 
 type EntryState = { language: Language; error: string | null; busy: boolean };
@@ -97,6 +97,11 @@ export function consent(state: EntryState & { adult: boolean | null; agreed: boo
     <div class="entry__body entry__form">
       <h1 class="entry__promise">${t('consent.title', state.language)}</h1>
 
+      ${LEGAL_REVIEWED ? '' : html`<div class="legal__warning" role="note">
+        <div class="legal__warning-title">${t('legal.unreviewed_title', state.language)}</div>
+        <p class="consent__body">${t('legal.unreviewed_body', state.language)}</p>
+      </div>`}
+
       <div class="consent__section">
         <h2 class="consent__heading">${t('consent.what_we_keep', state.language)}</h2>
         <p class="consent__body">${t('consent.what_we_keep_body', state.language)}</p>
@@ -122,6 +127,11 @@ export function consent(state: EntryState & { adult: boolean | null; agreed: boo
         </div>
       </div>
 
+      <div class="consent__links">
+        <a class="button button--plain" href="/terms" data-link>${t('legal.terms_title', state.language)}</a>
+        <a class="button button--plain" href="/privacy" data-link>${t('legal.privacy_title', state.language)}</a>
+      </div>
+
       <button class="consent__agree" data-action="consent-agree" aria-pressed="${state.agreed ? 'true' : 'false'}">
         ${icon(state.agreed ? 'i-check-circle' : 'i-dot', 'sm')}
         <span>${t('consent.terms', state.language)}</span>
@@ -132,6 +142,39 @@ export function consent(state: EntryState & { adult: boolean | null; agreed: boo
         href="${ready ? '/sign-up' : '/consent'}" ${ready ? html`data-link` : html`aria-disabled="true"`}>
         ${t('consent.continue', state.language)}
       </a>
+    </div>
+  </div>`;
+}
+
+/**
+ * Terms and Privacy, as screens (UI-UX §22).
+ *
+ * Inside the app, not behind a link to a website — that is the spec's rule,
+ * and it is also the only version that works when somebody reads it on the
+ * consent screen before an account exists. They are entry-shaped rather than
+ * app-shaped (no header, no nav) so they render identically before and after
+ * sign-up, and the same route serves both.
+ *
+ * The banner at the top is driven by LEGAL_REVIEWED, not written into the
+ * markup, so removing it is one edit in one place and a test notices.
+ */
+export function legalScreen(state: EntryState & { document: LegalDocument; back: string }): Html {
+  return html`<div class="entry entry--long">
+    <div class="entry__body entry__form">
+      <h1 class="entry__promise">${t(state.document.title, state.language)}</h1>
+
+      ${LEGAL_REVIEWED ? '' : html`<div class="legal__warning" role="note">
+        <div class="legal__warning-title">${t('legal.unreviewed_title', state.language)}</div>
+        <p class="consent__body">${t('legal.unreviewed_body', state.language)}</p>
+      </div>`}
+
+      ${state.document.sections.map((section) => html`<div class="consent__section">
+        <h2 class="consent__heading">${t(section.heading, state.language)}</h2>
+        <p class="consent__body">${t(section.body, state.language)}</p>
+      </div>`)}
+
+      <p class="entry__footnote">${t('legal.last_updated', state.language).replace('{version}', CONSENT_VERSION)}</p>
+      <a class="button button--quiet button--block" href="${state.back}" data-link>${t('action.back', state.language)}</a>
     </div>
   </div>`;
 }

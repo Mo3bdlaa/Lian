@@ -21,6 +21,7 @@ import { db, closeDb, migrate, accounts, outreach } from '@lian/db';
 import { deterministicEmbedder, EMBEDDING_DIMENSIONS, type AnalysisModel } from '@lian/analysis';
 import { DEFAULT_MODEL, type Provider } from '@lian/llm';
 import { generateVapidKeys } from '@lian/push';
+import { CONSENT_VERSION } from '@lian/i18n';
 import { createApplication } from './app.ts';
 import { loadConfig } from './config.ts';
 import { Browser, chromiumPath } from '../../../tools/browser.ts';
@@ -221,6 +222,20 @@ describe('the app, in a browser', { skip: SKIP }, () => {
       'the terms have to be readable here, not linked to',
     );
     assert.equal(await page.evaluate('document.querySelectorAll(\'a[href^="http"]\').length'), 0);
+
+    // Both documents are reachable from the gate, BEFORE an account exists —
+    // which is the case a link to a logged-in settings page cannot serve.
+    for (const path of ['/terms', '/privacy']) {
+      await page.click(`a[href="${path}"]`);
+      await page.waitFor(`location.pathname === "${path}"`, 10_000);
+      const text = await page.evaluate<string>('document.body.innerText');
+      assert.ok(text.length > 800, `${path} is ${text.length} characters — that is not a document`);
+      assert.match(text, /lawyer/i, `${path} does not say it is unreviewed`);
+      await page.click('a[href="/consent"]');
+      await page.waitFor('location.pathname === "/consent"', 10_000);
+    }
+    // Answers survive the round trip: reading the terms must not silently
+    // reset what was already answered.
     await page.click('[data-action="consent-adult"][data-value="yes"]');
     await page.click('[data-action="consent-agree"]');
     await page.click('a[href="/sign-up"]');
@@ -229,8 +244,14 @@ describe('the app, in a browser', { skip: SKIP }, () => {
     await page.type('#password', 'a-long-enough-password');
     await page.click('button[type="submit"]');
     await page.waitFor('location.pathname === "/chat"', 15_000);
-    const { rows } = await db().query<{ id: string }>(`SELECT id FROM users WHERE email = $1`, [email]);
+    const { rows } = await db().query<{ id: string; is_adult: boolean; consent_version: string | null }>(
+      `SELECT id, is_adult, consent_version FROM users WHERE email = $1`, [email],
+    );
     created.push(rows[0]!.id);
+    // The age answer is recorded SERVER-SIDE, with the version of the text
+    // that was on screen. A checkbox nobody stored is not a consent record.
+    assert.equal(rows[0]!.is_adult, true);
+    assert.equal(rows[0]!.consent_version, CONSENT_VERSION);
     assert.equal(await page.evaluate('location.pathname'), '/chat');
     // PRD §8: onboarding is a conversation. There is no setup form on the
     // way in, and this is the assertion that keeps it that way.

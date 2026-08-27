@@ -12,14 +12,14 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { render } from './dom.ts';
 import { chatScreen, composer, permissionCard, installCard, actionSheet, deleteSheet } from './screens/chat.ts';
-import { welcome, signIn } from './screens/entry.ts';
+import { welcome, signIn, consent, legalScreen } from './screens/entry.ts';
 import { memoryScreen } from './screens/memory.ts';
 import { tasksScreen, moneyScreen, storyScreen } from './screens/life.ts';
 import { settingsScreen, securityScreen, dataScreen } from './screens/trust.ts';
 import { healthScreen, albumScreen, type Health, type Album } from './screens/album.ts';
 import { dialsScreen, quietHoursScreen, DIALS, STOPS, type Settings } from './screens/her.ts';
 import { initial, type Message, type Snapshot, type State } from './state.ts';
-import { t } from './copy.ts';
+import { t, CONSENT_VERSION, TERMS, PRIVACY, type LegalDocument } from './copy.ts';
 
 const me = (overrides: Partial<Snapshot> = {}): Snapshot => ({
   user: { id: 'u-1', name: 'Adam', timeZone: 'Asia/Dubai', languageStyle: 'en', language: 'en', plan: 'free', themePreference: 'auto' },
@@ -408,5 +408,48 @@ describe('quiet hours', () => {
     // let anyone believe otherwise.
     const markup = render(quietHoursScreen(me(), settings({ enabled: true })));
     assert.ok(markup.includes(t('quiet.security_always', 'en')));
+  });
+});
+
+// ── the legal screens (UI-UX §22) ──────────────────────────────────────────
+describe('terms and privacy are in the app, and say they are unreviewed', () => {
+  const state = (document: LegalDocument) => ({ language: 'en' as const, error: null, busy: false, document, back: '/consent' });
+
+  test('the whole document is on the screen — nothing is behind a link', () => {
+    // §22's rule. A link to a website is burying it with extra steps, and it
+    // does not work at all on the consent gate, where there is no account yet.
+    const markup = render(legalScreen(state(TERMS)));
+    for (const section of TERMS.sections) {
+      assert.ok(markup.includes(t(section.heading, 'en')), `${section.heading} is missing`);
+      assert.ok(markup.includes(t(section.body, 'en').slice(0, 40)), `${section.body} is missing`);
+    }
+    assert.ok(!markup.includes('http://') && !markup.includes('https://'), 'a legal page must not send anyone off-site');
+  });
+
+  test('both documents carry the unreviewed banner while LEGAL_REVIEWED is false', () => {
+    for (const document of [TERMS, PRIVACY]) {
+      const markup = render(legalScreen(state(document)));
+      assert.ok(markup.includes(t('legal.unreviewed_title', 'en')), `${document.id} does not say it is unreviewed`);
+    }
+  });
+
+  test('the consent gate carries it too, because that is where somebody agrees', () => {
+    const markup = render(consent({ language: 'en', error: null, busy: false, adult: null, agreed: false }));
+    assert.ok(markup.includes(t('legal.unreviewed_title', 'en')));
+    assert.ok(markup.includes('href="/terms"'));
+    assert.ok(markup.includes('href="/privacy"'));
+  });
+
+  test('the version is on the page, so an agreement can be dated by looking', () => {
+    assert.ok(render(legalScreen(state(PRIVACY))).includes(CONSENT_VERSION));
+  });
+
+  test('an under-18 answer is a plain no with nothing else on the screen', () => {
+    const markup = render(consent({ language: 'en', error: null, busy: false, adult: false, agreed: false }));
+    // The copy has an apostrophe and render() escapes it, so the assertion
+    // is on a distinctive fragment rather than the whole authored string.
+    assert.ok(markup.includes('Nothing has been created and nothing was kept'));
+    assert.ok(!markup.includes('data-action="consent-agree"'), 'there is nothing left to agree to');
+    assert.ok(!markup.includes('href="/sign-up"'), 'and no way onward');
   });
 });

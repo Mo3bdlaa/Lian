@@ -302,6 +302,125 @@ export const CATALOG = {
   'album.more': { en: 'Older', ar: 'أقدم', addressee: 'none' },
   'album.close': { en: 'Close', ar: 'إغلاق', addressee: 'none' },
 
+  // ══════════════════════════════════════════════════════════════════════
+  // LEGAL — TERMS AND PRIVACY.  UI-UX §22: "Do not bury legal text behind
+  // external links", so both documents live here, in the catalogue, in both
+  // languages, and are rendered as screens inside the app.
+  //
+  // NONE OF THIS HAS BEEN READ BY A LAWYER.
+  //
+  // Every key below is listed in NEEDS_LEGAL_REVIEW (packages/i18n/src/legal.ts)
+  // and a test fails the build if a document section is added without being
+  // listed. What is written here is an accurate, plain-language description
+  // of what the software actually does — which is the part I can be sure of,
+  // and the part a lawyer needs in order to write the part I cannot. It is
+  // not a contract, it is a specification of one.
+  //
+  // The screens say so at the top, in both languages, where a reader sees it
+  // rather than where only a developer would.
+  // ══════════════════════════════════════════════════════════════════════
+  'legal.unreviewed_title': { en: 'Not yet reviewed by a lawyer', ar: 'لسه ما اتراجعش قانونيًا', addressee: 'none' },
+  'legal.unreviewed_body': {
+    en: 'This is an accurate description of what the app does, written by the people who built it. It has not been reviewed by a lawyer and is not a finished legal document. It will be replaced before this is offered to anyone outside the people testing it.',
+    ar: 'ده وصف دقيق للي بيحصل جوه التطبيق، مكتوب من اللي بنوه. ما اتراجعش من محامي ومش وثيقة قانونية نهائية. هيتغير قبل ما التطبيق يتعرض على أي حد بره اللي بيجربوه.',
+    addressee: 'none',
+  },
+  'legal.last_updated': { en: 'Version {version}', ar: 'الإصدار {version}', addressee: 'none' },
+
+  'legal.terms_title': { en: 'Terms', ar: 'الشروط', addressee: 'none' },
+  'legal.terms_what_h': { en: 'What this is', ar: 'ده إيه', addressee: 'none' },
+  'legal.terms_what_b': {
+    en: 'Lian is an assistant you talk to. It remembers what you tell it, keeps track of things you mention — tasks, spending, notes, meals, movement — and can message you first. It is software, not a person, and not a professional of any kind: it is not medical, legal or financial advice, and it should not be relied on as any of those.',
+    ar: 'ليان مساعِدة بتتكلم معاها. بتفتكر اللي بتقوله، وبتسجل الحاجات اللي بتذكرها — مهام، مصاريف، ملاحظات، أكل، حركة — وممكن تبدأ الكلام. دي برمجيات، مش إنسان، ومش مختص في أي مجال: مش استشارة طبية ولا قانونية ولا مالية، وما ينفعش الاعتماد عليها كده.',
+    addressee: 'none',
+  },
+  'legal.terms_account_h': { en: 'The account', ar: 'الحساب', addressee: 'none' },
+  'legal.terms_account_b': {
+    en: 'One account, one email address, one password. Anyone who has the password can read everything in it, so the password matters. A sign-in from a device the account has not seen before is held until it is confirmed. Accounts are for people aged 18 or over.',
+    ar: 'حساب واحد، إيميل واحد، باسورد واحد. أي حد معاه الباسورد يقدر يقرا كل اللي فيه، فالباسورد مهم. تسجيل الدخول من جهاز جديد بيتوقف لحد التأكيد. الحسابات لمن عمرهم ١٨ سنة أو أكتر.',
+    addressee: 'none',
+  },
+  'legal.terms_use_h': { en: 'What not to do with it', ar: 'اللي ما ينفعش', addressee: 'none' },
+  'legal.terms_use_b': {
+    en: 'Do not use it to break the law, to harm anyone, or to store other people\u2019s information without their knowing. Do not attempt to reach another account\u2019s data. Automated access, resale, and attempts to extract the underlying model\u2019s instructions are all out of bounds.',
+    ar: 'ما ينفعش الاستخدام في مخالفة القانون، ولا في إيذاء حد، ولا في تخزين بيانات ناس تانية من غير علمهم. وما ينفعش محاولة الوصول لبيانات حساب تاني. الوصول الآلي، وإعادة البيع، ومحاولات استخراج تعليمات النموذج — كلها ممنوعة.',
+    addressee: 'none',
+  },
+  'legal.terms_paid_h': { en: 'The paid plan', ar: 'الخطة المدفوعة', addressee: 'none' },
+  'legal.terms_paid_b': {
+    en: 'One plan, billed monthly through Stripe. Cancelling stops the next renewal; everything already paid for stays until the period ends, and the account then returns to the free plan with nothing deleted. Payment details are handled by Stripe and never reach this service.',
+    ar: 'خطة واحدة، بتتحاسب شهريًا عن طريق Stripe. الإلغاء بيوقف التجديد الجاي؛ اللي اتدفع يفضل شغال لحد ما الفترة تخلص، وبعدين الحساب يرجع للخطة المجانية من غير ما يتمسح حاجة. بيانات الدفع بتتعامل معاها Stripe وما بتوصلش للخدمة دي أبدًا.',
+    addressee: 'none',
+  },
+  'legal.terms_ending_h': { en: 'Ending it', ar: 'الإنهاء', addressee: 'none' },
+  'legal.terms_ending_b': {
+    en: 'The account can be deleted at any time, from inside the app, and deletion removes the conversations, the memories, the captured records and the stored files. It is not reversible and there is no grace period in which it could be undone.',
+    ar: 'الحساب ممكن يتمسح في أي وقت من جوه التطبيق، والمسح بيشيل المحادثات والذكريات والسجلات والملفات المتخزنة. مفيش رجوع، ومفيش فترة سماح يتلغي فيها المسح.',
+    addressee: 'none',
+  },
+  'legal.terms_warranty_h': { en: 'What is not promised', ar: 'اللي مش مضمون', addressee: 'none' },
+  'legal.terms_warranty_b': {
+    en: 'The service is provided as it is. It can be wrong, it can be unavailable, and a language model can state something false with complete confidence. Nothing here is a guarantee that a reminder will arrive, that a figure is correct, or that the service will keep running.',
+    ar: 'الخدمة بتتقدم زي ما هي. ممكن تغلط، وممكن تكون مش متاحة، ونموذج اللغة ممكن يقول حاجة غلط بثقة كاملة. مفيش ضمان إن تذكير هيوصل، ولا إن رقم صح، ولا إن الخدمة هتفضل شغالة.',
+    addressee: 'none',
+  },
+  'legal.terms_changes_h': { en: 'Changes to these terms', ar: 'تغيير الشروط', addressee: 'none' },
+  'legal.terms_changes_b': {
+    en: 'These terms carry a version, and the version agreed to is recorded with the account. If they change, the new version has to be agreed to before it applies — a change here does not silently reinterpret an agreement already made.',
+    ar: 'الشروط دي ليها إصدار، والإصدار اللي اتوافق عليه بيتسجل مع الحساب. لو اتغيرت، لازم الموافقة على الإصدار الجديد قبل ما يسري — التغيير مش بيعيد تفسير موافقة قديمة في الهدوء.',
+    addressee: 'none',
+  },
+
+  'legal.privacy_title': { en: 'Privacy', ar: 'الخصوصية', addressee: 'none' },
+  'legal.privacy_what_h': { en: 'What is collected', ar: 'اللي بيتجمع', addressee: 'none' },
+  'legal.privacy_what_b': {
+    en: 'An email address and a password hash. Everything said in a conversation, and what the assistant remembers from it. What is captured: tasks, transactions, notes, meals, workouts. Photos and voice notes that are sent. A device fingerprint and the time and rough location of each sign-in, so an unfamiliar one can be flagged. Counts of messages, model spend, speech seconds and bytes stored, for the plan limits.',
+    ar: 'إيميل وباسورد متشفّر. كل اللي بيتقال في المحادثات، واللي المساعِدة بتفتكره منه. واللي بيتسجل: مهام، معاملات، ملاحظات، أكل، تمارين. الصور والرسايل الصوتية المرسلة. بصمة الجهاز ووقت وموقع تقريبي لكل تسجيل دخول، عشان الغريب يبان. وأعداد الرسايل وتكلفة النموذج وثواني الصوت والبايتات المتخزنة، عشان حدود الخطة.',
+    addressee: 'none',
+  },
+  'legal.privacy_why_h': { en: 'Why', ar: 'ليه', addressee: 'none' },
+  'legal.privacy_why_b': {
+    en: 'To answer, to remember, and to enforce the limits of the plan. Nothing is collected for advertising, and nothing is sold. There is no analytics product embedded in the app and no third-party tracker.',
+    ar: 'عشان الرد، وعشان التذكر، وعشان تطبيق حدود الخطة. مفيش حاجة بتتجمع لإعلانات، ومفيش حاجة بتتباع. مفيش أداة تحليلات مدمجة ولا متتبّع طرف تالت.',
+    addressee: 'none',
+  },
+  'legal.privacy_who_h': { en: 'Who else sees it', ar: 'مين تاني بيشوفها', addressee: 'none' },
+  'legal.privacy_who_b': {
+    en: 'Four services, each for one job: a model provider, which receives the conversation in order to answer it; a speech provider, which receives a voice note in order to transcribe it and the text of a reply in order to speak it; an object store, which holds photos and audio; and Stripe, which handles payment. None of them is given the data to train on. Nobody at this company reads conversations, and there is no internal screen that could show them.',
+    ar: 'أربع خدمات، كل واحدة لشغلانة واحدة: مزود النموذج، وبياخد المحادثة عشان يرد؛ ومزود الصوت، وبياخد الرسالة الصوتية عشان يحوّلها كلام، والرد عشان ينطقه؛ ومخزن الملفات، وبيحتفظ بالصور والصوت؛ وStripe، وبتتعامل مع الدفع. ولا واحدة فيهم بتاخدها للتدريب. مفيش حد في الشركة بيقرا المحادثات، ومفيش شاشة داخلية تقدر تعرضها.',
+    addressee: 'none',
+  },
+  'legal.privacy_long_h': { en: 'How long', ar: 'لحد إمتى', addressee: 'none' },
+  'legal.privacy_long_b': {
+    en: 'Until the account is deleted, except: an incognito conversation is kept only while it is open and goes with the thread; an upload that never completes is swept within the hour; and audio the assistant generated is cached by the text it says rather than by who asked for it, so it holds no reference to an account and is not removed with one.',
+    ar: 'لحد ما الحساب يتمسح، بإستثناء: المحادثة السرية بتفضل وقت ما تكون مفتوحة بس وبتروح مع المحادثة؛ والرفع اللي ما اكتملش بيتشال خلال ساعة؛ والصوت اللي المساعِدة عملته بيتخزن حسب نص الكلام مش حسب مين طلبه، فمفيش فيه إشارة لأي حساب ومش بيتشال معاه.',
+    addressee: 'none',
+  },
+  'legal.privacy_rights_h': { en: 'What can be done about it', ar: 'اللي ممكن يتعمل', addressee: 'none' },
+  'legal.privacy_rights_b': {
+    en: 'Every memory and every captured record can be corrected or deleted from inside the app. Everything can be exported as a single file. The account and everything in it can be deleted, and the deletion removes the stored files as well as the database rows.',
+    ar: 'كل ذكرى وكل سجل ممكن يتعدل أو يتمسح من جوه التطبيق. وكل حاجة ممكن تتصدّر في ملف واحد. والحساب وكل اللي فيه ممكن يتمسح، والمسح بيشيل الملفات المتخزنة زي ما بيشيل صفوف قاعدة البيانات.',
+    addressee: 'none',
+  },
+  'legal.privacy_children_h': { en: 'Children', ar: 'الأطفال', addressee: 'none' },
+  'legal.privacy_children_b': {
+    en: 'This is not for anyone under 18. Age is confirmed before an account can be made, and an account discovered to belong to a child is deleted.',
+    ar: 'ده مش لأي حد تحت ١٨. السن بيتأكد قبل ما الحساب يتعمل، وأي حساب يتبيّن إنه لطفل بيتمسح.',
+    addressee: 'none',
+  },
+  'legal.privacy_security_h': { en: 'Security', ar: 'الأمان', addressee: 'none' },
+  'legal.privacy_security_b': {
+    en: 'Passwords are stored hashed, never in a form that can be read back. Sessions are cookies that expire. A sign-in from an unrecognised device is held until confirmed, and every attempt is recorded so it can be shown. This is not a claim that the service cannot be breached.',
+    ar: 'الباسوردات بتتخزن متشفّرة، مش بصيغة ممكن تترجع. الجلسات كوكيز بتنتهي. وتسجيل الدخول من جهاز غير معروف بيتوقف لحد التأكيد، وكل محاولة بتتسجل عشان تتعرض. ده مش ادعاء إن الخدمة ما ينفعش تتخترق.',
+    addressee: 'none',
+  },
+  'legal.privacy_contact_h': { en: 'Getting in touch', ar: 'التواصل', addressee: 'none' },
+  'legal.privacy_contact_b': {
+    en: 'There is no support address yet, because there is nobody staffing one. When there is, it belongs here — and a privacy notice that names an address nobody reads would be worse than one that says so.',
+    ar: 'مفيش عنوان دعم لحد دلوقتي، لأن مفيش حد شغال عليه. لما يبقى فيه، مكانه هنا — وإشعار خصوصية بيدي عنوان محدش بيقراه أسوأ من واحد بيقول الحقيقة.',
+    addressee: 'none',
+  },
+
   // ── consent, the text itself (UI-UX §22) ────────────────────────────────
   // The headings and the two checkbox lines are above, with the other short
   // labels. This is the part the spec is actually about.

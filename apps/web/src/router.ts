@@ -35,6 +35,8 @@ export const ROUTES: readonly Route[] = [
   { pattern: '/notes/:id', screen: 'tasks' },
   { pattern: '/welcome', screen: 'welcome' },
   { pattern: '/consent', screen: 'consent' },
+  { pattern: '/terms', screen: 'terms' },
+  { pattern: '/privacy', screen: 'privacy' },
   { pattern: '/outage', screen: 'outage' },
   { pattern: '/sign-in', screen: 'signIn' },
   { pattern: '/sign-up', screen: 'signUp' },
