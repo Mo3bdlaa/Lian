@@ -1,5 +1,13 @@
 # HANDOFF
 
+**Setting the accounts up? [`docs/ACCOUNTS.md`](docs/ACCOUNTS.md).** Nine
+services in the order that lets them be done in one sitting, with what blocks
+what said at the top: the domain blocks email (the key works, delivery does
+not, until DNS verifies the sending domain) and the deployed URL blocks
+Stripe's webhook secret. Two of the nine are not accounts at all — `npm run
+keys vapid|tick` produces them, and people look for a Web Push console that
+does not exist.
+
 Ninth run. **Read `docs/FIRST-IMPRESSIONS.md` first.** It is the only document
 here written from outside the machinery — I signed up, talked to her, and
 wrote down what it was actually like. Four holes and five wrong sentences came
@@ -17,13 +25,16 @@ a misclassification on its first live call, which is the whole argument for it.
 **CI IS GREEN.** It was red for seventeen consecutive runs and the cause was
 one line: `postgres:16` ships no pgvector, so migration 0003 died and every
 database-backed test with it. `npm run verify` is green too: typecheck (server
-and browser), **14 gates**, **675 tests**, including 19 that drive real
-Chromium, 26 that prove each gate FAILS on a deliberate violation, and 27 that
+and browser), **15 gates**, **685 tests**, including 19 that drive real
+Chromium, 29 that prove each gate FAILS on a deliberate violation, and 27 that
 attack the product with a second account.
 
-**`npm run shots` photographs 95 screens** into `docs/shots/`, with seven gaps
+**`npm run shots` photographs 98 screens** into `docs/shots/`, with six gaps
 listed rather than skipped. Start there — reading HTML is not looking at a
-product, and four things were wrong in ways only a picture showed.
+product, and SIX things have now been wrong in ways only a picture showed.
+Three of the six remaining gaps are headless Chromium's limits and will never
+close from a terminal: an OS lock-screen notification, the browser's own
+install dialog, and the microphone.
 
 **`npm run test:ci` reads the summary, because the summary can lie.** Four
 runs of HANDOFF have said "read the test summary, not the exit code", on the
@@ -40,7 +51,58 @@ that too.
 
 ---
 
-## 0. What the tenth run did
+## 0. What the eleventh run did
+
+### She speaks first, and it is not generated
+
+Day one was silent: the positioning is "she texts you first" and nothing ran
+until the user typed. `greeting.first` is now authored in both languages and
+both assistant genders, written by the sign-up route, and ends by asking their
+name — so the real conversation starts from a reply, where there is finally
+something to respond to. **Not a model call**: there is no context to generate
+from on turn zero, and a call per sign-up buys nothing.
+
+It also resolved a contradiction in her own instruction, which claimed the
+greeting was "the very first thing they will read from you" while nothing
+produced one. The first thing they read exists; it just is not generated.
+
+### The approaching-limit line, which had been authored and unread since run one
+
+UI-UX §19 asks for a quiet line as the free day runs down. `limit.approaching`
+existed in both languages, `messagesRemaining` travelled in every snapshot,
+and **no screen put the two together** — LESSONS §20 again, five of six parts.
+The state is computed server-side (`messagesState`), not from a threshold in
+the client: a client that knew `remaining <= 5` would be a second place the
+free tier is defined.
+
+The "Free limit" row of the matrix had **no shots at all**, and its gap note
+claimed the reached state was captured. It was not. Both states are now
+photographed from a real `usage_counters` row, and the reached one is driven
+by actually submitting a message and being refused.
+
+### A third copy of formatting, and a hole under every gate
+
+The Arabic screenshot showed the capture chip reading `AED 400 · جيم · ٢٤
+أغسطس` — Latin digits beside Eastern numerals, under a bubble saying ٤٠٠ درهم.
+A third money formatter, hand-rolled, invisible to the formatting gate because
+that gate watched for a second `Intl` call and this one used none. The gate now
+checks `toFixed` too, with `FIXED_POINT` as the named allowlist.
+
+Then the worse one. `walk` skipped any directory named `screens`, for
+`design-system/screens` — and the name also matched `apps/web/src/screens`, so
+**twenty files of product UI were invisible to all fifteen gates** and nothing
+said so, because a gate's file count counts what it can see. Skipping by path
+instead immediately found `chat.ts` building a day key with its own `Intl`
+call. LESSONS §23.
+
+### docs/ACCOUNTS.md
+
+The nine services, ordered by what blocks what, with a test that keeps the
+env-var list true in both directions. Its own first draft lived in `docs/` and
+was collected by no glob — the exact failure `tools/ci-test.ts` exists for,
+happening to the test that catches it.
+
+## 0a. What the tenth run did
 
 ### CI, so green means green
 
@@ -79,7 +141,7 @@ as a printed "NOT BUILT" exemption, which is what an announced hole is for.
 `tools/gates/wired.ts` grew a third seam. The document has overclaimed twice;
 now a row with neither a screenshot nor a stated gap fails the build.
 
-## 0a. What the ninth run did
+## 0b. What the ninth run did
 
 ### It used the product
 
@@ -117,7 +179,7 @@ PRD §27 is built on both sides now. And every one of the eight PlanLimits
 fields is enforced — seven by a comparison in code, the eighth by the
 reservation above, which is how §19 was found.
 
-## 0b. What the eighth run built
+## 0c. What the eighth run built
 
 ### Consent, terms and privacy — the mechanism, not the wording
 
@@ -202,7 +264,7 @@ and says which. Verified against a real S3 endpoint: it correctly reported
 
 ---
 
-## 0c. What the seventh run built
+## 0d. What the seventh run built
 
 ### Object storage, and the two features it unblocked
 
@@ -355,6 +417,18 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
     shortest a file of that size can honestly be. Both err in stated
     directions. Migration 0015 adds the column, nullable.
 
+15a. **Her opening is a catalogue string, written at sign-up.** Reversing it
+    means either an empty first screen again or a model call per account, and
+    the rows are already written for everybody who has signed up — a change
+    of wording does not reach them. It ends by asking their name because the
+    reply is what the real conversation starts from; the greeting itself has
+    nothing to respond to.
+15b. **The free tier's end-of-day STATE is computed server side**, not a
+    threshold applied in the client (`messagesState`). A client that knew
+    `remaining <= 5` would be a second place the free tier is defined, and
+    the two would eventually disagree about where the day ends. Reversing it
+    is cheap in code and expensive in what it re-opens.
+
 ### Expensive — a public contract
 
 11. **The Stripe API version is pinned** (`2024-06-20`). An account whose
@@ -370,7 +444,17 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
     obeyed in part. A role that is shown and not in effect is worse than a
     refusal — the person finds out three answers later.
 13. **The capability registry's sixth consumer, `describe()`.** A captured
-    row reads back in the language it is being read in NOW.
+    row reads back in the language it is being read in NOW — including its
+    AMOUNT, which for eleven runs it did not: the chip carried its own
+    formatter and put `AED 400` in Latin digits inside an Arabic screen.
+13a. **Reader-facing formatting is `packages/i18n/src/format.ts` and nowhere
+    else**, and the gate now knows two spellings of a violation — a second
+    `Intl` call and a hand-rolled `toFixed`. Amounts render with the
+    currency's own precision and a non-breaking space (`AED\u00a0400.00`),
+    which is Intl's and is right: an amount must not wrap between its
+    currency and its number. Every test that said `AED 400` says the full
+    form now. Reversing it means picking which of two answers is the real
+    one, which is the state this replaced.
 14. **The API shape**, now with: attachments (three-step upload, a 302 to a
     short-lived signed URL for reads), `/api/search`, `/api/briefing`,
     `/api/profile`, `/api/health`, `/api/album`, `/api/settings`,
@@ -529,27 +613,24 @@ happens. `docs/FIRST-RUN.md` has the arithmetic and its assumptions. This is
 the one thing in the repository that has never happened, and it is the half of
 FIRST-IMPRESSIONS that is not first-hand.
 
-**One thing needs deciding, and it is first because it is the first screen.**
+**DECIDED, and it was neither of the two options this section offered.** She
+speaks first, and the opening is AUTHORED — `greeting.first`, in both
+languages and both assistant genders, written by the sign-up route, ending by
+asking their name. Not a model call: there is nothing to generate from on turn
+zero. Not a rewritten instruction either: the instruction was right and the
+product was wrong. `docs/shots/onboarding-greet-ltr.png` is now a person
+saying hello.
 
-0. **Does she speak first?** The screenshot of a brand-new account
-   (`docs/shots/onboarding-greet-ltr.png`) is an empty conversation saying
-   *"We haven't talked yet. I'm here when you're ready."* Her greeting — the
-   thing FIRST-IMPRESSIONS §1 calls the best part of the product — only
-   happens in reply to the person's first message. Meanwhile the instruction
-   she is given for that step reads **"This is the very first thing they will
-   read from you."** It is not.
+**One thing left that is a decision rather than a key.**
 
-   Two ways to make it true, and it is your call because it is a product
-   decision with a cost:
-   (a) **Run a turn at sign-up** on the onboarding surface with no user
-       message — the proactive path already does this. Costs one model call
-       per account, and changes the app on first open from a text box into a
-       person.
-   (b) **Change the instruction** to say she is answering rather than
-       opening, and accept an empty first screen.
-
-   I did not pick, because (a) spends money on every sign-up and (b) gives up
-   something the product is arguably for.
+0. **A refused message loses what the person typed.** Send at the day's limit
+   and the optimistic bubble is reconciled away — nothing was written server
+   side, correctly — so their sentence disappears from the conversation AND
+   from the composer, which was cleared on submit. `limit-reached-ltr.png`
+   shows the result: her line, and no sign of what they said. The right
+   behaviour is probably to put the text back in the composer, but "probably"
+   is why it is here: it could also be that the message should stand in the
+   conversation as unsent, the way a failed send does. Small either way.
 
 **Everything else here is a key, a device, or a person.**
 
@@ -582,27 +663,36 @@ it felt like.
    *was that me?* and offers nothing to decide with. Needs a User-Agent parse
    and an IP-to-city lookup — the second is a third-party service and a
    privacy decision, not a patch.
-8. **"Message limit approaching" is not shown anywhere.** UI-UX §19 asks for
-   a quiet indicator near the end. `messagesRemaining` travels in every
-   snapshot and no screen reads it, so you find out at zero.
-9. **`transactions.receipt_id` is never written**, so UI-UX §7's "receipt
-   attached / view receipt" cannot be built and a row cannot say where it came
-   from. Threading the attachment id from `prepareAttachment` through the turn
-   into the `<spend>` handler is the fix. The gate prints it every run.
+8. ~~**"Message limit approaching" is not shown anywhere.**~~ DONE this run.
+   A quiet line above the composer, from a server-computed state, in both
+   languages: `limit-approaching-ltr.png`, `limit-approaching-rtl.png`.
+9. ~~**`transactions.receipt_id` is never written.**~~ DONE last run. Written
+   through the turn, `fromReceipt` reads it, and a test asserts a row
+   claiming a receipt has one.
 10. **The first briefing is a money figure and four empty lists.** The rule
     producing it is right — she has written no line, and the screen refuses
     to invent her voice. The screen is still somebody's first meeting with
     the product's second-biggest idea.
-11. **Money has no "her observation"** (UI-UX §7). Not in the view at all.
+11. **Money has no "her observation"** (UI-UX §7). Not in the view at all, so
+    the screen is figures and a list with nothing of her on it. It is one of
+    three remaining screenshot gaps that are missing FEATURES rather than
+    missing pictures — with `story_events`' `moment`/`inside_joke` (a control
+    tag, because deciding something WAS a moment is a judgement only she can
+    make) and the album grid (which needs bytes in a real object store, not
+    rows in a seed).
+12. **A refused message loses the person's text** — see §3.0. Found by
+    photographing the reached state, which nothing had ever done.
 
 ## 4. Where to look
 
 ```sh
 npm run up                      # migrate, server, ticker
-npm run verify                  # typecheck, 14 gates, 675 tests
+npm run verify                  # typecheck, 15 gates, 685 tests
 #   export DATABASE_URL first, or 137 of them SKIP without saying so
-npm run shots                   # 95 screenshots into docs/shots/, gaps listed
+npm run shots                   # 98 screenshots into docs/shots/, gaps listed
 npm run preflight               # the five live integrations, each diagnosed
+npm run keys vapid              # the two credentials nothing issues
+npm run keys tick               #   — see docs/ACCOUNTS.md step 7
 npm run report                  # retention and cost, with their definitions
 node tools/preview.ts 8790      # the app, with a model that costs nothing
 npm run report:economics        # the free tier, every assumption named
@@ -610,6 +700,7 @@ npm run report:economics        # the free tier, every assumption named
 
 | File | Why |
 |---|---|
+| `docs/ACCOUNTS.md` | the nine external services, ordered by what blocks what |
 | `docs/FIRST-RUN.md` | what to do on hardware, in order, and what each failure looks like |
 | `apps/server/src/hardening.test.ts` | the product attacked, rather than exercised |
 | `tools/preflight.ts` | the four live integrations, and how each one fails |
