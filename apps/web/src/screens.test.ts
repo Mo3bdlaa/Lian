@@ -169,7 +169,7 @@ describe('every screen speaks both languages', () => {
     ['memory', render(memoryScreen({ me: arabic, memories: [], query: '', filter: 'all', editing: null, deleting: null }))],
     ['tasks', render(tasksScreen(arabic, { tasks: [], notes: [] }))],
     ['money', render(moneyScreen(arabic, { month: '2026-05', inMinor: 0, outMinor: 0, leftMinor: 0, currency: 'AED', categories: [], recent: [] }))],
-    ['story', render(storyScreen(arabic, { now: 'الآن', footer: 'ملاحظة', stages: [] }))],
+    ['story', render(storyScreen(arabic, { now: 'الآن', footer: 'ملاحظة', stages: [], timeline: [] }))],
     ['settings', render(settingsScreen(arabic))],
     ['security', render(securityScreen(arabic, { devices: [], attempts: [] }))],
     ['data', render(dataScreen(arabic, { export: null, confirming: false, typed: '', busy: false }))],
@@ -211,6 +211,7 @@ describe('what the screens must not contain (PRD §14, §10)', () => {
     const markup = render(storyScreen(me(), {
       now: 'You know the shape of their week.', footer: 'Nothing to unlock.',
       stages: [{ key: 'getting_acquainted', name: 'Getting acquainted', prose: 'Names, days.', current: true }],
+      timeline: [],
     }));
     // A percentage, a day count or a streak would each turn a relationship
     // into a score. Her prose may say the word "days"; a NUMBER of them is
@@ -232,6 +233,7 @@ describe('what the screens must not contain (PRD §14, §10)', () => {
         { key: 'finding_a_rhythm', name: 'Finding a rhythm', prose: 'We are finding a rhythm.', current: true },
         { key: 'noticing_without_asking', name: 'Noticing without asking', prose: 'I notice patterns now.', current: false },
       ],
+      timeline: [],
     }));
     assert.ok(markup.includes('Finding a rhythm'));
     assert.ok(!markup.includes('Noticing without asking'), 'a stage they have not reached was shown as a rung ahead of them');

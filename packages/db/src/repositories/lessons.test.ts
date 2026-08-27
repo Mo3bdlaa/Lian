@@ -14,6 +14,7 @@ import * as conversations from './conversations.ts';
 import * as captures from './captures.ts';
 import * as usage from './usage.ts';
 import * as limits from './limits.ts';
+import * as story from './story.ts';
 import { nextStage, STAGE_THRESHOLDS } from '@lian/domain';
 
 describe('LESSONS, enforced by the database', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, () => {
@@ -291,6 +292,33 @@ describe('LESSONS, enforced by the database', { skip: HAS_DB ? false : 'DATABASE
     assert.equal((await limits.takeToken(bucket, 60, 2, now)).allowed, true);
     assert.equal((await limits.takeToken(bucket, 60, 2, now)).allowed, true);
     assert.equal((await limits.takeToken(bucket, 60, 2, now)).allowed, false, 'the third took a token it did not have');
+  });
+
+  test('§11 a stage milestone is written once, however many days pass', async () => {
+    // Derived milestones are re-derived on a schedule that runs every day
+    // forever. Without the key, "you reached Finding a rhythm" is written
+    // again every night and a timeline of the relationship becomes a
+    // timeline of the loop.
+    const user = await freshUser();
+    const scope = await freshAssistant(user);
+
+    for (let day = 0; day < 5; day += 1) {
+      await story.record(scope, {
+        type: 'milestone', titleKey: 'stage.finding_a_rhythm.name',
+        occurredAt: new Date(`2026-05-${18 + day}T09:00:00Z`), dedupeKey: 'stage:2',
+      });
+    }
+    const timeline = await story.timeline(scope, { limit: 50 });
+    assert.equal(timeline.length, 1, 'a milestone was written more than once');
+    // And the FIRST one wins: a milestone that already happened does not
+    // change, and re-titling one retroactively rewrites somebody's history
+    // under them.
+    assert.equal(timeline[0]!.occurredAt.toISOString(), '2026-05-18T09:00:00.000Z');
+    assert.equal(timeline[0]!.derived, true, 'a keyed row must read back as derived, or it renders a key');
+
+    // Deletion is real (§11): a timeline is somebody's year.
+    assert.equal(await story.purge(scope), 1);
+    assert.equal((await story.timeline(scope, { limit: 50 })).length, 0);
   });
 
   // ── LESSONS §11, scoping ────────────────────────────────────────────────

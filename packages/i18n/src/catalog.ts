@@ -102,6 +102,18 @@ export const CATALOG = {
   // ── our story (PRD §10) ─────────────────────────────────────────────────
   'story.title': { en: 'Our story', ar: 'قصتنا', addressee: 'none' },
   'story.not_a_score': { en: "Closeness isn't a score. It's what's been said, and how often it turned out to matter later.", ar: 'القرب مش رقم. هو اللي اتقال، وكم مرة طلع مهم بعد كده.', addressee: 'none' },
+  // UI-UX §8's timeline. Milestones only — see StoryView, and HANDOFF for
+  // what is not written.
+  // The first row on the timeline, written at sign-up. Deliberately not a
+  // date — the card carries that — and deliberately not "you joined": what
+  // the screen is about is the two of them, not an account being created.
+  'story.began': { en: 'We started talking', ar: 'ابتدينا نتكلم', addressee: 'none' },
+  'story.timeline': { en: 'What has happened', ar: 'اللي حصل', addressee: 'none' },
+  'story.timeline_empty': {
+    en: 'Nothing to look back on yet. This fills in as we go.',
+    ar: 'لسه مفيش حاجة نرجعلها. ده بيتكوّن مع الوقت.',
+    addressee: 'none',
+  },
   'story.nothing_to_lose': { en: 'There is nothing to unlock and nothing to lose. If you delete things, we go back a step, and that is fine.', ar: 'مافيش حاجة تُفتح ولا حاجة تُخسر. لو حاجة اتحذفت، نرجع خطوة، وده عادي.', addressee: 'none' },
 
   // ── settings (UI-UX §12) ────────────────────────────────────────────────

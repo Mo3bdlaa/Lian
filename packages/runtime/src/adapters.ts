@@ -254,8 +254,34 @@ export function turnPorts(userId: string): import('./turn.ts').TurnPorts['turn']
     async creditQualifyingDay(assistantId, localDay) {
       const scope = scopeFor(assistantId);
       const current = await db.relationship.get(scope);
-      await db.relationship.creditQualifyingDay(scope, localDay, (days) => nextStage(current?.stage ?? 1, days));
+      const after = await db.relationship.creditQualifyingDay(
+        scope, localDay, (days) => nextStage(current?.stage ?? 1, days),
+      );
+
+      // UI-UX §8's timeline. A stage reached is the one milestone the product
+      // KNOWS — no model call, no judgement, nothing to promise. The words
+      // are the stage's own name from the catalogue, so the timeline reads in
+      // the language it is being read in.
+      //
+      // Written here rather than in the repository because choosing the words
+      // is not a repository's job (LESSONS §13), and idempotent on
+      // `dedupeKey` because this runs on every qualifying day forever: without
+      // it, a timeline of the relationship becomes a timeline of the loop.
+      if (after.advanced === true) {
+        // KEYS, not sentences. The name and prose are resolved when the
+        // timeline is read, in the language it is being read in — storing
+        // them would freeze somebody's history in whichever language they
+        // happened to be using on the day (migration 0016).
+        await db.story.record(scope, {
+          type: 'milestone',
+          titleKey: `stage.${stageKey(after.stage)}.name`,
+          bodyKey: `stage.${stageKey(after.stage)}.prose`,
+          occurredAt: new Date(),
+          dedupeKey: `stage:${after.stage}`,
+        });
+      }
     },
+
     async userMessagesOnDay(assistantId, localDay) {
       const start = new Date(`${localDay}T00:00:00Z`);
       const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);

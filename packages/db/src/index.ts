@@ -26,3 +26,4 @@ export * as economics from './repositories/economics.ts';
 export * as attachments from './repositories/attachments.ts';
 export * as billing from './repositories/billing.ts';
 export * as keys from './repositories/keys.ts';
+export * as story from './repositories/story.ts';

@@ -15,7 +15,11 @@ export type Money = {
   categories: { category: string; totalMinor: number }[];
   recent: { id: string; line: string; amountMinor: number; direction: 'in' | 'out'; occurredOn: string; fromReceipt: boolean }[];
 };
-export type Story = { now: string; footer: string; stages: { key: string; name: string; prose: string; current: boolean }[] };
+export type Story = {
+  now: string; footer: string;
+  stages: { key: string; name: string; prose: string; current: boolean }[];
+  timeline: { id: string; type: string; title: string; body: string | null; at: string }[];
+};
 
 export function tasksScreen(me: Snapshot, data: { tasks: Task[]; notes: Note[] }): Html {
   const language = me.user.language;
@@ -161,5 +165,14 @@ export function storyScreen(me: Snapshot, data: Story): Html {
       <p class="stage__prose">${now.prose}</p>
     </article>`}
     <p class="screen__lede">${t('story.nothing_to_lose', language, gender)}</p>
+
+    <div class="section">${t('story.timeline', language, gender)}</div>
+    ${data.timeline.length === 0
+      ? html`<div class="empty"><div class="empty__line">${t('story.timeline_empty', language, gender)}</div></div>`
+      : data.timeline.map((event) => html`<article class="card story__event">
+          <div class="story__when">${dateLabel(event.at.slice(0, 10), language, me.user.timeZone)}</div>
+          <div class="stage__name">${event.title}</div>
+          ${event.body === null ? '' : html`<p class="stage__prose">${event.body}</p>`}
+        </article>`)}
   `;
 }

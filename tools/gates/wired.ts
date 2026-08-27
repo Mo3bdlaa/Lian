@@ -41,10 +41,13 @@ import { readdirSync } from 'node:fs';
  * loud — see docs/FIRST-IMPRESSIONS.md and HANDOFF.
  */
 const TABLES_WITHOUT_A_REPOSITORY: Record<string, string> = {
-  story_events:
-    "UI-UX §8's timeline is NOT BUILT. The table has held its three types since "
-    + 'migration 0001 and nothing has ever written a row. Kept because the schema is '
-    + 'right and the feature is wanted; listed because a coverage matrix said ✅.',
+  // (empty)
+  //
+  // `story_events` lived here for exactly one run, printing "NOT BUILT" on
+  // every CI run, which is what an announced hole is for: it got looked at
+  // and it got closed. The gate objected the moment a repository named the
+  // table, because a stale exemption is how the next one hides — and that is
+  // the entry doing its last job.
 };
 
 /**

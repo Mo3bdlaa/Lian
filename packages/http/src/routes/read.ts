@@ -150,7 +150,21 @@ export type ConversationView = {
 /** UI-UX §12: what the USER says about themselves, in their own words. */
 export type ProfileView = { sections: { section: string; body: string }[] };
 
-export type StoryView = { now: string; footer: string; stages: { key: string; name: string; prose: string; current: boolean }[] };
+export type StoryView = {
+  now: string;
+  footer: string;
+  stages: { key: string; name: string; prose: string; current: boolean }[];
+  /**
+   * UI-UX §8's timeline, newest first.
+   *
+   * MILESTONES ONLY. `moment` and `inside_joke` are in the schema and are not
+   * written by anything: deciding that something was a moment is a judgement
+   * only she can make, which is a control tag, which under LESSONS §21 is a
+   * promise needing a mechanism. Building half of one to fill a screen is how
+   * the §20 holes happened. HANDOFF says which is missing.
+   */
+  timeline: { id: string; type: string; title: string; body: string | null; at: string }[];
+};
 export type SecurityView = {
   devices: { id: string; label: string; lastSeen: string | null; current: boolean }[];
   attempts: { outcome: string; at: string; location: string | null }[];

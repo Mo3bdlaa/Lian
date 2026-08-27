@@ -62,10 +62,12 @@ type Gap = { area: string; name: string; why: string };
 
 const GAPS: Gap[] = [
   {
-    area: 'Our story', name: 'story-timeline',
-    why: 'NOT BUILT. `story_events` has held UI-UX §8\'s three types since migration 0001 and '
-      + 'no code has ever written a row — no repository, no route, no screen. '
-      + 'tools/gates/wired.ts prints this as a named exemption on every CI run.',
+    area: 'Our story', name: 'story-moments',
+    why: 'PARTLY BUILT. The timeline exists and milestones are on it. `moment` and '
+      + '`inside_joke` are in the schema and nothing writes them: deciding that something '
+      + 'WAS a moment is a judgement only she can make, which is a control tag, which under '
+      + 'LESSONS §21 is a promise that has to name the mechanism keeping it. That is a '
+      + 'capability, not a repository function.',
   },
   {
     area: 'Free limit', name: 'limit-approaching',

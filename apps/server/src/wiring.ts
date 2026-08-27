@@ -24,7 +24,7 @@ import { DEFAULT_MODEL, turnCostMicros, type Provider } from '@lian/llm';
 import { verifyTick } from '@lian/jobs';
 import { transcribeVoiceNote, hashText, type SpeechProvider } from '@lian/voice';
 import { localDayKey, localHour, atLocalHour, limitsFor, messageBudget, nextStep, DEFAULT_CURRENCY } from '@lian/domain';
-import { moodPhrase, t, CONSENT_VERSION } from '@lian/i18n';
+import { moodPhrase, t, CONSENT_VERSION, type CopyKey } from '@lian/i18n';
 import { describeCaptures, observe, LANGUAGE_STYLES } from '@lian/capabilities';
 import { resolveTheme, timeBand } from '@lian/design';
 
@@ -270,6 +270,15 @@ export function authRoutePorts(deps: Deps): AuthRoutePorts {
       // here rather than lazily on the first message, so every later route
       // can assume them.
       const assistant = await db.accounts.createAssistant({ userId: created.userId }, { name: 'Lian', gender: 'female' });
+      // The first milestone, written the moment there is a relationship to
+      // have one. Everything else on the timeline is derived on a schedule;
+      // this one has an exact date that will never be recoverable again.
+      // A KEY, so it reads in whatever language they end up choosing.
+      await db.story.record(
+        { userId: created.userId, assistantId: assistant.id },
+        { type: 'milestone', titleKey: 'story.began', occurredAt: deps.now(), dedupeKey: 'began' },
+      );
+
       await db.conversations.createConversation(
         { userId: created.userId, assistantId: assistant.id },
         { kind: 'main' },
@@ -437,6 +446,8 @@ async function prepareAttachment(
  * ceiling and the wrong one for a bill — which is what DECISIONS §29 asked to
  * fix, and what `secondsToCharge` below now does.
  */
+const STORY_PAGE = 50;
+
 const AUDIO_BYTES_PER_SECOND = 4_000;
 
 /**
@@ -1192,15 +1203,34 @@ export function readPorts(deps: Deps): ReadPorts {
       };
     },
 
+    /** A page, ordered, with the cursor separate from the rows (LESSONS §16).
+     *  Fifty is more milestones than a five-stage relationship can produce,
+     *  so today it is a bound rather than a page — and it is written as a
+     *  page so that stops being true safely. */
     async story(userId) {
       const user = await db.accounts.getUser({ userId });
       const assistant = await assistantOf(userId);
-      if (user === null || assistant === null) return { now: '', footer: '', stages: [] };
-      const relationship = await db.relationship.get({ userId, assistantId: assistant.id });
-      const view = relationshipView(relationship?.stage ?? 1, languageOf(user.languageStyle), assistant.gender);
+      if (user === null || assistant === null) return { now: '', footer: '', stages: [], timeline: [] };
+      const scope = { userId, assistantId: assistant.id };
+      const relationship = await db.relationship.get(scope);
+      const language = languageOf(user.languageStyle);
+      const view = relationshipView(relationship?.stage ?? 1, language, assistant.gender);
       // LESSONS §6: which stage, never how far through it. There is no day
       // count in this response and there must never be one.
-      return { now: view.now, footer: view.footer, stages: [...view.stages] };
+      return {
+        now: view.now, footer: view.footer, stages: [...view.stages],
+        // Resolved HERE, in the language being read. A derived milestone
+        // holds copy keys; anything a person authored holds their own words
+        // and is passed through untouched (migration 0016).
+        timeline: (await db.story.timeline(scope, { limit: STORY_PAGE })).map((event) => ({
+          id: event.id,
+          type: event.type,
+          title: event.derived ? t(event.title as CopyKey, language, assistant.gender) : event.title,
+          body: event.body === null ? null
+            : event.derived ? t(event.body as CopyKey, language, assistant.gender) : event.body,
+          at: event.occurredAt.toISOString(),
+        })),
+      };
     },
 
     async security({ userId, deviceId }) {

@@ -238,6 +238,17 @@ export async function seed(fullness: Fullness, options: {
      arabic ? 'جري' : 'Run', at(daysAgo(3), 7)],
   );
 
+  // ── the timeline (UI-UX §8) ───────────────────────────────────────────
+  // Keys, not sentences: the screen resolves them in the language it is being
+  // read in, so the Arabic shot is a real Arabic timeline rather than the
+  // English one with an Arabic frame around it.
+  await sql.query(
+    `INSERT INTO story_events (assistant_id, type, title, body, occurred_at, dedupe_key) VALUES
+       ($1, 'milestone', 'story.began', NULL, $2, 'began'),
+       ($1, 'milestone', 'stage.finding_a_rhythm.name', 'stage.finding_a_rhythm.prose', $3, 'stage:2')`,
+    [assistantId, at(daysAgo(21), 20), at(daysAgo(6), 9)],
+  );
+
   // ── the chips ─────────────────────────────────────────────────────────
   // A capture row joins one of HER messages to the entity it produced. The
   // client renders the chip from this, described by the capability that owns

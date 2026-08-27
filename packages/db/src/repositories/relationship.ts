@@ -10,7 +10,9 @@ import type { Sql } from '../client.ts';
 import { db } from '../client.ts';
 import type { AssistantScope } from '../scope.ts';
 
-export type RelationshipRow = { stage: 1 | 2 | 3 | 4 | 5; qualifyingDays: number; lastQualifyingDay: string | null };
+export type RelationshipRow = {
+  /** Set only by creditQualifyingDay, and only when the stage moved. */
+  advanced?: boolean; stage: 1 | 2 | 3 | 4 | 5; qualifyingDays: number; lastQualifyingDay: string | null };
 
 export async function get(scope: AssistantScope, sql: Sql = db()): Promise<RelationshipRow | null> {
   const { rows } = await sql.query<{ stage: 1 | 2 | 3 | 4 | 5; qualifying_days: number; last_qualifying_day: string | null }>(
@@ -40,11 +42,17 @@ export async function creditQualifyingDay(
   );
   const credited = rows[0];
   if (credited === undefined) return (await get(scope, sql))!; // already credited today
+  const before = (await get(scope, sql))?.stage ?? 1;
   const stage = nextStage(credited.qualifying_days);
   await sql.query(
     `UPDATE relationship SET stage = $2, stage_changed_at = CASE WHEN stage <> $2 THEN now() ELSE stage_changed_at END
      WHERE assistant_id = $1 AND stage <= $2`,
     [scope.assistantId, stage],
   );
-  return (await get(scope, sql))!;
+  const after = (await get(scope, sql))!;
+  // Whether it MOVED, so the caller can write the milestone. Returned rather
+  // than written here: which words a stage change is described in belongs to
+  // the composition root, and a repository that reached the copy catalogue
+  // would be a repository that speaks (LESSONS §13).
+  return { ...after, advanced: after.stage > before };
 }

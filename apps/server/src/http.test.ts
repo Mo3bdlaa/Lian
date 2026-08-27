@@ -290,6 +290,41 @@ describe('the HTTP layer', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, ()
     assert.equal(found.dueOn, null);
   });
 
+  test('the story timeline starts on the first day and reads in the language it is read in', async () => {
+    // UI-UX §8's timeline. `story_events` held its three types since
+    // migration 0001 with NOT ONE ROW EVER WRITTEN, while the coverage matrix
+    // said ✅ — LESSONS §20. Milestones are built; moments and inside jokes
+    // are a judgement only she can make, which is a capability, and HANDOFF
+    // says so rather than a matrix implying otherwise.
+    const user = await signUp(app.base);
+
+    const story = await get(app.base, '/api/story', user.token);
+    assert.equal(story.status, 200);
+    const timeline = story.json['timeline'] as { title: string; at: string }[];
+    assert.equal(timeline.length, 1, 'signing up is the first thing that ever happened');
+    assert.equal(timeline[0]!.title, 'We started talking');
+
+    // The words are RESOLVED on the read, not stored. Switching language
+    // moves the whole history, rather than stranding it in whichever one they
+    // happened to be using on the day — which is the mistake registry.ts
+    // already names for capture lines, in a place where it would be worse.
+    await patch(app.base, '/api/settings', { languageStyle: 'ar-eg' }, user.token);
+    const arabic = await get(app.base, '/api/story', user.token);
+    const inArabic = (arabic.json['timeline'] as { title: string }[])[0]!.title;
+    assert.notEqual(inArabic, 'We started talking');
+    assert.match(inArabic, /[\u0600-\u06FF]/, `the timeline stayed in English: ${inArabic}`);
+
+    // And it is not written twice. Every derived milestone is idempotent on
+    // its key, because they are re-derived on a schedule that runs forever —
+    // without that, a timeline of the relationship becomes a timeline of the
+    // cron job.
+    const { rows } = await db().query<{ n: string }>(
+      `SELECT count(*) AS n FROM story_events s JOIN assistants a ON a.id = s.assistant_id WHERE a.user_id = $1`,
+      [user.userId],
+    );
+    assert.equal(Number(rows[0]!.n), 1);
+  });
+
   // ── idempotency, on every write route ───────────────────────────────────
 
   test('a retried chat turn replays the first answer and does not pay twice', async () => {

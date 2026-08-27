@@ -9,7 +9,7 @@ column) **partly built — the row says which part**
 | Tasks & notes | ✅ | ◐ | ✅ | empty, recurring, edit task/note, delete |
 | Money | ✅ | ✅ | ✅ | summary, correction, receipt, empty |
 | Memory | ✅ | ✅ | ✅ | full, empty, add, edit, delete, search, provenance, free-limit queue |
-| Our story | ◐ | ◐ | ✅ | stage as prose (built); **timeline NOT BUILT** |
+| Our story | ◐ | ◐ | ✅ | stage as prose, timeline of milestones; **moments and inside jokes NOT BUILT** |
 | Health | ✅ | ◐ | ✅ | chat capture, week, correction, empty |
 | Album | ✅ | ◐ | ✅ | grid, user sends, assistant sends, viewer, empty |
 | Assistants | ✅ | ◐ | ✅ | single-assistant state, create second, switch (2+), active identity, gender, profile |
@@ -50,10 +50,18 @@ Then I signed up and used the product, and found **two more rows this file
 claimed**, both of which the grep pass had missed because I had not thought to
 grep for the word:
 
-- **Our story's timeline.** `story_events` has held the three types UI-UX §8
-  names since migration 0001, with an index, and no code has ever written a
-  row. There is no repository, no route and no screen. `tools/gates/wired.ts`
-  now prints it as a named "NOT BUILT" exemption on every CI run.
+- **Our story's timeline.** `story_events` had held the three types UI-UX §8
+  names since migration 0001, with an index, and no code had ever written a
+  row. It spent exactly one run as a named "NOT BUILT" exemption in
+  `tools/gates/wired.ts`, printing on every CI run, and then got looked at and
+  closed — which is what an announced hole is for. **Milestones are built**
+  and derived from facts the product already has: the day you started talking,
+  and each stage reached. **Moments and inside jokes are not**, and that split
+  is deliberate: deciding something WAS a moment is a judgement only she can
+  make, which is a control tag, which under LESSONS §21 is a promise that has
+  to name the mechanism keeping it. That is a capability, not a repository
+  function, and building half of one to fill a screen is how these holes
+  happen in the first place.
 - **Free limit's "approaching".** `messagesRemaining` reaches the client in
   every snapshot and **no screen reads it**. The *reached* state is built and
   good; the quiet indicator near the end is not there at all.

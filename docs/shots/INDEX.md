@@ -83,7 +83,7 @@ three of the rows below are features that do not exist.
 | <img src="story-new-ltr.png" width="200"> | `story-new-ltr.png`<br>`/story` |  |
 | <img src="story-late-ltr.png" width="200"> | `story-late-ltr.png`<br>`/story` | a stage further in |
 
-> **Gap — story-timeline.** NOT BUILT. `story_events` has held UI-UX §8's three types since migration 0001 and no code has ever written a row — no repository, no route, no screen. tools/gates/wired.ts prints this as a named exemption on every CI run.
+> **Gap — story-moments.** PARTLY BUILT. The timeline exists and milestones are on it. `moment` and `inside_joke` are in the schema and nothing writes them: deciding that something WAS a moment is a judgement only she can make, which is a control tag, which under LESSONS §21 is a promise that has to name the mechanism keeping it. That is a capability, not a repository function.
 
 ## Health
 

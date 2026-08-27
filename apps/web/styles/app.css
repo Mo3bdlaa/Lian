@@ -1016,3 +1016,14 @@ body {
     gap: var(--s-8);
   }
 }
+
+/* UI-UX §8's timeline. Deliberately not a rail with dots down the side: a
+   vertical line with nodes on it is a progress bar drawn sideways, and this
+   screen's own copy says there is nothing to unlock. Dated cards, newest
+   first, and the date is the only ordering anybody needs. */
+.story__event { display: flex; flex-direction: column; gap: var(--s-4); }
+.story__when {
+  color: var(--muted);
+  font-size: var(--t-body-sm-fs);
+  line-height: var(--t-body-sm-lh);
+}
