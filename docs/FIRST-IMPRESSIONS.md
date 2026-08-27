@@ -1,274 +1,289 @@
 # First impressions
 
-I signed up as somebody called Rania, talked to Lian for a while, let a day of
-ticks pass, came back, corrected something, deleted a memory, and hit the free
-limit. This is what that was like.
+Second run. I signed up as somebody called Rania, talked to Lian, let the
+ticker run every hour through a whole day, watched a reminder fire, corrected
+something she had got wrong, deleted a memory, and talked until she refused.
+This is what that was like.
 
-It is not a bug list. Bugs found on the way are in HANDOFF and most of them are
-fixed; what is here is a read on whether the thing works as the thing it is
-meant to be.
+It is not a bug list. What is here is a read on whether the thing works as the
+thing it is meant to be.
 
-**What I could and could not judge.** There is no model key in this
-environment, so her replies came from `tools/preview.ts` — a scripted provider
-whose answers I wrote. So I cannot tell you whether she sounds like herself.
-What I *can* judge is everything the product itself says: ~470 authored
-strings, every empty state, every error, the prompt that constitutes her
-character, and the shape of what happens on day one. That turned out to be
-plenty, because almost everything wrong was in that half.
+`npm run session` is the new part. The first run of this document was written
+by reading screens; this one drives the real server over the real HTTP API,
+runs the real scheduler on a real clock, and writes every exchange to
+`docs/session-transcript.txt`. That difference produced most of what follows,
+including one alarm that turned out to be my own error and is the most useful
+paragraph in the document.
 
 ---
 
-## 1. The best thing about it is real, and it is the first thirty seconds
+## What I could and could not judge
 
-The first message is not a screen. It is:
+**Still no model key.** Her replies came from a scripted provider whose
+answers I wrote, so **I cannot tell you whether she sounds like herself.**
+Every observation below that touches her voice is marked ⚠ and is waiting on
+the real-model run, which is one command away.
+
+What I *can* judge turned out to be most of it:
+
+- **The sequence.** What appears when, what a stranger is asked and in what
+  order, whether a correction lands, whether a reminder actually fires, what
+  hitting the wall is like. None of that depends on the model.
+- **The authored words.** 485 catalogue strings are the product's own: the
+  opening, every empty state, every limit line, every label. Judging those is
+  judging the product, not a model.
+- **The prompt.** What she is actually told, in full, at each turn. It is the
+  product's instruction to the model and it can be read as a critic without
+  ever calling one. It is printed at the end of the transcript.
+
+---
+
+## 1. The first thirty seconds are still the best thing here
+
+Before I had typed anything, on a screen I had reached by filling in an email
+and a password, there was a message:
 
 > Good to meet you. I'm a secretary, more or less — I keep track of what you
-> tell me. What should I call you?
+> tell me, and bring it back when it matters. What should I call you?
 
-No account setup, no permissions dialog, no tour. I answered in words and it
-worked. Then it asked one thing at a time, and — this is the part that is
-genuinely good — **it asked in whatever order I had left things unanswered**,
-not in a fixed sequence. `nextStep` derives the question from what is still
-missing, so somebody who says "I'm Rania, and you can be Lian" in one sentence
-is not asked both again. That is a real design idea and it is implemented
-exactly as described.
+No setup, no tour, no permissions dialog, no empty text box waiting for me to
+work out what this is for. It says what it is in eight words, and then it asks
+me something. **That is the whole positioning delivered in one sentence, and
+it costs nothing** — it is authored, not generated, so it is the same on the
+worst day the API is having.
 
-And then:
+The thing I keep noticing is what is *absent*. There is no "Hi! I'm Lian, your
+AI companion 💫". There is no onboarding carousel. Reading the prompt later, I
+found out why: the list of things she never does includes "unlock",
+"supercharge", "your AI", "boost", and *"say you missed them, or ask them to
+come back"*. Somebody decided what this must never sound like before deciding
+what it should sound like, and it shows.
 
-> I'll remember that you run every morning before work. That's the sort of
-> thing I keep.
+## 2. Onboarding is five exchanges and does not feel like a form
 
-Followed by a memory row I could go and look at, with a link back to the
-message it came from. The promise of the product is "she remembers me", and
-within four messages it had been made, kept, and shown its working. Nothing
-else I have seen in this category does that in the first minute.
+I said "Rania", then "English", then two things about work, then gave her a
+name. Five messages, one question at a time, and each answer visibly landed —
+the name in the header changed to Noor, and the memory count went from 0 to 2
+while I was still talking.
 
-The permission ask comes *after* that sentence, deliberately, and it is the
-right call — by then you have seen what the permission is for.
+**The part that is genuinely good design**: the step is derived from what is
+known, not counted. If I had said "I'm Rania and you can be Noor" in one
+sentence, it would have taken both. There is no wizard to get lost in because
+there is no wizard.
 
-**What is unquestionably right:** no forms anywhere; every captured thing is a
-tappable chip in the conversation; the free limit says *"That's my limit for
-today. I'll still be here tomorrow, and I'll keep what we talked about"* and
-does not mention money. The relationship screen says *"There is nothing to
-unlock and nothing to lose."* The whole product has one voice and it is a
-restrained one.
+### But onboarding cannot finish without a browser, and nobody says so
 
----
+`nextStep` will not return `done` until `notification_prompted_at` is set, and
+the only thing that sets it is the client answering the permission card. In my
+session — signed up, named, two memories kept, four questions answered — the
+account sat at `ask_notification_permission` indefinitely. One POST to
+`/api/push/prompted` moved it to `done` instantly.
 
-## 2. The thing that broke my trust, and it is the core promise
+In a browser this is fine: the card appears after the first remembered thing
+and any answer, including "Not now", counts. But two things follow that are
+worth knowing:
 
-I said: **"remind me to call the bank."**
+- **A person who never answers the card never finishes onboarding.** They are
+  not stuck in a visible way — the app works — but the last onboarding
+  question (naming her) sits in front of everything, forever.
+- **The free message limit is not enforced during onboarding.** Onboarding is
+  a different surface, and only `surface === 'chat'` reserves against the
+  daily counter. That is *right* — nobody should hit a wall while being asked
+  their name — but combined with the point above it means **an account that
+  never answers the permission card has no daily limit at all.** I do not
+  think that is intended. It is small and it is a real hole.
 
-She said: **"I'll remind you."**
+## 3. The middle of it works, and one part of it is quietly excellent
 
-She cannot. The model emitted `<todo>{"title":"call the bank"}</todo>` with no
-date, because I did not give one. A task with `due_on IS NULL` matches
-`due_on = $2::date` in no outreach query, does not satisfy `dueOn === localDay`
-in the briefing's *Today*, did not satisfy `dueOn !== null` in *Carried over*,
-and is not a habit. **It was in no block of any screen she raises unprompted,
-and no reminder would ever have fired, on any day, forever.**
+I told her three things a person actually says — "remind me to call the bank",
+"I paid 400 for the gym today", "rent went out, 6500" — and each produced a
+chip under her reply that I could tap to correct.
 
-Every part of that is individually correct. The capture worked, the row is
-right, the chip is right, the Tasks screen shows it. And the one sentence the
-product exists to make true — *I'll remind you* — was false, silently, the
-first time I asked for it.
+Then I corrected one. `AED 400` → `AED 350`, through the correction route.
+And **the chip in the conversation, three messages up, changed to
+`AED 350.00 · gym · Today`.**
 
-The Tasks screen says **"No date"** beside it, which reads as *whenever*. The
-truthful word was *never*.
+That is the best-engineered thing in the product and it is invisible unless
+you go looking. The chip does not store what it said; it re-derives from the
+row every time the window is read. Which means the conversation cannot drift
+out of step with the truth, and it means the same chip renders in Arabic if
+you switch language, and it means correcting something does not leave a
+fossil of the mistake sitting in the history. Nothing on screen advertises
+this. You just never catch it lying.
 
-Fixed this run: the briefing's *Carried over* now includes tasks that never had
-a day, labelled "No day set". Deliberately not added to outreach — a dateless
-task that pushed a notification every morning until it was done is the nagging
-LESSONS §4 exists to prevent. She raises it where she lists things; she does
-not chase.
+Deleting a memory works the same way: she was holding three, I removed one,
+she held two, and the sentence attached to it — "I'll remove it from
+everything I remember" — is one the build now checks is still true.
 
-**What is still not fixed, and needs a person to decide:** she should probably
-ask for a day when none is given. That is a prompt change and I am not willing
-to tune a prompt blind against a scripted model.
+## 4. The reminder fires. I nearly reported that it did not.
 
----
+This is the most useful paragraph here, and it is about method rather than
+the product.
 
-## 3. Where it feels thin
+My first session set the clock to a tidy Monday in September and walked
+forward a fortnight, running the scheduler every hour. It reported: **no
+outreach, ever. Empty briefing on the day the task was due. She never said
+anything unprompted.** That is LESSONS §21 happening again — "I'll remind you"
+being false — and it is the most alarming thing this project could find.
 
-**The briefing on day one is a money figure and four empty lists.** After a
-real conversation — a name, a language, a memory, a spend, a task — the
-morning briefing had `line: null`, empty today, empty carried-over, empty
-habits, no pattern, and one number. She has no sentence to say because she has
-not written one yet, and the screen correctly refuses to invent her voice.
-That is the right *rule* producing a thin *screen*. The first briefing is
-somebody's first impression of the product's second-biggest idea, and it is a
-figure and some whitespace.
+It was not true. **`createApplication` takes an injectable clock; Postgres
+does not.** `messages.created_at` defaults to the database's own `now()`, so
+every row my session wrote was stamped with the real date while the
+application believed it was September. `assistantsActiveOn` joins on
+`messages.created_at`, found nobody active on an imaginary day, and proposed
+outreach for zero assistants — every tick, for two simulated weeks.
 
-**"Our story" was a five-rung ladder.** All five relationship stages rendered
-as cards, three of them ahead of me, with their prose spelled out — on the page
-whose own copy says *"There is nothing to unlock and nothing to lose."* The
-page argued with itself and the ladder won, because the ladder was the part
-with pictures. UI-UX §8 says "Show current state as prose, not progression".
-Fixed: one stage, the one you are in.
+Fixed by keeping the clock on today's real date and moving only the hour, the
+same run produces:
 
-**The Security screen cannot answer the question it exists for.** My only
-device is labelled `Device`, with a timestamp and `location: null`. The screen
-is for deciding *was that sign-in me?* and it offers nothing to decide with.
-The spec asks for location/time metadata; the time is there and nothing else
-is. Not fixed — it needs a User-Agent parse and an IP-to-city lookup, and the
-second is a third-party service and a privacy decision, not a patch.
+```
+[tick 05:00] proposed 2, held back 0, duplicate 0
+  briefing   assistant_initiated  for 03:00
+  reminder   user_requested       for 05:00
+[tick 07:00] delivered 1
+[tick 09:00] delivered 1
+  briefing SENT, message written
+  reminder SENT, message written
+```
 
-**The timeline in "Our story" did not exist at all.** `story_events` had held
-the three types the spec names — milestone, moment, inside joke — since
-migration 0001, with an index, and no code had ever written a row. The coverage
-matrix said ✅. It became a named exemption in `tools/gates/wired.ts` printing
-"NOT BUILT" on every CI run, and then it got looked at: **milestones are built**
-(the day you started talking, each stage reached), and moments and inside jokes
-are scoped out with a reason — that is a judgement only she can make, which is
-a capability, not a repository function.
+**"I'll remind you" is true.** The reminder is `user_requested`, which is the
+LESSONS §4 distinction doing its job: a reminder the person asked for is
+invisible to the backoff that governs her own initiations.
 
-**Money's "her observation"** (UI-UX §7) is not in the view either. The screen
-is figures and a list, with nothing of her on it — on a screen the spec wanted
-her voice on.
+The general lesson is worth more than the fix, and it is now written into
+`tools/session.ts` where the next person will hit it: **an injectable clock
+that stops at the database boundary can only test what happens above that
+boundary, and nothing that joins on a stored timestamp.** That is most of the
+scheduler. Every test that moves time in this repository is subject to it.
 
----
+## 5. Where it feels thin
 
-## 4. Where the copy is wrong in a way no test catches
+**The briefing has nothing of her in it.** On the morning it mattered, the
+briefing carried the task, the money figure, and `line: null`. The rule
+producing that is right — she has not written a line, and the screen refuses
+to invent her voice — but the result is that the product's second-biggest idea
+presents as a list with a number over it. ⚠ This may be entirely different
+with a real model, since the line is hers to write. It is the single thing I
+most want to see on the real-model run.
 
-Every string below is authored, in both languages, addressee-tagged, and passes
-the Arabic gate. Each is wrong *in place*, which no test looks at.
+**One day in, the story is one row.** "We started talking." Which is honest,
+and is what a relationship one day old should look like, and is also a screen
+that a curious person will open once and not open again for a fortnight. I do
+not think it should be padded. I think it is simply a screen that is not for
+day one, and nothing tells a new person that.
 
-**"Still with you."** The mood phrase over the very first message somebody ever
-reads. It is the right sentence for a person coming back and the wrong one for
-a stranger — it claims a continuity that has not happened. Fixed: an authored
-first-meeting phrase, used while onboarding is unfinished.
+**Money on day one is a negative number.** In minus out, with no income ever
+mentioned, is −AED 6,900. The headline already handles this — it says "Spent"
+rather than "What's left" until something has come in — but the categories
+below it are still a list of everything wrong with your month. Her observation
+now appears there (`Most of what went out this month was rent.`), and it is
+the first thing on that screen that sounds like a person rather than a
+spreadsheet.
 
-**"What's left: −AED 400."** I told her about one payment and no income, so
-in-minus-out was negative, and that was the biggest number on the Money screen
-— a headline that reads as debt for somebody who mentioned one gym fee. Fixed:
-with no income recorded the headline is what went out; "What's left" waits
-until it is true. Both figures stay underneath, as §7 asks.
+**The mood moved and I noticed.** By evening the header read "Quiet, late"
+instead of "Getting to know you". Nothing announced it. It is a small, good
+thing.
 
-**"en".** The capture chip confirming the language I had just chosen showed the
-raw code. The eight language names existed — in `packages/prompt/src/blocks.ts`,
-authored for the *model's* prompt and nowhere for the person. Fixed: authored
-in the catalogue, in both languages, in UI-UX §47's exact wording.
+## 6. What a stranger would ask on day one that the product cannot answer
 
-**"I couldn't make out that recording. Tell me instead?"** What a free account
-was told when it sent a voice note. Voice is paid-only. The sentence says the
-product is broken when the truth is the feature is on the other plan; a paid
-user out of minutes got the same sentence. Three outcomes, one string. Fixed.
+I went looking for these deliberately, because they are the questions that
+decide whether somebody comes back.
 
-**"No date"** on the Tasks screen — see §2. Reads as *whenever*, means *never*.
+1. **"What do you actually do?"** — answerable only by her, in the moment. The
+   prompt tells her, but there is no screen that says it and no way to find
+   out except by asking. That is a defensible product choice (this is a
+   conversation, not an app with a features page) and it is also the first
+   thing a sceptical person wants. ⚠ Unjudgeable without the model: if she
+   answers it well, the absence is correct.
+2. **"Can you see my calendar?"** — the prompt forbids her from claiming a
+   calendar she does not have, which is right. But there is nowhere a person
+   can find out what she is connected to, and "nothing" is a reassuring
+   answer that never gets given.
+3. **"Where does this go? Who can read it?"** — there IS an answer: the
+   privacy document is on the consent screen before an account exists, and
+   the data screen exports and deletes for real. It is a good answer, it is
+   just three taps from the conversation and nothing points at it on day one.
+4. **"How much is this?"** — the free tier's end is the first mention of
+   price, which arrives as her saying she has reached her limit. Reaching a
+   wall is a bad moment to learn there is a paid tier. The approaching line
+   softens it ("We've only got a few messages left today") and is deliberately
+   not an upsell. I think that restraint is right and I think the person
+   still ends up surprised.
+5. **"Did it get that right?"** — answerable, and well: every capture is a
+   tappable chip that opens the thing it made.
 
----
+## 7. Copy that is wrong in a way no test catches
 
-## 5. What a stranger asks on day one that the product cannot answer
+Fewer than last time, because two gates now exist that did not.
 
-**"Where did the thing I just corrected go?"** Every capture chip carries a
-`correctionRoute` pointing at the exact row. The client parsed the id out of
-the URL and **dropped it on the floor** — `match()` returned params and nothing
-read them. Tapping "AED 400 · gym · Today" opened the Money *list* and left you
-to find the row again. On the product's signature interaction. Fixed.
+- **"Getting acquainted" is doing a lot of work.** The stage prose says "Tell
+  me things twice if you need to — I'm still learning what matters to you."
+  That is honest and slightly deflating on day one, when the person has just
+  told her four things and she demonstrably kept them. It reads as a hedge
+  written for the worst case.
+- **The refusal is the best line in the product.** "That's my limit for today.
+  I'll still be here tomorrow, and I'll keep what we talked about." It does
+  three things — states the limit, promises return, and reassures about
+  memory — in twenty words, with no price in sight. It is the sentence I would
+  show somebody to explain what the product is trying to be.
+- **The API and the screen disagree about what a transaction is called.** The
+  chip's correction route is `/money/<id>`; the API route is
+  `/api/transactions/<id>`. Both are right — one is a screen, one is a table —
+  and it cost me a 404 and a minute of believing corrections were broken.
+  Nothing user-facing, but it is a trap laid for the next person.
 
-**"How do I change the language?"** The chip's route was `/settings/language`.
-That route was in `ROUTES`, `screenFor` had no case for it, so it fell to the
-default and rendered **the conversation** — with `/settings/language` still in
-the address bar. The `set-language` action handler already existed, waiting for
-a screen that had never been built. Fixed: the screen exists, with §47's eight
-options and its sample line.
+## 8. What the prompt reads like
 
-**"How many messages do I have left?"** Nothing shows it. `messagesRemaining`
-travels in every snapshot and no screen reads it. UI-UX §19's "approaching"
-state does not exist — you find out at zero. (The *reached* message is good,
-and arrives in the conversation, which is right.) Not fixed.
+I read the whole system prompt at a turn four exchanges in. It is good — and
+"good" here means specific, short, and mostly about restraint:
 
-**"Why are onboarding messages free?"** They are, and nothing says so. The
-message counter only starts once onboarding finishes, so I sent nine messages
-against a "20 a day" plan and the app still said 20. The monthly cost ceiling
-is the real bound, so the business is safe — but the number on screen was
-wrong for the first nine messages of a person's life with the product.
+> - Briefly. Most replies are one or two sentences. You do not fill space.
+> - Specifically. You refer to the actual thing they told you, not a category
+>   of thing. "The presentation on Thursday", not "your upcoming commitments".
+> - Warmly, without performing warmth. You are glad to hear from them; you do
+>   not say so twice.
 
-**"Does she know it's me?"** — see the Security screen above.
+The instruction I did not expect, and which is the one that will decide
+whether this works:
 
----
+> You have a life of your own only insofar as you have said so before. What
+> you have said about yourself is true and stays true.
 
-## 5b. And then I looked at it
+That is a hard problem stated in two sentences and handed to the model without
+pretending it is solved. Whether it holds is exactly what a real key would
+tell us.
 
-`npm run shots` photographs 95 screens. Four things were wrong in ways that
-were invisible in HTML, in tests, and in prose, and obvious in a picture.
-
-**`AED 127.5`.** In the Money headline, the largest text on the screen. The
-formatter said `minimumFractionDigits: 0`, so a half-dirham lost its second
-decimal and read as a typo. Every test asserted `AED 400` — the one amount
-where two decimals and zero decimals agree.
-
-**`AED 400 · gym · 2026-08-24`** on a capture chip, three lines under a day
-separator reading "25 August". The chip returned the raw column for anything
-that was not today.
-
-**Five transactions, none photographed, every one captioned "from a
-receipt".** `fromReceipt` was `originMessageId === null` — not what that
-means, and backwards, since a real receipt capture HAS an origin message.
-`transactions.receipt_id` has existed since migration 0002 and nothing has
-ever written it, so nothing can answer the question. A fourth §20.
-
-**She says nothing on day one.** The first screen a new person sees is an
-empty conversation: *"We haven't talked yet. I'm here when you're ready."*
-Her greeting — the "Good to meet you. I'm a secretary, more or less" that §1
-calls the best thing about the product — only happens in reply to their first
-message. Meanwhile the prompt instruction she is given for that step reads
-**"This is the very first thing they will read from you."** It is not. The
-instruction is written for an assistant opening a conversation and the
-mechanism has her answering one.
-
-That last one is not a bug I fixed, because it is a product decision with a
-cost: greeting somebody at sign-up means a model call per account, and it
-changes what the app is on first open — a person, or a text box. It is at the
-top of HANDOFF §3 with both options. The first three are fixed.
-
-## 6. The pattern underneath most of this
-
-Four things this afternoon had the same shape, and it is now LESSONS §20:
-
-| | declared | connected |
-|---|---|---|
-| The incognito role | column, CHECK, prompt block, zone, injection test, create route | nothing a person could touch |
-| The story timeline | table, three types, index | nothing at all |
-| The key pool | class, tests, table, a second key read at startup | `modelApiKeys[0]` |
-| `/settings/language` | route, action handler | no screen |
-
-Each looks finished from wherever you happen to be standing. A migration
-reviewer sees a table; a prompt reviewer sees a block; a router reviewer sees a
-route. Nothing read across the seam, so nothing objected — and the coverage
-matrix said ✅ because it was checked by the person making the claim.
-
-The key pool one is the most expensive: `ANTHROPIC_API_KEY_2` was read,
-validated at startup, carried through config, and discarded. When the first key
-rate-limits, she stops answering, with a spare key sitting unused. That is
-LESSONS §12's own rule, written down, implemented, tested, and unplugged.
-
-`tools/gates/wired.ts` now reads across two of those seams on every build.
+The one thing I would change: the capability list arrives as eight tag
+schemas with JSON examples, in the same block as the writing guidance. It
+reads like an API reference bolted onto a character description. ⚠ Whether
+that dilutes her voice is a model question and I cannot answer it.
 
 ---
 
-## 7. So: does it work as the thing it is meant to be?
+## What is waiting on a key
 
-**Yes, in the first five minutes, and that is the hardest part to get right.**
-The conversation genuinely is the interface. Nothing asked me to fill anything
-in. She remembered something and showed me where it came from. The restraint is
-real and it is everywhere — no streaks, no scores, no day counts, no upgrade
-nag at the limit.
+Everything below is unjudgeable from here, and the run that answers it is one
+command (`npm run preflight model`, then `npm run session`, ≈$0.25):
 
-**The gap is between what she says and what the machinery does.** "I'll remind
-you" was the clearest case, and it was not a bug in the reminder system — the
-reminder system is fine. It was a promise made in one place by a model and kept
-in another place by a query, with nobody standing where you could see both. The
-product's whole design is that she speaks for the machinery, which means every
-one of those seams is a place she can be made to lie.
+1. **Does she sound like a person?** Nothing in this document answers that.
+2. **Does the briefing line make the briefing worth opening?**
+3. **Does she use `<moment>` sparingly?** The prompt spends most of its words
+   on when not to. A model that reaches for it every warm exchange turns the
+   story into a log, and no gate can catch that — it is a judgement about
+   frequency.
+4. **Does capture survive real language?** Every capture here came from a
+   sentence I wrote to be capturable. "I think I paid the gym, maybe 400,
+   might have been last week" is the real test.
+5. **Does the persona hold at turn fifty?** The context is assembled the same
+   way every turn, so the mechanism is stable; whether the character is, is
+   not a thing the mechanism can promise.
 
-The tests are excellent at the things they test and structurally cannot see
-this class. `hardening.test.ts` attacks the product as a stranger; nothing uses
-it as its owner. That is the missing test file, and I do not think it can be
-written — it is a person, signing up, and asking her for a reminder.
+## The three things I would do next, in order
 
-**What I would do next, in order.** Make her ask for a day when a reminder has
-none. Give the Security screen something to recognise a device by. Give the
-first briefing something to say. Then the story timeline, which is the largest
-genuinely unbuilt thing left and the only one whose absence a person would
-notice as an absence rather than as a thinness.
+1. **Close the onboarding hole.** An account that never answers the
+   notification card should still get a daily limit. Either the free counter
+   applies to the onboarding surface after the first N turns, or onboarding
+   completes without the card and the card is asked separately.
+2. **Give the briefing something of her on day one.** Not invented — but
+   "nothing happened yet" said in her voice is better than a null.
+3. **Run the real-model session.** Half of this document is a ⚠.

@@ -604,6 +604,22 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
 
 ## 3. What will block me next
 
+**`npm run session` is the new way to look at this.** It signs up as a
+stranger over the real HTTP API, runs the real scheduler hour by hour, and
+writes every exchange to `docs/session-transcript.txt`. It is what found the
+hole above, and what proved "I'll remind you" is true — after first reporting,
+wrongly and alarmingly, that it was not.
+
+**THAT NEAR-MISS IS WORTH THE PARAGRAPH.** `createApplication` takes an
+injectable clock; **Postgres does not.** `messages.created_at` defaults to the
+database's own `now()`, so a session that time-travels to September writes rows
+stamped with today's date — and `assistantsActiveOn`, which joins on
+`messages.created_at`, then finds nobody active and proposes outreach for zero
+assistants, every tick, forever. The general form: **an injectable clock that
+stops at the database boundary can only test what happens above that boundary,
+and nothing that joins on a stored timestamp.** That is most of the scheduler,
+and it applies to every test in this repository that moves time.
+
 **READY AND WAITING ON A KEY: the real-model FIRST-IMPRESSIONS run.**
 `npm run preflight model` first — four output tokens, a fraction of a cent,
 and it separates the four failures that all look like "she did not answer".
@@ -623,7 +639,27 @@ saying hello.
 
 **One thing left that is a decision rather than a key.**
 
-0. **A refused message loses what the person typed.** Send at the day's limit
+0. **An account that never answers the notification card has no daily limit.**
+   Found by using the product (`npm run session`), not by reading it.
+   `nextStep` will not return `done` until `notification_prompted_at` is set,
+   and only the browser's permission card sets it. Meanwhile the free counter
+   is reserved only on `surface === 'chat'`, and an unfinished onboarding is
+   the `onboarding` surface — so the two correct rules meet in a hole. My
+   session sat at `ask_notification_permission` through sixteen messages with
+   `messagesRemaining` never moving off 20.
+
+   Nobody should hit a wall while being asked their name, so the fix is not
+   "count onboarding". Two ways, and it is your call:
+   (a) **Complete onboarding without the card** and ask for the permission
+       separately, on its own terms. Cleanest, and it unpicks the PRD §8
+       ordering that puts the ask after the first remembered thing.
+   (b) **Cap the onboarding surface** — after six turns it is not onboarding
+       any more, whatever the card says. One number, and it leaves §8 alone.
+
+   I did not pick because (a) changes a product ordering that was decided
+   deliberately and (b) puts a magic number where a derived state used to be.
+
+0a. **A refused message loses what the person typed.** Send at the day's limit
    and the optimistic bubble is reconciled away — nothing was written server
    side, correctly — so their sentence disappears from the conversation AND
    from the composer, which was cleared on submit. `limit-reached-ltr.png`
@@ -691,6 +727,7 @@ npm run verify                  # typecheck, 15 gates, 685 tests
 #   export DATABASE_URL first, or 137 of them SKIP without saying so
 npm run shots                   # 98 screenshots into docs/shots/, gaps listed
 npm run preflight               # the five live integrations, each diagnosed
+npm run session                 # sign up as a stranger, use it, keep the transcript
 npm run keys vapid              # the two credentials nothing issues
 npm run keys tick               #   — see docs/ACCOUNTS.md step 7
 npm run report                  # retention and cost, with their definitions
