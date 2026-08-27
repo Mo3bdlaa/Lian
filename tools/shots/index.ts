@@ -65,19 +65,6 @@ type Gap = { area: string; name: string; why: string };
 
 const GAPS: Gap[] = [
   {
-    area: 'Our story', name: 'story-moments',
-    why: 'PARTLY BUILT. The timeline exists and milestones are on it. `moment` and '
-      + '`inside_joke` are in the schema and nothing writes them: deciding that something '
-      + 'WAS a moment is a judgement only she can make, which is a control tag, which under '
-      + 'LESSONS §21 is a promise that has to name the mechanism keeping it. That is a '
-      + 'capability, not a repository function.',
-  },
-  {
-    area: 'Money', name: 'money-observation',
-    why: 'NOT BUILT. UI-UX §7 asks for "her observation" on the Money screen. It is not in '
-      + 'MoneyView at all, so the screen is figures and a list with nothing of her on it.',
-  },
-  {
     area: 'Album', name: 'album-full',
     why: 'NOT CAPTURED. The album renders photographs, and a photograph has to be uploaded '
       + 'through the three-step signed-upload path with real bytes in a store. Seeding one '
@@ -171,6 +158,16 @@ const SHOTS: Shot[] = [
   { name: 'story-day-rtl', area: 'Our story', path: '/story', language: 'ar-eg', themePreference: 'always-light', stage: 2 },
   { name: 'story-new-ltr', area: 'Our story', path: '/story', fullness: 'empty', themePreference: 'always-light', stage: 1 },
   { name: 'story-late-ltr', area: 'Our story', path: '/story', themePreference: 'always-light', stage: 4, note: 'a stage further in' },
+  {
+    name: 'story-moments-ltr', area: 'Our story', path: '/story', themePreference: 'always-light', stage: 2,
+    click: ['[data-action="story-filter"][data-value="moment"]'],
+    note: '§8\'s filter, on moments — hers, with the quiet remove that a derived milestone does not get',
+  },
+  {
+    name: 'story-jokes-rtl', area: 'Our story', path: '/story', language: 'ar-eg',
+    themePreference: 'always-light', stage: 2,
+    click: ['[data-action="story-filter"][data-value="inside_joke"]'],
+  },
 
   // ── Health ──────────────────────────────────────────────────────────────
   { name: 'health-day-ltr', area: 'Health', path: '/health', themePreference: 'always-light' },

@@ -199,6 +199,9 @@ function draw(state: State): void {
 const screenData: {
   memories: Memory[]; query: string; filter: string; editing: Memory | null; deleting: Memory | null;
   tasks: { tasks: Task[]; notes: Note[] }; money: Money | null; story: Story | null;
+  /** UI-UX §8's timeline filter. A view preference, held here rather than in
+   *  the URL: it is not somewhere anybody links to or shares. */
+  storyFilter: string | null;
   security: Security | null; data: DataState; correcting: Correcting | null;
   health: Health | null; album: Album | null; viewing: string | null;
   search: Search | null; briefing: Briefing | null; profile: Profile | null; savedSection: string | null;
@@ -206,7 +209,7 @@ const screenData: {
   threads: Thread[]; threadsOpen: boolean; scenarioOpen: boolean;
 } = {
   memories: [], query: '', filter: 'all', editing: null, deleting: null,
-  tasks: { tasks: [], notes: [] }, money: null, story: null, security: null,
+  tasks: { tasks: [], notes: [] }, money: null, story: null, storyFilter: null, security: null,
   data: { export: null, confirming: false, typed: '', busy: false }, correcting: null,
   health: null, album: null, viewing: null,
   search: null, briefing: null, profile: null, savedSection: null, plan: null, settings: null,
@@ -223,7 +226,7 @@ function screenFor(screen: string, state: State, me: Snapshot): Html {
     case 'memory': return memoryScreen(memoryState(state, me));
     case 'tasks': return tasksScreen(me, screenData.tasks);
     case 'money': return screenData.money === null ? html`` : moneyScreen(me, screenData.money);
-    case 'story': return screenData.story === null ? html`` : storyScreen(me, screenData.story);
+    case 'story': return screenData.story === null ? html`` : storyScreen(me, screenData.story, screenData.storyFilter);
     case 'settings': return settingsScreen(me);
     case 'security': return screenData.security === null ? html`` : securityScreen(me, screenData.security);
     case 'data': return dataScreen(me, screenData.data);
@@ -690,6 +693,13 @@ document.addEventListener('click', (event) => {
     set({ acting: { id, mode: 'delete' as 'sheet' } });
   } else if (action === 'confirm-delete') {
     void deleteMessage(id, actor.dataset['keep'] === 'true');
+  } else if (action === 'story-filter') {
+    // The empty string is "everything": a data attribute cannot hold null,
+    // and a filter of '' would match no event type.
+    screenData.storyFilter = actor.dataset['value'] === '' ? null : actor.dataset['value']!;
+    set({});
+  } else if (action === 'remove-story') {
+    void removeStoryEvent(id);
   } else if (action === 'resend-verification') {
     void resendVerification();
   } else if (action === 'threads') {
@@ -1187,6 +1197,19 @@ async function deleteMessage(messageId: string, keepDerived: boolean): Promise<v
   await remove(`/api/messages/${messageId}?keep_derived=${keepDerived}`);
   await loadMessages();
   await refresh();
+}
+
+/**
+ * Take an event off the timeline (UI-UX §8).
+ *
+ * Re-read from the server rather than spliced out of the array: the server
+ * refuses a derived milestone, so a client that removed the row optimistically
+ * would show it gone and put it back on the next visit.
+ */
+async function removeStoryEvent(id: string): Promise<void> {
+  await remove(`/api/story/${id}`);
+  screenData.story = await get<Story>('/api/story');
+  set({});
 }
 
 // ── boot ──────────────────────────────────────────────────────────────────

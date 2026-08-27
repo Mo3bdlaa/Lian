@@ -12,14 +12,24 @@ export type Task = { id: string; kind: 'task' | 'habit'; title: string; dueOn: s
 export type Note = { id: string; title: string | null; body: string; createdAt: string };
 export type Money = {
   month: string; inMinor: number; outMinor: number; leftMinor: number; currency: string;
+  observation: string | null;
   categories: { category: string; totalMinor: number }[];
   recent: { id: string; line: string; amountMinor: number; direction: 'in' | 'out'; occurredOn: string; fromReceipt: boolean }[];
 };
 export type Story = {
   now: string; footer: string;
   stages: { key: string; name: string; prose: string; current: boolean }[];
-  timeline: { id: string; type: string; title: string; body: string | null; at: string }[];
+  timeline: { id: string; type: string; title: string; body: string | null; at: string; derived: boolean }[];
 };
+
+/** UI-UX §8's filter, in the order the spec lists it. `null` is "everything",
+ *  which is the default and is not a type. */
+export const STORY_FILTERS: readonly { value: string | null; key: 'story.filter_all' | 'story.filter_milestones' | 'story.filter_moments' | 'story.filter_jokes' }[] = [
+  { value: null, key: 'story.filter_all' },
+  { value: 'milestone', key: 'story.filter_milestones' },
+  { value: 'moment', key: 'story.filter_moments' },
+  { value: 'inside_joke', key: 'story.filter_jokes' },
+];
 
 export function tasksScreen(me: Snapshot, data: { tasks: Task[]; notes: Note[] }): Html {
   const language = me.user.language;
@@ -115,6 +125,14 @@ export function moneyScreen(me: Snapshot, data: Money): Html {
         <span class="row__value">${amount(category.totalMinor)}</span>
       </div>`)}`}
 
+    <!-- Her observation (§7), between the categories and the transactions,
+         where the spec puts it and where design.md §11 keeps it at desktop
+         width. It is arithmetic over the month's rows, never a model's
+         opinion about somebody's money — see observe() in the money
+         capability — and it is absent far more often than it is present,
+         because most months have nothing worth saying about them. -->
+    ${data.observation === null ? '' : html`<p class="observation">${data.observation}</p>`}
+
     </div>
     <div class="split__side">
     <div class="section">${t('money.recent', language, gender)}</div>
@@ -150,10 +168,15 @@ export function moneyScreen(me: Snapshot, data: Money): Html {
  * client decides what to show — so this is a rendering choice, reversible in
  * a line, and RECONCILIATIONS.md records which way it went and why.
  */
-export function storyScreen(me: Snapshot, data: Story): Html {
+export function storyScreen(me: Snapshot, data: Story, filter: string | null = null): Html {
   const language = me.user.language;
   const gender = me.assistant.gender;
   const now = data.stages.find((stage) => stage.current);
+  // Filtered HERE rather than by a request: the timeline is one bounded page
+  // that the screen already holds, so a filter is instant and costs nothing.
+  // It is a view preference, not a product rule — which is the line HANDOFF
+  // §15 draws, and the reason the free tier's state is decided the other way.
+  const shown = filter === null ? data.timeline : data.timeline.filter((event) => event.type === filter);
   return html`
     <h1 class="screen__title">${t('story.title', language, gender)}</h1>
     <p class="screen__lede">${t('story.not_a_score', language, gender)}</p>
@@ -164,12 +187,25 @@ export function storyScreen(me: Snapshot, data: Story): Html {
     <p class="screen__lede">${t('story.nothing_to_lose', language, gender)}</p>
 
     <div class="section">${t('story.timeline', language, gender)}</div>
+    ${data.timeline.length === 0 ? '' : html`<div class="chips">
+      ${STORY_FILTERS.map((option) => html`<button class="chip ${filter === option.value ? 'chip--on' : ''}"
+        data-action="story-filter" data-value="${option.value ?? ''}">${t(option.key, language, gender)}</button>`)}
+    </div>`}
     ${data.timeline.length === 0
       ? html`<div class="empty"><div class="empty__line">${t('story.timeline_empty', language, gender)}</div></div>`
-      : data.timeline.map((event) => html`<article class="card story__event">
-          <div class="story__when">${dateLabel(event.at.slice(0, 10), language, me.user.timeZone)}</div>
-          <div class="stage__name">${event.title}</div>
-          ${event.body === null ? '' : html`<p class="stage__prose">${event.body}</p>`}
-        </article>`)}
+      : shown.length === 0
+        // A filter with nothing behind it says so. Falling back to everything
+        // would be a screen that ignores what was tapped.
+        ? html`<div class="empty"><div class="empty__line">${t('story.filter_empty', language, gender)}</div></div>`
+        : shown.map((event) => html`<article class="card story__event">
+            <div class="story__when">${dateLabel(event.at.slice(0, 10), language, me.user.timeZone)}</div>
+            <div class="stage__name">${event.title}</div>
+            ${event.body === null ? '' : html`<p class="stage__prose">${event.body}</p>`}
+            <!-- Only what SHE judged. A milestone is re-derived by the nightly
+                 tick, so a button offering to remove one would be a button
+                 that does not work — and the server refuses it too. -->
+            ${event.derived ? '' : html`<button class="button button--plain story__remove"
+              data-action="remove-story" data-id="${event.id}">${t('story.remove', language, gender)}</button>`}
+          </article>`)}
   `;
 }

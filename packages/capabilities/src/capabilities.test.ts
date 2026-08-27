@@ -4,6 +4,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { ownerOfTag, REGISTRY, tagSpecs } from './registry.ts';
 import { observe } from './health/index.ts';
+import { observe as observeMoney } from './money/index.ts';
 import { fakePorts } from './test-fakes.ts';
 import { localHour } from '@lian/domain';
 import type { CapabilityContext } from '@lian/domain';
@@ -158,6 +159,105 @@ describe('health is context, not a tracker', () => {
     // a generated one every week.
     assert.equal(observe([], 'en'), null);
     assert.equal(observe([{ id: '1', kind: 'meal', description: 'toast', occurredAt: at(9), durationMinutes: null }], 'en'), null);
+  });
+
+  test('a moment is her judgement, written once, promising nothing', async () => {
+    // UI-UX §8's timeline has three types and only milestones were written —
+    // for eleven runs, correctly, because a moment cannot be derived from
+    // anything. It is a control tag now, and TAG_PROMISES classifies both as
+    // recording: there is no follow-up, no reminder, no outreach.
+    const ports = fakePorts();
+    const story = REGISTRY.find((capability) => capability.id === 'story')!;
+
+    const made = await story.handle(
+      { context: CONTEXT, tag: { name: 'moment', payload: { title: 'the day they called the bank', note: 'Three weeks of putting it off.' }, index: 0 }, messageId: 'm-1' },
+      ports,
+    );
+    assert.ok(made.ok);
+    assert.equal(ports.storyRows[0]!.type, 'moment');
+    assert.equal(ports.storyRows[0]!.title, 'the day they called the bank');
+
+    // THE TAG NAME DECIDES THE TYPE, never the payload. Otherwise a model
+    // writing {"type":"milestone"} inside a <moment> could put a
+    // derived-looking row on a timeline it did not derive.
+    const joke = await story.handle(
+      { context: CONTEXT, tag: { name: 'inside_joke', payload: { title: 'the second alarm', type: 'milestone' }, index: 0 }, messageId: 'm-2' },
+      ports,
+    );
+    assert.ok(joke.ok);
+    assert.equal(ports.storyRows[1]!.type, 'inside_joke');
+
+    // A moment with nothing in it is refused rather than stored blank.
+    const empty = await story.handle(
+      { context: CONTEXT, tag: { name: 'moment', payload: { title: '   ' }, index: 0 }, messageId: 'm-3' },
+      ports,
+    );
+    assert.equal(empty.ok, false);
+    assert.equal(ports.storyRows.length, 2);
+
+    // It contributes NOTHING back to her context, deliberately: feeding the
+    // moments into the prompt would turn a record of what happened into a
+    // prompt to make more of them, which is the failure the fragment guards
+    // against. This assertion is the guard.
+    assert.equal(await story.contextFragment(CONTEXT, ports), null);
+
+    // And the fragment spends its words on restraint, because a tag she is
+    // offered is a tag she will reach for.
+    const fragment = story.promptFragment(CONTEXT)!;
+    assert.match(fragment, /RARE/);
+    assert.match(fragment, /never record one on the first day/i);
+  });
+
+  test('the money observation is arithmetic about the month, or nothing', () => {
+    // UI-UX §7 asks for "her observation" and for eleven runs the Money view
+    // did not have the field, so the screen was figures and a list with
+    // nothing of her on it. Built the way the health week's is: every branch
+    // is a statement about rows that exist.
+    const month = (over: Partial<Parameters<typeof observeMoney>[0]> = {}) => ({
+      inMinor: 0, outMinor: 0, leftMinor: 0, topCategories: [] as { category: string; totalMinor: number }[], ...over,
+    });
+
+    // The floor. Two points are not a pattern, so she says nothing — the
+    // common case, and the one a generated observation would fill with a
+    // confident sentence about two transactions.
+    assert.equal(observeMoney(month({ outMinor: 40_000 }), 2, 'AED', 'en'), null);
+
+    // A first month with no income: this explains the headline above it,
+    // which is why it is checked before anything else.
+    assert.match(
+      observeMoney(month({ outMinor: 40_000, leftMinor: -40_000 }), 5, 'AED', 'en')!,
+      /Nothing has come in this month yet/,
+    );
+
+    // One category carrying the month. Half is the threshold, and the
+    // boundary is asserted rather than assumed: exactly half counts.
+    assert.match(
+      observeMoney(month({
+        inMinor: 900_000, outMinor: 40_000, leftMinor: 860_000,
+        topCategories: [{ category: 'gym', totalMinor: 20_000 }],
+      }), 5, 'AED', 'en')!,
+      /Most of what went out this month was gym\./,
+    );
+
+    // Kept more than half of what came in — with the amount through
+    // @lian/i18n, like every other amount somebody reads (LESSONS §22).
+    const kept = observeMoney(month({ inMinor: 900_000, outMinor: 40_000, leftMinor: 860_000 }), 5, 'AED', 'en')!;
+    assert.match(kept, /kept more than half/);
+    assert.match(kept, /AED\u00a08,600\.00/, 'the amount is hand-formatted, so it disagrees with the screen it sits on');
+
+    // Out ahead of in, stated as arithmetic. PRD §6.5 has no budgets and no
+    // warnings, and "you are overspending" is both — so the assertion is that
+    // she does NOT say it.
+    const over = observeMoney(month({ inMinor: 100_000, outMinor: 300_000, leftMinor: -200_000 }), 6, 'AED', 'en')!;
+    assert.match(over, /More has gone out than came in/);
+    assert.doesNotMatch(over, /should|try|budget|careful|watch|too much/i, 'an observation became advice');
+
+    // An ordinary month with nothing to notice is silence, not filler.
+    assert.equal(observeMoney(month({ inMinor: 900_000, outMinor: 700_000, leftMinor: 200_000 }), 9, 'AED', 'en'), null);
+
+    // Both languages, because a screen in Arabic with an English observation
+    // on it is the failure the copy rules exist for.
+    assert.match(observeMoney(month({ outMinor: 40_000 }), 5, 'AED', 'ar')!, /[\u0600-\u06FF]/);
   });
 
   test('her health outreach is an observation, never a nag about a missed day', async () => {

@@ -62,6 +62,77 @@ function summaryOf(transaction: TransactionLike, language: 'en' | 'ar', localDay
   return { capability: 'money', icon: 'i-money', line: parts.join(' · '), correctionRoute: `/money/${transaction.id}` };
 }
 
+/**
+ * One observation in her voice (UI-UX §7, PRD §6.5), from what is there.
+ *
+ * The same instrument as the health week's `observe()` and for the same
+ * reason: **arithmetic, or nothing**. A model asked to comment on somebody's
+ * spending will produce a sentence that sounds insightful and is not checkable
+ * — and this screen already carries their real money, where a confident wrong
+ * sentence is worse than a blank space. Every branch here is a statement about
+ * rows that exist, and each one is true by construction.
+ *
+ * It is also what makes the screen photographable and free: no call, no
+ * latency, and the same figures produce the same sentence every time.
+ *
+ * NULL IS A REAL ANSWER, and the common one early. Three transactions is the
+ * floor because two points are not a pattern — the health week draws its line
+ * at two workouts for the same reason, and saying nothing is what she does
+ * when there is nothing to say.
+ */
+export function observe(
+  summary: { inMinor: number; outMinor: number; leftMinor: number; topCategories: readonly { category: string; totalMinor: number }[] },
+  transactionsThisMonth: number,
+  currency: string,
+  language: 'en' | 'ar',
+): string | null {
+  if (transactionsThisMonth < 3) return null;
+
+  // Nothing in yet. Said FIRST because it is the one that explains the rest
+  // of the screen: without it, "what's left" is a negative number with no
+  // account of why, which is what the headline was already changed to avoid.
+  if (summary.inMinor === 0 && summary.outMinor > 0) {
+    return line(
+      language,
+      'Nothing has come in this month yet, so this is only what has gone out.',
+      'لسه مفيش حاجة داخلة الشهر ده، فده اللي خرج بس.',
+    );
+  }
+
+  // One category carrying most of the month. The share is the observation —
+  // the amount is already on the screen above it, twice.
+  const top = summary.topCategories[0];
+  if (top !== undefined && summary.outMinor > 0 && top.totalMinor * 2 >= summary.outMinor) {
+    return line(
+      language,
+      `Most of what went out this month was ${top.category}.`,
+      `أغلب اللي خرج الشهر ده كان ${top.category}.`,
+    );
+  }
+
+  // Kept more than half of what came in. Only when something came in, or the
+  // ratio is a division by nothing dressed up as a finding.
+  if (summary.inMinor > 0 && summary.leftMinor * 2 >= summary.inMinor) {
+    return line(
+      language,
+      `You have kept more than half of what came in — ${formatMoney(summary.leftMinor, currency, language)} of it.`,
+      `احتفظت بأكتر من نص اللي دخل — ${formatMoney(summary.leftMinor, currency, language)} منه.`,
+    );
+  }
+
+  // Out is ahead of in. Stated as the arithmetic, never as advice: PRD §6.5
+  // has no budgets and no warnings, and "you are overspending" is both.
+  if (summary.inMinor > 0 && summary.outMinor > summary.inMinor) {
+    return line(
+      language,
+      'More has gone out than came in this month.',
+      'اللي خرج الشهر ده أكتر من اللي دخل.',
+    );
+  }
+
+  return null;
+}
+
 export const moneyCapability: Capability<CapabilityPorts> = {
   id: 'money',
 

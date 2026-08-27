@@ -192,7 +192,7 @@ describe('every screen speaks both languages', () => {
     ['chat', render(chatScreen({ ...initial, me: arabic, path: '/chat', messages: [message({ body: 'تمام.' })] }))],
     ['memory', render(memoryScreen({ me: arabic, memories: [], query: '', filter: 'all', editing: null, deleting: null }))],
     ['tasks', render(tasksScreen(arabic, { tasks: [], notes: [] }))],
-    ['money', render(moneyScreen(arabic, { month: '2026-05', inMinor: 0, outMinor: 0, leftMinor: 0, currency: 'AED', categories: [], recent: [] }))],
+    ['money', render(moneyScreen(arabic, { month: '2026-05', inMinor: 0, outMinor: 0, leftMinor: 0, currency: 'AED', observation: null, categories: [], recent: [] }))],
     ['story', render(storyScreen(arabic, { now: 'الآن', footer: 'ملاحظة', stages: [], timeline: [] }))],
     ['settings', render(settingsScreen(arabic))],
     ['security', render(securityScreen(arabic, { devices: [], attempts: [] }))],
@@ -222,7 +222,7 @@ describe('what the screens must not contain (PRD §14, §10)', () => {
     // "No add buttons anywhere." Everything arrives through conversation.
     for (const markup of [
       render(tasksScreen(me(), { tasks: [{ id: 't', kind: 'task', title: 'call the bank', dueOn: null, done: false }], notes: [] })),
-      render(moneyScreen(me(), { month: '2026-05', inMinor: 100, outMinor: 50, leftMinor: 50, currency: 'AED', categories: [], recent: [] })),
+      render(moneyScreen(me(), { month: '2026-05', inMinor: 100, outMinor: 50, leftMinor: 50, currency: 'AED', observation: null, categories: [], recent: [] })),
     ]) {
       assert.ok(!/data-action="(add|create|new)/.test(markup));
       assert.ok(!markup.includes('aria-label="Add'));
@@ -585,7 +585,7 @@ describe('what using it found', () => {
     // A first month: she has been told about one payment and no income, so
     // in-minus-out is −400 and "What's left" was the biggest thing on screen.
     const first = render(moneyScreen(me(), {
-      month: '2026-08', inMinor: 0, outMinor: 40_000, leftMinor: -40_000, currency: 'AED',
+      month: '2026-08', inMinor: 0, outMinor: 40_000, leftMinor: -40_000, currency: 'AED', observation: null,
       categories: [{ category: 'gym', totalMinor: 40_000 }],
       recent: [{ id: 't-1', line: 'gym', amountMinor: 40_000, direction: 'out', occurredOn: '2026-08-27', fromReceipt: false }],
     }));
@@ -606,7 +606,7 @@ describe('what using it found', () => {
 
     // Once something has come in, "What's left" means something and returns.
     const later = render(moneyScreen(me(), {
-      month: '2026-08', inMinor: 900_000, outMinor: 40_000, leftMinor: 860_000, currency: 'AED',
+      month: '2026-08', inMinor: 900_000, outMinor: 40_000, leftMinor: 860_000, currency: 'AED', observation: null,
       categories: [], recent: [],
     }));
     assert.ok(headline(later).includes(t('money.left', 'en')));
@@ -618,7 +618,7 @@ describe('what using it found', () => {
     // test asserted "AED 400", which is the one amount where two decimals and
     // zero decimals agree, so nothing was ever red.
     const markup = render(moneyScreen(me(), {
-      month: '2026-08', inMinor: 1_800_000, outMinor: 12_750, leftMinor: 1_787_250, currency: 'AED',
+      month: '2026-08', inMinor: 1_800_000, outMinor: 12_750, leftMinor: 1_787_250, currency: 'AED', observation: null,
       categories: [{ category: 'coffee', totalMinor: 12_750 }],
       recent: [{ id: 't-1', line: 'coffee', amountMinor: 12_750, direction: 'out', occurredOn: '2026-08-25', fromReceipt: false }],
     }));
@@ -633,7 +633,7 @@ describe('what using it found', () => {
     // claim about state (LESSONS §20), and that one was false on every row.
     // `transactions.receipt_id` is written now, so the caption follows it.
     const row = (fromReceipt: boolean) => render(moneyScreen(me(), {
-      month: '2026-08', inMinor: 0, outMinor: 40_000, leftMinor: -40_000, currency: 'AED',
+      month: '2026-08', inMinor: 0, outMinor: 40_000, leftMinor: -40_000, currency: 'AED', observation: null,
       categories: [],
       recent: [{ id: 't-1', line: 'gym', amountMinor: 40_000, direction: 'out', occurredOn: '2026-08-25', fromReceipt }],
     }));

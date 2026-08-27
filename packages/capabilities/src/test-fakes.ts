@@ -1,18 +1,19 @@
-import type { CapabilityPorts, TaskRecord, TransactionRecord, NoteRecord, HealthRecord } from './ports.ts';
+import type { CapabilityPorts, TaskRecord, TransactionRecord, NoteRecord, HealthRecord, StoryRecord } from './ports.ts';
 
 export function fakePorts(): CapabilityPorts & {
   taskRows: TaskRecord[]; txRows: TransactionRecord[]; noteRows: NoteRecord[];
-  healthRows: HealthRecord[]; identityRows: Record<string, unknown>;
+  healthRows: HealthRecord[]; storyRows: StoryRecord[]; identityRows: Record<string, unknown>;
 } {
   const taskRows: TaskRecord[] = [];
   const txRows: TransactionRecord[] = [];
   const noteRows: NoteRecord[] = [];
   const healthRows: HealthRecord[] = [];
+  const storyRows: StoryRecord[] = [];
   const completions = new Map<string, Set<string>>();
   let n = 0;
   const identityRows: Record<string, unknown> = {};
   return {
-    taskRows, txRows, noteRows, healthRows, identityRows,
+    taskRows, txRows, noteRows, healthRows, storyRows, identityRows,
     tasks: {
       async create(_userId, input) {
         const row: TaskRecord = { id: `t${++n}`, kind: input.kind, title: input.title, dueOn: input.dueOn, recurrence: input.recurrence, completedAt: null, originMessageId: input.originMessageId };
@@ -44,6 +45,18 @@ export function fakePorts(): CapabilityPorts & {
       async recent(_userId, limit) { return noteRows.slice(-limit).reverse(); },
       async all() { return noteRows; },
       async purge() { noteRows.length = 0; },
+    },
+    story: {
+      async add(_userId, input) {
+        const row: StoryRecord = {
+          id: `s${++n}`, type: input.type, title: input.title, body: input.body, occurredAt: input.occurredAt,
+        };
+        storyRows.push(row);
+        return row;
+      },
+      async byIds(_userId, ids) { return storyRows.filter((event) => ids.includes(event.id)); },
+      async all() { return storyRows; },
+      async purge() { storyRows.length = 0; },
     },
     health: {
       async create(_userId, input) {

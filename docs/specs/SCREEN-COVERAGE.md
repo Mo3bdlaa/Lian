@@ -9,7 +9,7 @@ column) **partly built — the row says which part**
 | Tasks & notes | ✅ | ◐ | ✅ | empty, recurring, edit task/note, delete |
 | Money | ✅ | ✅ | ✅ | summary, correction, receipt, empty |
 | Memory | ✅ | ✅ | ✅ | full, empty, add, edit, delete, search, provenance, free-limit queue |
-| Our story | ◐ | ◐ | ✅ | stage as prose, timeline of milestones; **moments and inside jokes NOT BUILT** |
+| Our story | ✅ | ◐ | ✅ | stage as prose; all three timeline types; §8's filter; removing one of hers |
 | Health | ✅ | ◐ | ✅ | chat capture, week, correction, empty |
 | Album | ✅ | ◐ | ✅ | grid, user sends, assistant sends, viewer, empty |
 | Assistants | ✅ | ◐ | ✅ | single-assistant state, create second, switch (2+), active identity, gender, profile |
@@ -56,12 +56,23 @@ grep for the word:
   `tools/gates/wired.ts`, printing on every CI run, and then got looked at and
   closed — which is what an announced hole is for. **Milestones are built**
   and derived from facts the product already has: the day you started talking,
-  and each stage reached. **Moments and inside jokes are not**, and that split
-  is deliberate: deciding something WAS a moment is a judgement only she can
-  make, which is a control tag, which under LESSONS §21 is a promise that has
-  to name the mechanism keeping it. That is a capability, not a repository
-  function, and building half of one to fill a screen is how these holes
-  happen in the first place.
+  and each stage reached. **Moments and inside jokes are now built too**, and
+  they took a run longer for a reason worth keeping written down: deciding
+  something WAS a moment is a judgement only she can make, which makes it a
+  control tag, which under LESSONS §21 is a promise that has to name the
+  mechanism keeping it. That is a capability, not a repository function, and
+  building half of one to fill a screen is how these holes happen in the first
+  place. The capability is `packages/capabilities/src/story`; both tags are
+  classified in `TAG_PROMISES` as recording, because nothing is owed after
+  writing one down.
+
+  Two things about it are load-bearing and are not obvious from the schema.
+  **It contributes nothing back to her context** — feeding the moments into
+  the prompt would turn a record of what happened into a prompt to make more
+  of them, and most of the prompt fragment is about when NOT to use the tag.
+  And **only hers can be removed**: a milestone carries a dedupe key and the
+  nightly tick re-derives it, so a delete would put it straight back, and an
+  event that reappears reads as the product ignoring somebody.
 - **Free limit's "approaching".** `messagesRemaining` reaches the client in
   every snapshot and **no screen reads it**. The *reached* state is built and
   good; the quiet indicator near the end is not there at all.

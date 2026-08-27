@@ -62,6 +62,18 @@ export const TAG_PROMISES: Record<string, Promise_> = {
   },
   note: { kind: 'records', why: 'Something written down. Nothing is owed after writing it down.' },
   health: { kind: 'records', why: 'A meal or a workout that already happened.' },
+  moment: {
+    kind: 'records',
+    why: 'Something that already happened between them, written onto the story timeline. It records and '
+      + 'promises nothing: there is no follow-up, no reminder and no outreach behind it, and the '
+      + 'capability deliberately contributes NOTHING back to her context — feeding moments into the '
+      + 'prompt would turn a record of what happened into a prompt to make more of them.',
+  },
+  inside_joke: {
+    kind: 'records',
+    why: 'A joke that has already recurred between them. Same as `moment`: the row IS the whole of it, and '
+      + 'the story screen is where it is seen and removed.',
+  },
   call_me: { kind: 'records', why: "The user's name, applied from the next turn onward by the prompt's identity block." },
   language: { kind: 'records', why: 'A setting, applied from the next turn onward.' },
   my_name: { kind: 'records', why: 'Her name, applied from the next turn onward.' },
@@ -122,6 +134,25 @@ export const COPY_PROMISES: Record<string, Promise_> = {
       { where: 'packages/db/src/repositories/memories.ts', marker: /export async function retrieve/ },
     ],
   },
+  // Removing a moment from the timeline promises that MEMORY is untouched.
+  // That is a real commitment and a load-bearing one — somebody tidying their
+  // story must not silently be making her forget them — and what keeps it is
+  // that the delete is a single UPDATE against one table, with no cascade and
+  // nothing else in the path.
+  'story.remove_body': {
+    kind: 'commits',
+    says: 'What I remember about you is separate, and stays.',
+    by: [
+      {
+        where: 'packages/db/src/repositories/story.ts',
+        // The marker is the WHOLE statement, not the function name: a delete
+        // that grew a second table, or that stopped being confined to
+        // story_events, is exactly the drift that would make this sentence
+        // false while the function still had the right name.
+        marker: /UPDATE story_events SET deleted_at = now\(\)/,
+      },
+    ],
+  },
   'memory.search': {
     kind: 'records',
     why: 'A field label on the memory screen. The search it labels is /api/memories?q=, which exists.',
@@ -166,12 +197,16 @@ export const COPY_PROMISES: Record<string, Promise_> = {
   'memory.delete_body': {
     kind: 'commits',
     says: "I'll remove it from everything I remember.",
-    // The function name, not the SQL. A marker containing a query is read as
-    // a query by the boundaries gate — which is right about the rule and
-    // wrong about this file, and the cheaper fix is a better marker: `forget`
-    // is the thing that has to still exist, and it is more load-bearing than
-    // the statement inside it.
-    by: [{ where: 'packages/db/src/repositories/memories.ts', marker: /export async function forget/ }],
+    // The statement, restored. This was weakened to the function name because
+    // the boundaries gate read a marker containing a query AS a query — twice
+    // — and the cheap fix each time was a weaker marker. That trades a real
+    // guarantee for a green gate: `forget` keeping its name says nothing about
+    // whether it still removes anything. The gate now strips regex literals
+    // before it looks for SQL, so the marker can be the thing it is about.
+    by: [{
+      where: 'packages/db/src/repositories/memories.ts',
+      marker: /UPDATE memories SET deleted_at = now\(\)/,
+    }],
   },
   'memory.capacity_near': {
     kind: 'commits',

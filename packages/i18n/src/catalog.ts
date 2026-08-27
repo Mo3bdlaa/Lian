@@ -114,6 +114,21 @@ export const CATALOG = {
     ar: 'لسه مفيش حاجة نرجعلها. ده بيتكوّن مع الوقت.',
     addressee: 'none',
   },
+  // UI-UX §8's filter. Four words, in her vocabulary rather than the
+  // schema's: the type column says `inside_joke` and nobody says that.
+  'story.filter_all': { en: 'Everything', ar: 'كل حاجة', addressee: 'none' },
+  'story.filter_milestones': { en: 'Milestones', ar: 'محطات', addressee: 'none' },
+  'story.filter_moments': { en: 'Moments', ar: 'لحظات', addressee: 'none' },
+  'story.filter_jokes': { en: 'Inside jokes', ar: 'نكت بينا', addressee: 'none' },
+  'story.filter_empty': { en: 'Nothing of this kind yet.', ar: 'لسه مفيش حاجة من ده.', addressee: 'none' },
+  'story.remove': { en: 'Take this off our story', ar: 'شيل ده من قصتنا', addressee: 'none' },
+  'story.remove_title': { en: 'Remove this?', ar: 'نشيل ده؟', addressee: 'none' },
+  'story.remove_body': {
+    en: 'It comes off the timeline for good. What I remember about you is separate, and stays.',
+    ar: 'هيتشال من الخط خالص. اللي فاكراه عنك حاجة تانية، وهيفضل.',
+    arMale: 'هيتشال من الخط خالص. اللي فاكره عنك حاجة تانية، وهيفضل.',
+    addressee: 'user',
+  },
   'story.nothing_to_lose': { en: 'There is nothing to unlock and nothing to lose. If you delete things, we go back a step, and that is fine.', ar: 'مافيش حاجة تُفتح ولا حاجة تُخسر. لو حاجة اتحذفت، نرجع خطوة، وده عادي.', addressee: 'none' },
 
   // ── settings (UI-UX §12) ────────────────────────────────────────────────

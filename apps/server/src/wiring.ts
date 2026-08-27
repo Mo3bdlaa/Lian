@@ -25,7 +25,7 @@ import { verifyTick } from '@lian/jobs';
 import { transcribeVoiceNote, hashText, type SpeechProvider } from '@lian/voice';
 import { localDayKey, localHour, atLocalHour, limitsFor, messageBudget, nextStep, DEFAULT_CURRENCY } from '@lian/domain';
 import { moodPhrase, t, CONSENT_VERSION, type CopyKey } from '@lian/i18n';
-import { describeCaptures, observe, LANGUAGE_STYLES } from '@lian/capabilities';
+import { describeCaptures, observe, observeMoney, LANGUAGE_STYLES } from '@lian/capabilities';
 import { resolveTheme, timeBand } from '@lian/design';
 
 import { readReceipt, describeReading, type Embedder, type AnalysisModel } from '@lian/analysis';
@@ -1238,9 +1238,19 @@ export function readPorts(deps: Deps): ReadPorts {
           // a claim about state, and that one was false on every row).
           fromReceipt: transaction.receiptId !== null,
         }));
+      const currency = all[0]?.currency ?? 'AED';
+      const thisMonth = all.filter((transaction) => transaction.occurredOn.startsWith(period)).length;
       return {
         month: period, inMinor: summary.inMinor, outMinor: summary.outMinor, leftMinor: summary.leftMinor,
-        currency: all[0]?.currency ?? 'AED',
+        currency,
+        // Counted over ALL of the month's rows, not the twelve `recent`
+        // renders: "three transactions" is a fact about the month, and
+        // deriving it from a truncated list would make the floor move with
+        // the page size.
+        observation: observeMoney(
+          summary, thisMonth, currency,
+          languageOf(user?.languageStyle ?? 'auto', user?.signupLanguage ?? null),
+        ),
         categories: summary.topCategories, recent,
       };
     },
@@ -1271,8 +1281,23 @@ export function readPorts(deps: Deps): ReadPorts {
           body: event.body === null ? null
             : event.derived ? t(event.body as CopyKey, language, assistant.gender) : event.body,
           at: event.occurredAt.toISOString(),
+          derived: event.derived,
         })),
       };
+    },
+
+    /**
+     * Take one event off the timeline.
+     *
+     * Only one she judged. A milestone carries a dedupe key and the nightly
+     * tick re-derives it, so deleting one would put it straight back — and an
+     * event that reappears is worse than one that could not be removed. The
+     * repository enforces that; this is the route's half of it.
+     */
+    async deleteStoryEvent({ userId, id }) {
+      const assistant = await assistantOf(userId);
+      if (assistant === null) return { deleted: false };
+      return { deleted: await db.story.remove({ userId, assistantId: assistant.id }, id) };
     },
 
     async security({ userId, deviceId }) {

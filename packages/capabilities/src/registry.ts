@@ -12,11 +12,12 @@ import { tasksCapability } from './tasks/index.ts';
 import { moneyCapability } from './money/index.ts';
 import { notesCapability } from './notes/index.ts';
 import { healthCapability } from './health/index.ts';
+import { storyCapability } from './story/index.ts';
 import { identityCapability } from './identity/index.ts';
 
 // Adding a capability is a directory and a line.  These two were the line.
 export const REGISTRY: readonly Capability<CapabilityPorts>[] = [
-  tasksCapability, moneyCapability, notesCapability, healthCapability, identityCapability,
+  tasksCapability, moneyCapability, notesCapability, healthCapability, storyCapability, identityCapability,
 ];
 
 export function capabilityById(id: string): Capability<CapabilityPorts> | undefined {

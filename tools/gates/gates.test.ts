@@ -95,6 +95,30 @@ describe('every gate objects to a deliberate violation (LESSONS §15)', () => {
     });
   });
 
+  test('boundaries: a regex literal is not a query, and a query beside it still is', () => {
+    // This gate cried wolf three times, each on a PROMISE MARKER: the
+    // promises gate wants every commitment to name a pattern proving its
+    // mechanism is there, and for a delete the strongest such pattern is the
+    // delete itself. Twice the fix was to weaken the marker, which trades a
+    // real guarantee for a green gate. The third time it was fixed here.
+    proves('boundaries', {
+      clean: {
+        'packages/runtime/src/thing.ts':
+          'export const marker = /UPDATE memories SET deleted_at = now\\(\\)/;\n'
+          + 'export const other = /DELETE FROM things/i;\n'
+          // A division and a URL, because the strip must not eat either.
+          + 'export const ratio = (a, b) => a / b / 2;\n'
+          + "export const url = 'https://example.test/a/b';\n",
+      },
+      dirty: {
+        'packages/runtime/src/thing.ts':
+          'export const marker = /UPDATE memories SET deleted_at = now\\(\\)/;\n'
+          + 'export const q = `SELECT id FROM memories WHERE assistant_id = $1`;\n',
+      },
+      says: /SQL outside @lian\/db/,
+    });
+  });
+
   test('analysis:path: a system prompt outside the two sanctioned places (§1)', () => {
     proves('analysis-path', {
       clean: { 'packages/runtime/src/thing.ts': `export const note = 'short';\n` },

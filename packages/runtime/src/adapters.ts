@@ -186,6 +186,36 @@ export function capabilityPorts(userId: string): CapabilityPorts {
       },
       async purge(userId) { await db.life.purgeNotes({ userId }); },
     },
+    story: {
+      // scope() is by assistant here, not by user: a story belongs to the
+      // assistant it happened with, and a second assistant has its own.
+      async add(userId, input) {
+        const event = await db.story.add(
+          { userId, assistantId: input.originAssistantId },
+          { type: input.type, title: input.title, body: input.body, occurredAt: input.occurredAt },
+        );
+        return { id: event.id, type: input.type, title: event.title, body: event.body, occurredAt: event.occurredAt };
+      },
+      async byIds(userId, ids) {
+        const assistantId = (await db.accounts.listAssistants({ userId }))[0]?.id ?? null;
+        if (assistantId === null) return [];
+        return (await db.story.byIds({ userId, assistantId }, ids))
+          .filter((event) => event.type !== 'milestone')
+          .map((event) => ({ id: event.id, type: event.type as 'moment' | 'inside_joke', title: event.title, body: event.body, occurredAt: event.occurredAt }));
+      },
+      async all(userId) {
+        const assistantId = (await db.accounts.listAssistants({ userId }))[0]?.id ?? null;
+        if (assistantId === null) return [];
+        return (await db.story.timeline({ userId, assistantId }, { limit: 500 }))
+          .filter((event) => event.type !== 'milestone')
+          .map((event) => ({ id: event.id, type: event.type as 'moment' | 'inside_joke', title: event.title, body: event.body, occurredAt: event.occurredAt }));
+      },
+      async purge(userId) {
+        for (const assistant of await db.accounts.listAssistants({ userId })) {
+          await db.story.purge({ userId, assistantId: assistant.id });
+        }
+      },
+    },
     health: {
       async create(userId, input) {
         const entry = await db.life.createHealthEntry({ userId }, input);

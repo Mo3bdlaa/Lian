@@ -52,6 +52,35 @@ const ALLOWED: Record<string, string[]> = {
 
 const SQL_KEYWORDS = /\b(SELECT\s+[\s\S]{0,200}?\bFROM\b|INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM|CREATE\s+(TABLE|INDEX|TYPE)|ALTER\s+TABLE)\b/i;
 
+/**
+ * A REGEX LITERAL IS NOT A QUERY, and this gate has now said it was three
+ * times.
+ *
+ * `tools/gates/promises.ts` requires every commitment to name a marker that
+ * proves its mechanism is still there, and the strongest marker for a delete
+ * is the delete itself:
+ *
+ *     marker: /UPDATE story_events SET deleted_at = now\(\)/
+ *
+ * That is a pattern used to CHECK for SQL, in a file that runs no queries and
+ * imports no database. Twice before, the fix was to weaken the marker — which
+ * traded a real guarantee for a green gate, and left the next person to hit
+ * it. So the fix is here: a `/.../ ` literal is stripped before the search,
+ * the way comments already are.
+ *
+ * Deliberately conservative. It only strips something that starts with `/`
+ * where a regex can legally begin (after `(`, `,`, `=`, `:`, `[`, `!`, `&`,
+ * `|`, `?`, `{`, `;`, `return`, or the start of a line), and it never crosses
+ * a newline — so a division, a URL and a comment are all left alone, and a
+ * template literal holding real SQL is untouched.
+ */
+function stripRegexLiterals(code: string): string {
+  return code.replace(
+    /(^|[(,=:[!&|?{;\n]\s*)\/(?![/*])((?:[^/\\\n[]|\\.|\[(?:[^\]\\\n]|\\.)*\])+)\/[dgimsuvy]*/g,
+    (_whole, before: string) => before,
+  );
+}
+
 const violations: Violation[] = [];
 const files = walk(`${ROOT}/packages`, ['.ts']).concat(walk(`${ROOT}/apps`, ['.ts']));
 
@@ -59,7 +88,7 @@ for (const file of files) {
   const path = rel(file);
   const pkg = path.split('/')[1]!;
   const source = read(file);
-  const code = stripComments(source);
+  const code = stripRegexLiterals(stripComments(source));
   const isApp = path.startsWith('apps/');
 
   for (const { spec, index } of importsOf(code)) {

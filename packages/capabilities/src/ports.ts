@@ -18,6 +18,13 @@ export type TransactionRecord = {
 };
 
 export type NoteRecord = { id: string; title: string | null; body: string; topic: string | null; createdAt: Date };
+
+/** A moment or an inside joke — an event SHE judged worth keeping (UI-UX §8).
+ *  Milestones are on the same timeline and are not this: they are derived by
+ *  the nightly tick from facts, and no capability writes them. */
+export type StoryRecord = {
+  id: string; type: 'moment' | 'inside_joke'; title: string; body: string | null; occurredAt: Date;
+};
 export type HealthRecord = {
   id: string; kind: 'meal' | 'workout' | 'medication'; description: string;
   occurredAt: Date; durationMinutes: number | null;
@@ -43,6 +50,12 @@ export type CapabilityPorts = {
     recent(userId: string, limit: number): Promise<NoteRecord[]>;
     byIds(userId: string, ids: readonly string[]): Promise<NoteRecord[]>;
     all(userId: string): Promise<NoteRecord[]>;
+    purge(userId: string): Promise<void>;
+  };
+  story: {
+    add(userId: string, input: { type: 'moment' | 'inside_joke'; title: string; body: string | null; occurredAt: Date; originAssistantId: string }): Promise<StoryRecord>;
+    byIds(userId: string, ids: readonly string[]): Promise<StoryRecord[]>;
+    all(userId: string): Promise<StoryRecord[]>;
     purge(userId: string): Promise<void>;
   };
   health: {

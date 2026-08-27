@@ -2,24 +2,27 @@
 //
 // WHAT IS HERE AND WHAT IS DELIBERATELY NOT.
 //
-// §8's timeline lists milestones, moments and inside jokes. Only the first is
-// built, and the split is not laziness — it is the difference between an
-// event the product KNOWS and an event somebody would have to judge:
+// §8's timeline lists milestones, moments and inside jokes, and the three are
+// written by two different things for a reason worth keeping straight:
 //
 //   milestone    the day you started talking; the day a stage was reached.
-//                Derived from rows that already exist, on facts the product
+//                DERIVED from rows that already exist, on facts the product
 //                is already sure of. No model call, no judgement, no promise.
+//                Written with a `dedupe_key`, because the nightly tick
+//                re-derives them and a timeline of the relationship must not
+//                become a timeline of the cron job.
 //
 //   moment       "something that happened that you would want referred back
-//   inside_joke  to." That is a judgement only she can make, which means a
-//                new control tag — and under LESSONS §21 a new tag is a new
-//                promise that has to name the mechanism that keeps it. It is
-//                a capability, not a repository function, and building half
-//                of one to fill a screen is how the four §20 holes happened.
+//   inside_joke  to." A JUDGEMENT only she can make, so it arrives as a
+//                control tag she emits during a turn — `packages/capabilities
+//                /src/story`, which is where the promise and the mechanism
+//                keeping it are named together (LESSONS §21). Written with no
+//                dedupe key and her own words, because it is not derived from
+//                anything and re-deriving it is not a thing that can happen.
 //
-// So the type column keeps all three (the schema was right), the writer
-// writes one, and HANDOFF says which is missing rather than a matrix saying
-// ✅ over an empty table.
+// The read side does not care which: `derived` is `dedupe_key IS NOT NULL`,
+// and it is what tells the resolver whether `title` is a copy key or somebody
+// already-written sentence.
 import type { Sql } from '../client.ts';
 import { db } from '../client.ts';
 import type { AssistantScope } from '../scope.ts';
@@ -99,6 +102,59 @@ export async function timeline(
     [scope.assistantId, before, options.limit],
   );
   return rows.map(toEvent);
+}
+
+/**
+ * Write an event SHE judged — a moment, an inside joke.
+ *
+ * Separate from `record` above rather than a flag on it, because every field
+ * means something different here: the title is her sentence and not a copy
+ * key, there is no dedupe key (nothing re-derives a moment, so there is
+ * nothing to be idempotent against), and it can therefore happen twice. That
+ * last one is a real difference: two milestones on the same day are a bug,
+ * two moments on the same day are a good day.
+ */
+export async function add(
+  scope: AssistantScope,
+  input: { type: 'moment' | 'inside_joke'; title: string; body: string | null; occurredAt: Date },
+  sql: Sql = db(),
+): Promise<StoryEvent> {
+  const { rows } = await sql.query<Row>(
+    `INSERT INTO story_events (assistant_id, type, title, body, occurred_at)
+     VALUES ($1, $2, $3, $4, $5) RETURNING ${COLUMNS}`,
+    [scope.assistantId, input.type, input.title, input.body, input.occurredAt],
+  );
+  return toEvent(rows[0]!);
+}
+
+/** For the capture chip, which reads back in whatever language it is read in. */
+export async function byIds(scope: AssistantScope, ids: readonly string[], sql: Sql = db()): Promise<StoryEvent[]> {
+  if (ids.length === 0) return [];
+  const { rows } = await sql.query<Row>(
+    `SELECT ${COLUMNS} FROM story_events WHERE assistant_id = $1 AND id = ANY($2::uuid[]) AND deleted_at IS NULL`,
+    [scope.assistantId, ids],
+  );
+  return rows.map(toEvent);
+}
+
+/**
+ * Remove one event.
+ *
+ * Only an event SHE judged — a `dedupe_key` means the product derived it, and
+ * the nightly tick would write it straight back. Refusing is better than
+ * deleting something that reappears on its own, which reads as the product
+ * ignoring somebody.
+ *
+ * Soft, like a message: `deleted_at` rather than a DELETE, so the row is out
+ * of every read path and account deletion is still the thing that removes it.
+ */
+export async function remove(scope: AssistantScope, id: string, sql: Sql = db()): Promise<boolean> {
+  const { rowCount } = await sql.query(
+    `UPDATE story_events SET deleted_at = now()
+     WHERE assistant_id = $1 AND id = $2 AND deleted_at IS NULL AND dedupe_key IS NULL`,
+    [scope.assistantId, id],
+  );
+  return (rowCount ?? 0) > 0;
 }
 
 /** Account deletion is real (LESSONS §11), and a timeline is somebody's year. */

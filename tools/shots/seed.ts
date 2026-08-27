@@ -327,6 +327,23 @@ export async function seed(fullness: Fullness, options: {
        ($1, 'milestone', 'stage.finding_a_rhythm.name', 'stage.finding_a_rhythm.prose', $3, 'stage:2')`,
     [assistantId, at(daysAgo(21), 20), at(daysAgo(6), 9)],
   );
+  // A moment and an inside joke — HER words, so no dedupe key and no copy
+  // key. The screen renders these straight and offers to remove them; the two
+  // milestones above resolve from the catalogue and do not. Having both on
+  // one timeline is the point of the shot: the filter is only worth looking
+  // at if there is something to filter.
+  await sql.query(
+    `INSERT INTO story_events (assistant_id, type, title, body, occurred_at) VALUES
+       ($1, 'moment', $2, $3, $5),
+       ($1, 'inside_joke', $4, NULL, $6)`,
+    [
+      assistantId,
+      arabic ? 'اليوم اللي كلمت فيه البنك' : 'the day they finally called the bank',
+      arabic ? 'كانت مأجلاها تلات أسابيع.' : 'Three weeks of putting it off, then it took four minutes.',
+      arabic ? 'المنبه التاني' : 'the second alarm',
+      at(daysAgo(9), 18), at(daysAgo(4), 21),
+    ],
+  );
 
   // ── the chips ─────────────────────────────────────────────────────────
   // A capture row joins one of HER messages to the entity it produced. The

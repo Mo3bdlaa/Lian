@@ -321,6 +321,64 @@ describe('LESSONS, enforced by the database', { skip: HAS_DB ? false : 'DATABASE
     assert.equal((await story.timeline(scope, { limit: 50 })).length, 0);
   });
 
+  test('§11 a moment can be taken off the timeline; a milestone cannot', async () => {
+    // Both are her words on somebody's permanent record, so both have to be
+    // removable — except that a MILESTONE is not removable in any meaningful
+    // sense: it carries a dedupe key and the nightly tick re-derives it, so
+    // "deleting" one would put it back that night. An event that reappears
+    // after somebody removes it reads as the product ignoring them, and is
+    // worse than a button that was never offered.
+    const user = await freshUser();
+    const scope = await freshAssistant(user);
+
+    await story.record(scope, {
+      type: 'milestone', titleKey: 'story.began', occurredAt: new Date('2026-05-01T09:00:00Z'), dedupeKey: 'began',
+    });
+    const moment = await story.add(scope, {
+      type: 'moment', title: 'the day they called the bank', body: null, occurredAt: new Date('2026-05-18T12:00:00Z'),
+    });
+    // Hers reads back as NOT derived — which is what makes the screen render
+    // her sentence rather than resolving it as a copy key, and what decides
+    // whether the remove button is offered at all.
+    assert.equal(moment.derived, false);
+    assert.equal((await story.timeline(scope, { limit: 50 })).length, 2);
+
+    assert.equal(await story.remove(scope, moment.id), true);
+    const left = await story.timeline(scope, { limit: 50 });
+    assert.equal(left.length, 1);
+    assert.equal(left[0]!.type, 'milestone');
+
+    // The milestone is refused, and refused the same way a stranger's row is:
+    // false, with nothing said about why.
+    assert.equal(await story.remove(scope, left[0]!.id), false);
+    assert.equal((await story.timeline(scope, { limit: 50 })).length, 1);
+    // And twice is not an error, it is nothing — a repeated DELETE from a
+    // retried request must not read as success the second time either.
+    assert.equal(await story.remove(scope, moment.id), false);
+
+    // Another assistant's, from the same user, is not removable either.
+    const other = await freshAssistant(user);
+    const theirs = await story.add(scope, { type: 'moment', title: 'ours', body: null, occurredAt: new Date('2026-05-19T12:00:00Z') });
+    assert.equal(await story.remove(other, theirs.id), false, 'a moment was reachable from another assistant');
+  });
+
+  test('§11 deleting a moment does not touch memory', async () => {
+    // `story.remove_body` promises exactly this — "What I remember about you
+    // is separate, and stays" — and the promises gate holds the statement
+    // itself as the marker. This is the behaviour behind the sentence:
+    // somebody tidying their story must not silently be making her forget
+    // them.
+    const user = await freshUser();
+    const scope = await freshAssistant(user);
+    await memories.remember(scope, { type: 'fact', statement: 'They run every morning.' }, 100);
+    const moment = await story.add(scope, {
+      type: 'moment', title: 'the morning run', body: null, occurredAt: new Date('2026-05-18T12:00:00Z'),
+    });
+
+    assert.equal(await story.remove(scope, moment.id), true);
+    assert.equal(await memories.countActive(scope), 1, 'removing a moment removed a memory');
+  });
+
   // ── LESSONS §11, scoping ────────────────────────────────────────────────
   test('§11 one assistant cannot read another assistant memory or canon', async () => {
     const user = await freshUser();

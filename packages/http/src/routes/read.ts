@@ -66,6 +66,10 @@ export type TaskView = { id: string; kind: 'task' | 'habit'; title: string; dueO
 export type NoteView = { id: string; title: string | null; body: string; createdAt: string };
 export type MoneyView = {
   month: string; inMinor: number; outMinor: number; leftMinor: number; currency: string;
+  /** One line in her voice (UI-UX §7), from arithmetic over the month's rows
+   *  — never a model's opinion about somebody's spending. null when there is
+   *  not enough to notice, which is most first months. */
+  observation: string | null;
   categories: { category: string; totalMinor: number }[];
   recent: { id: string; line: string; amountMinor: number; direction: 'in' | 'out'; occurredOn: string; fromReceipt: boolean }[];
 };
@@ -168,15 +172,17 @@ export type StoryView = {
   footer: string;
   stages: { key: string; name: string; prose: string; current: boolean }[];
   /**
-   * UI-UX §8's timeline, newest first.
+   * UI-UX §8's timeline, newest first — all three types.
    *
-   * MILESTONES ONLY. `moment` and `inside_joke` are in the schema and are not
-   * written by anything: deciding that something was a moment is a judgement
-   * only she can make, which is a control tag, which under LESSONS §21 is a
-   * promise needing a mechanism. Building half of one to fill a screen is how
-   * the §20 holes happened. HANDOFF says which is missing.
+   * `milestone` is DERIVED by the nightly tick from facts the product is sure
+   * of; `moment` and `inside_joke` are hers, emitted as control tags during a
+   * turn (packages/capabilities/src/story). `derived` is the difference and
+   * the screen needs it for two things: the title of a derived event is a
+   * copy key resolved at read time, and only a NON-derived one can be
+   * removed — the tick would write a milestone straight back, and an event
+   * that reappears after you delete it reads as the product ignoring you.
    */
-  timeline: { id: string; type: string; title: string; body: string | null; at: string }[];
+  timeline: { id: string; type: string; title: string; body: string | null; at: string; derived: boolean }[];
 };
 export type SecurityView = {
   devices: { id: string; label: string; lastSeen: string | null; current: boolean }[];
@@ -199,6 +205,9 @@ export type ReadPorts = MiddlewarePorts & {
   tasks(userId: string): Promise<{ tasks: TaskView[]; notes: NoteView[] }>;
   money(input: { userId: string; month: string | null }): Promise<MoneyView>;
   story(userId: string): Promise<StoryView>;
+  /** UI-UX §8: her words on somebody's permanent timeline, so they can take
+   *  one off it. Refuses a derived milestone — see StoryView.derived. */
+  deleteStoryEvent(input: { userId: string; id: string }): Promise<{ deleted: boolean }>;
   health(userId: string): Promise<HealthView>;
   search(input: { userId: string; query: string }): Promise<SearchView>;
   briefing(userId: string): Promise<BriefingView>;
@@ -538,6 +547,22 @@ export function readRoutes(ports: ReadPorts): { method: 'GET' | 'POST' | 'PATCH'
           const outcome = await ports.react({ userId: session.userId, messageId: context.params['id']!, kind });
           if (!outcome.ok) throw new HttpError(404, 'no_message', 'I cannot find that message');
           return { status: 200, json: { reaction: outcome.reaction } };
+        });
+        return { status: result.status, json: result.json };
+      },
+    },
+    {
+      method: 'DELETE',
+      pattern: '/api/story/:id',
+      handler: async (context) => {
+        const session = await requireSession(context, ports, ports.now());
+        await enforceRate({ bucket: `write:${session.userId}`, rule: RATE_RULES.write, now: ports.now() }, ports);
+        const result = await withIdempotency({ context, userId: session.userId, route: 'delete-story-event' }, ports, async () => {
+          const outcome = await ports.deleteStoryEvent({ userId: session.userId, id: context.params['id']! });
+          // 404 for "not yours", "no such event" and "that one is derived" —
+          // the same answer, so none of them is an oracle for the others.
+          if (!outcome.deleted) throw new HttpError(404, 'no_event', 'I cannot find that');
+          return { status: 200, json: outcome };
         });
         return { status: result.status, json: result.json };
       },
