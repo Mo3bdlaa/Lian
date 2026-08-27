@@ -1,5 +1,14 @@
 # Gates before the code they guard.  Every job here is a rule from LESSONS.md
 # that would otherwise have to be remembered.
+#
+# THIS WORKFLOW WAS RED FOR SEVENTEEN CONSECUTIVE RUNS and the cause was one
+# line: `postgres:16` does not ship pgvector, so migration 0003's
+# `CREATE EXTENSION vector` failed and every database-backed test died with it.
+# The service container and DATABASE_URL were already here and correct; the
+# image was not.  A red build that is always red says nothing, which is worse
+# than no CI — so the image is pinned to one that has the extension, and the
+# steps below check the environment BEFORE the suite, so the next breakage
+# names itself instead of arriving as three hundred cancelled tests.
 name: verify
 
 on:
@@ -13,7 +22,10 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        # NOT postgres:16 — the schema needs pgvector (migration 0003) and
+        # trigram search (migration 0010).  This image is postgres 16 with
+        # pgvector already built in; pg_trgm ships with Postgres itself.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: lian
           POSTGRES_PASSWORD: lian
@@ -34,9 +46,31 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+
+      # Fail here, with a sentence, rather than as a wall of SQL a thousand
+      # lines into the test log. Both of these were how the seventeen red runs
+      # actually presented themselves.
+      - name: the database is reachable and has what the schema needs
+        run: |
+          psql "$DATABASE_URL" -c 'SELECT 1' > /dev/null \
+            || { echo "::error::cannot reach Postgres at DATABASE_URL"; exit 1; }
+          psql "$DATABASE_URL" -tAc \
+            "SELECT 1 FROM pg_available_extensions WHERE name = 'vector'" | grep -q 1 \
+            || { echo "::error::pgvector is not available in this image — migration 0003 needs it (use pgvector/pgvector:pg16)"; exit 1; }
+
+      # Explicit, and before the tests, so a migration failure is a migration
+      # failure rather than three hundred cancelled tests.
+      - name: migrate
+        run: npm run migrate
+
       - name: typecheck
         run: npm run typecheck
+
       - name: gates
         run: npm run gates
+
+      # NOT `npm test`. node --test exits ZERO on a run that skipped or
+      # cancelled everything, which is exactly how a green tick stops meaning
+      # anything. tools/ci-test.ts reads the summary instead of the exit code.
       - name: tests
-        run: npm test
+        run: npm run test:ci

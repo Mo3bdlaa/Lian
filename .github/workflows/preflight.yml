@@ -1,0 +1,57 @@
+# The live integrations, on purpose and never on a push.
+#
+# OPT-IN BY CONSTRUCTION: `workflow_dispatch` only. There is no `on: push`
+# here and there must not be one — this workflow makes REAL calls to Resend,
+# S3, a speech provider and Stripe, which cost money, need credentials that
+# do not exist as secrets by default, and fail for reasons that have nothing
+# to do with the commit that triggered them.
+#
+# A push-triggered preflight is a red build that means "no API key", which is
+# the failure mode `verify` just spent seventeen runs demonstrating.
+#
+# Each check skips itself, loudly, when its variables are absent — so running
+# this with only LIAN_EMAIL_API_KEY set is a legitimate thing to do, and the
+# output says which four it did not attempt.
+name: preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'which check to run (email, storage, speech, stripe, push) — blank runs all of them'
+        required: false
+        default: ''
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    # A named environment, so the secrets below are granted deliberately and
+    # a fork cannot reach them.
+    environment: live-integrations
+
+    env:
+      DATABASE_URL: postgres://lian:lian@127.0.0.1:5432/lian_test
+      LIAN_TICK_SECRET: preflight
+      LIAN_PUBLIC_URL: ${{ vars.LIAN_PUBLIC_URL }}
+      LIAN_EMAIL_API_KEY: ${{ secrets.LIAN_EMAIL_API_KEY }}
+      LIAN_EMAIL_FROM: ${{ vars.LIAN_EMAIL_FROM }}
+      LIAN_PREFLIGHT_EMAIL: ${{ vars.LIAN_PREFLIGHT_EMAIL }}
+      LIAN_STORAGE_BUCKET: ${{ vars.LIAN_STORAGE_BUCKET }}
+      LIAN_STORAGE_REGION: ${{ vars.LIAN_STORAGE_REGION }}
+      LIAN_STORAGE_ENDPOINT: ${{ vars.LIAN_STORAGE_ENDPOINT }}
+      LIAN_STORAGE_ACCESS_KEY_ID: ${{ secrets.LIAN_STORAGE_ACCESS_KEY_ID }}
+      LIAN_STORAGE_SECRET_ACCESS_KEY: ${{ secrets.LIAN_STORAGE_SECRET_ACCESS_KEY }}
+      LIAN_SPEECH_API_KEY: ${{ secrets.LIAN_SPEECH_API_KEY }}
+      LIAN_STRIPE_SECRET_KEY: ${{ secrets.LIAN_STRIPE_SECRET_KEY }}
+      LIAN_STRIPE_PRICE_ID: ${{ vars.LIAN_STRIPE_PRICE_ID }}
+      LIAN_STRIPE_WEBHOOK_SECRET: ${{ secrets.LIAN_STRIPE_WEBHOOK_SECRET }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: preflight
+        run: npm run preflight ${{ inputs.only }}
