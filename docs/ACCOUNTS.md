@@ -44,10 +44,19 @@ The enforced numbers are the ones to plan capacity against, because they are
 the worst case the product will actually let happen. The assumed ones are
 guesses about people.
 
-**Every "free tier covers this" claim below is a comparison against a
-published limit I have not re-read today.** Confirm the number on the
-provider's own pricing page as you go — it is one line per service, and it is
-the number the tier decision rests on.
+**Every price and limit below was read off the provider's own page on
+2026-08-27**, and each says so where it appears. They move: re-read the line
+before you rely on it, and the ones that carry real risk are marked ⚠.
+
+Four of them were wrong in the first draft of this file, which is why the
+dates are here rather than a general disclaimer:
+
+| Was | Actually |
+|---|---|
+| "Anthropic usage tier 1" | the tiers are **Start / Build / Scale / Custom**, and a new organisation may start in an **Evaluation** tier *below* Start |
+| "R2's free allowance covers the assumed month" | 10 GB free against a **70 GB** enforced ceiling — covered in practice, not at the ceiling |
+| Stripe at 2.9% + 30¢ | **plus 0.7%** for Billing, which is what subscriptions are |
+| Sonnet 5 at $2/$10 "read 2026-06-24" | still $2/$10 — and the increase to $3/$15 that was scheduled for 2026-09-01 **has been cancelled** |
 
 ---
 
@@ -84,16 +93,32 @@ npm run preflight email      # will fail until the DNS records land
 
 **What it is for.** Every reply. This is the product.
 
-**Tier.** Pay-as-you-go with prepaid credit; no subscription. The account's
-**usage tier** governs your rate limits, and tier 1 is where a new account
-starts — enough for a launch at the assumed scale, and the thing that will
-bite first if it is not.
+**Tier.** Pay-as-you-go with prepaid credit; no subscription. The tiers are
+**Start → Build → Scale → Custom** (not numbered), and an organisation moves
+up automatically on usage history. A brand-new organisation may be placed in
+an **Evaluation tier with limits BELOW Start** while it establishes history —
+so the first day is the tightest the limits will ever be, and that is worth
+knowing before you conclude something is broken.
 
-**Cost at launch scale.** The enforced worst case is 100 free users × $3.00 =
-**$300/month**, and nobody spends their whole allowance, so treat it as a
-ceiling rather than a forecast. `npm run report:economics` prints the
-breakdown with each assumption labelled; the per-turn figure it starts from
-is 3,000 in / 200 out, which is **assumed — no traffic has been measured**.
+⚠ **Start tier carries a $500/month SPEND CAP**, separate from rate limits.
+Hit it and the API returns 429 until 00:00 UTC on the 1st — with no
+`retry-after`, so the SDK's automatic retries fail too. The distinguishing
+mark is `error.details.error_code = "enforced_spend_limit_reached"`.
+[Read 2026-08-27.]
+
+**That cap is the number to look at, and it is close.** The enforced worst
+case here is 100 free users × $3.00 = **$300/month** against a $500 cap. It is
+a ceiling and not a forecast — nobody spends their whole allowance — but the
+margin is under 2×, so the cap is the thing that bites first if the assumed
+scale is wrong in the obvious direction.
+
+**Prices** (read 2026-08-27): Claude Sonnet 5 is **$2/M input, $10/M output**,
+with prompt caching at **1.25× base for a 5-minute write, 2× for an hour, and
+0.1× for a read**. The $3/$15 increase that was scheduled for 2026-09-01 has
+been cancelled and $2/$10 is now the standard price — worth knowing, because
+the free tier's whole costing rests on it. `npm run report:economics` prints
+the breakdown; the per-turn shape it starts from is 3,000 in / 200 out, which
+is **assumed — no traffic has been measured**.
 
 **Buy at least $50 of credit** to start. Running out mid-month presents
 exactly like an outage.
@@ -131,12 +156,31 @@ npm run preflight model
   pretending.
 - **The voice** (`gpt-4o-mini-tts`, `gpt-4o-transcribe`). Paid plan only.
 
-**Tier.** Pay-as-you-go. Embeddings are close to free at this scale.
-Voice is the one with a real bill, and it is bounded per user: 200k TTS chars
-and 1,800 STT seconds a month, enforced by a database counter. Ten paying
-users cannot exceed ten times that.
+**Tier.** Pay-as-you-go. Prices read 2026-08-27:
 
-**$20 of credit** covers the assumed month comfortably.
+| | |
+|---|---|
+| `text-embedding-3-large` | **$0.13 / M tokens** |
+| `gpt-4o-transcribe` | **$2.50 / M in, $10 / M out**, listed at about **$0.006 / minute** |
+| `gpt-4o-mini-tts` | **$0.60 / M text input, $12 / M audio output tokens** |
+
+**Embeddings are close to free at this scale** — a month of memory writes for
+100 accounts is cents.
+
+**Voice is the one with a real bill, and it is bounded per user**: 200k TTS
+characters and 1,800 STT seconds a month, enforced by a database counter, so
+ten paying users cannot exceed ten times that. STT is easy to bound from the
+listed figure: 1,800 seconds is 30 minutes, so **≈$0.18 per paying user per
+month at the ceiling**, ≈$1.80 for ten.
+
+⚠ **TTS is the one number here I cannot turn into a bound from the page.** It
+is priced per *audio output token*, and the product's ceiling is in
+*characters* — the conversion is not published, and guessing it would put a
+made-up number next to real ones. Check the first month's actual usage on the
+OpenAI dashboard rather than trusting an estimate; if it matters more than
+that, meter one synthesis and divide.
+
+**$20 of credit** covers the assumed month on everything except that unknown.
 
 **Produces:**
 
@@ -168,14 +212,20 @@ npm run preflight speech
 database: attachments are bytes behind short-lived signed URLs, so the page
 source holds no durable link to anybody's photograph.
 
-**Tier.** **Cloudflare R2** is the cheapest way to get one, and its free
-allowance covers the assumed month. Any S3-compatible store works — S3
-proper, B2, MinIO, Garage — because the signing is written against the
-protocol rather than a vendor SDK.
+**Tier.** **Cloudflare R2**, whose free allowance is **10 GB-month of
+standard storage, 1M class-A and 10M class-B operations, and no egress
+charge** (read 2026-08-27). Beyond it, storage is **$0.015 / GB-month**. Any
+S3-compatible store works — S3 proper, B2, MinIO, Garage — because the signing
+is written against the protocol rather than a vendor SDK. Egress being free is
+the reason to prefer R2 specifically: this product serves every photograph and
+voice note back out through signed URLs.
 
 **Capacity at launch scale.** The enforced ceiling is 100 × 200 MB + 10 × 5 GB
-= **70 GB** if every account filled its quota, which none will. Actual usage
-will be a small fraction; the ceiling is what stops it being unbounded.
+= **70 GB** if every account filled its quota. **The free 10 GB does not cover
+that** — but nobody fills a quota, and the ceiling exists to stop it being
+unbounded rather than to predict anything. If every account somehow did, the
+bill is 60 GB × $0.015 = **$0.90/month**, which is the useful thing about this
+line: even the absurd case is nothing.
 
 **The token needs `PutObject`, `GetObject`, `DeleteObject`, `ListBucket`** —
 on R2, an API token with Object Read & Write scoped to the bucket. A token
@@ -211,9 +261,11 @@ made seventeen CI runs red while every other explanation was investigated. The
 extension has to be *available*, not just requested.
 
 **Tier.** Any managed Postgres that offers pgvector — Neon, Supabase, Fly
-Postgres, RDS — on its smallest paid tier. The free tiers work for a launch at
-the assumed scale; the reason to pay is backups and not being paused for
-inactivity, not capacity.
+Postgres, RDS. On **Neon, pgvector is on every plan including free, with no
+add-on**; you still have to `CREATE EXTENSION vector` per database, which
+migration 0003 does. [Read 2026-08-27.] The free tiers hold a launch at the
+assumed scale comfortably; the reasons to pay are backups and not being
+suspended for inactivity, neither of which is about capacity.
 
 **Produces:** `DATABASE_URL=postgres://…`
 
@@ -231,9 +283,15 @@ npm run migrate
 reset. Recovery that reaches nobody is not recovery.
 
 **Tier.** **Resend** is what the provider is written against
-(`https://api.resend.com/emails`). Its free tier — 3,000/month, **100/day** —
-covers the assumed launch. The daily cap is the one to watch: a burst of
-sign-ups plus device confirmations is more messages per person than it looks.
+(`https://api.resend.com/emails`). Its free tier is **3,000/month, 100/day,
+and 3 verified domains** — so a custom sending domain does not need the paid
+plan, which is the thing people assume. Pro is $20/month for 50,000 and drops
+the daily cap. [Read 2026-08-27.]
+
+⚠ **The daily cap is the one to watch, not the monthly.** 100/day sounds
+generous against 100 sign-ups until you count per person: a verification, then
+a device confirmation, then a reset when they mistype the password. A launch
+day that goes well is exactly when this stops sending.
 
 **This is the step people get wrong, and it fails silently.** The API key
 works from the moment it is issued. Delivery does not, until the domain in
@@ -335,6 +393,25 @@ server that will refuse every call.
 
 **Tier.** No plan; per-transaction. Test mode is free and complete — do the
 whole flow there first.
+
+⚠ **The fee is not 2.9% + 30¢, it is that PLUS 0.7%.** Subscriptions are
+Stripe *Billing*, which is priced separately: 0.7% of billing volume
+pay-as-you-go (or from $620/month on a contract, which is not this). On a $9
+subscription, read 2026-08-27:
+
+| | |
+|---|---|
+| card | 2.9% × $9 = $0.261 |
+| fixed | $0.30 |
+| Billing | 0.7% × $9 = $0.063 |
+| **total** | **$0.624 — 6.9%** |
+| **net** | **$8.38** |
+
+**That 30¢ is the problem, not the percentages**, and it is why a $9 price is
+near the floor for a monthly subscription: the fixed fee is 3.3% of it all by
+itself, and it would be 10% on a $3 plan. `npm run report:economics` funds
+free users off the **gross** $9 — read it as ~7% optimistic until that is
+fixed, which is noted in the report itself.
 
 **The ordering trap.** `LIAN_STRIPE_WEBHOOK_SECRET` is issued *per endpoint*,
 and creating the endpoint means giving Stripe a URL it can reach. There is no

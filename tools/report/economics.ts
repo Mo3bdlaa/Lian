@@ -28,7 +28,7 @@ console.log(`model            ${DEFAULT_MODEL}`);
 console.log(`prices           $${pricing.inputPerMillionMicros / 1_000_000}/M in, $${pricing.outputPerMillionMicros / 1_000_000}/M out   [read ${pricing.pricedOn}]`);
 console.log(`typical turn     ${TYPICAL_TURN.inputTokens} in / ${TYPICAL_TURN.outputTokens} out          [ASSUMED — no traffic measured]`);
 console.log(`cacheable share  ${(TYPICAL_CACHED_SHARE * 100).toFixed(0)}% of input                 [measured off the golden prompt; ~4 chars/token]`);
-console.log(`cache multipliers write ${CACHE_WRITE_MULTIPLIER}× · read ${CACHE_READ_MULTIPLIER}×   [ASSUMED — provider docs, ${pricing.pricedOn}]`);
+console.log(`cache multipliers write ${CACHE_WRITE_MULTIPLIER}× · read ${CACHE_READ_MULTIPLIER}×   [VERIFIED — provider pricing table, ${pricing.pricedOn}]`);
 console.log(`cache minimum    ${MIN_CACHEABLE_TOKENS} tokens             [ASSUMED — provider docs; below it a breakpoint does nothing]`);
 console.log('');
 console.log(`per turn         uncached ${money(uncached)} · first turn ${money(write)} · cached ${money(read)}`);
@@ -70,7 +70,14 @@ async function main(): Promise<void> {
   console.log(`free tier`);
   console.log(`  ${turns} turns/month × ${money(perTurn)} blended = ${money(monthly)}`);
   console.log(`  ceiling ${money(ceiling)} — ${((monthly / ceiling) * 100).toFixed(0)}% used`);
-  console.log(`  subscription $9/month funds ${(9_000_000 / monthly).toFixed(1)} free users`);
+  // NET of payment fees, not gross. Stripe takes 2.9% + 30¢ for the card AND
+  // 0.7% for Billing, which is what a subscription is — read 2026-08-27. That
+  // is $0.62 on $9, and this line was 7% optimistic while it used the gross
+  // number. The 30¢ is most of it: a fixed fee is 3.3% of a $9 price all by
+  // itself, which is the real argument against pricing any lower.
+  const NET_SUBSCRIPTION_MICROS = 9_000_000 - 624_000;
+  console.log(`  subscription $9/month funds ${(NET_SUBSCRIPTION_MICROS / monthly).toFixed(1)} free users`);
+  console.log(`  [net of Stripe: 2.9% + 30¢ card + 0.7% Billing = $0.62, so $8.38 of the $9]`);
   console.log(`  [the last line assumes every free user spends their whole allowance;`);
   console.log(`   nobody does, so it is a floor — and it is a floor on an ASSUMPTION]`);
   console.log('');

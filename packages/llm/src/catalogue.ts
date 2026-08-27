@@ -35,22 +35,32 @@ export type ModelEntry = {
 
 const M = 1_000_000;
 
-/** Prices read 2026-06-24 from the Anthropic model table. */
+/**
+ * Prices re-read from the Anthropic model table on 2026-08-27. All three were
+ * unchanged from 2026-06-24.
+ *
+ * WORTH KNOWING RATHER THAN JUST CHECKING: Sonnet 5's $2/$10 was announced as
+ * introductory pricing with an increase to $3/$15 scheduled for 2026-09-01 —
+ * four days from this reading. That increase has been CANCELLED and $2/$10 is
+ * now the standard price. Had it gone ahead, the free tier's ceiling in
+ * domain/plan.ts would have been 50% short overnight, and nothing in this
+ * repository would have said so.
+ */
 export const MODELS: Readonly<Record<string, ModelEntry>> = {
   'claude-opus-5': {
     id: 'claude-opus-5', provider: 'anthropic',
     capabilities: { streaming: true, toolCalling: true, vision: true, contextTokens: 1_000_000, maxOutputTokens: 128_000 },
-    pricing: { inputPerMillionMicros: 5 * M, outputPerMillionMicros: 25 * M, pricedOn: '2026-06-24' },
+    pricing: { inputPerMillionMicros: 5 * M, outputPerMillionMicros: 25 * M, pricedOn: '2026-08-27' },
   },
   'claude-sonnet-5': {
     id: 'claude-sonnet-5', provider: 'anthropic',
     capabilities: { streaming: true, toolCalling: true, vision: true, contextTokens: 1_000_000, maxOutputTokens: 128_000 },
-    pricing: { inputPerMillionMicros: 2 * M, outputPerMillionMicros: 10 * M, pricedOn: '2026-06-24' },
+    pricing: { inputPerMillionMicros: 2 * M, outputPerMillionMicros: 10 * M, pricedOn: '2026-08-27' },
   },
   'claude-haiku-4-5': {
     id: 'claude-haiku-4-5', provider: 'anthropic',
     capabilities: { streaming: true, toolCalling: true, vision: true, contextTokens: 200_000, maxOutputTokens: 64_000 },
-    pricing: { inputPerMillionMicros: 1 * M, outputPerMillionMicros: 5 * M, pricedOn: '2026-06-24' },
+    pricing: { inputPerMillionMicros: 1 * M, outputPerMillionMicros: 5 * M, pricedOn: '2026-08-27' },
   },
 };
 
@@ -86,12 +96,18 @@ export const TYPICAL_TURN = { inputTokens: 3_000, outputTokens: 200 } as const;
 /**
  * Prompt-cache price multipliers, relative to fresh input.
  *
- * ASSUMPTION, stated because every number below depends on it: writing to
- * the cache costs about 1.25× fresh input, and reading from it about 0.1×.
- * Read from the provider's pricing documentation on 2026-06-24, same source
- * and date as the per-model prices above.  If those multipliers move, the
- * free-tier ceiling in domain/plan.ts moves with them, and the test in
- * runtime/turn.test.ts is what says so.
+ * VERIFIED, not assumed, and every number below depends on it: a 5-minute
+ * cache write costs 1.25× fresh input and a read costs 0.1×. Read from the
+ * provider's pricing table on 2026-08-27, same source and date as the
+ * per-model prices above, where it is stated as a multiplier rather than
+ * inferred from two prices.
+ *
+ * There is also a 1-HOUR write at 2×, which this product does not use: turns
+ * are minutes apart at best and the 5-minute cache is the one that matches.
+ * If that ever changes, this constant is not enough — it becomes two.
+ *
+ * If those multipliers move, the free-tier ceiling in domain/plan.ts moves
+ * with them, and the test in runtime/turn.test.ts is what says so.
  */
 export const CACHE_WRITE_MULTIPLIER = 1.25;
 export const CACHE_READ_MULTIPLIER = 0.1;
