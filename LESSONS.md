@@ -484,3 +484,40 @@ the list and has no screen was the case nobody had.
 - These were found by SIGNING UP and TALKING TO HER. Not by a test, not by a
   gate, not by reading the specs again. `docs/FIRST-IMPRESSIONS.md` is what
   that afternoon produced.
+
+## 21. She can promise what nothing performs
+
+**A product where an assistant speaks for the machinery has a seam at every
+sentence. She will say the reassuring thing warmly, in the first person, and
+nothing anywhere will be red.**
+
+    "remind me to call the bank"  →  "I'll remind you."
+
+The `<todo>` carried no date, so the row stored `due_on NULL`. That matched
+`due_on = $2::date` in the outreach query, `dueOn === localDay` in the
+briefing's *Today*, and `dueOn !== null` in *Carried over* — none of them. No
+reminder would ever have fired, on any day, forever.
+
+Every part was individually correct: the capture worked, the row was right,
+the chip was right, the Tasks screen showed it. The Tasks screen even said
+**"No date"**, which reads as *whenever* and meant *never*.
+
+- **This is not a bug in the reminder system.** The reminder system is fine. It
+  is a promise made in one place by a model and kept in another place by a
+  query, with nobody standing where both are visible.
+- **No test could have caught it**, because no assertion was false. It was
+  found by asking her for a reminder and then looking.
+- `packages/domain/src/promises.ts` is the list: every control tag is
+  classified as recording something or committing to something, and every
+  commitment names the mechanism that performs it plus a marker proving the
+  mechanism is still there. `tools/gates/promises.ts` enforces it in both
+  directions — an unclassified tag fails, a stale entry fails, and a
+  refactored-away mechanism fails.
+- **The catalogue is scanned too.** A new "I'll…" in her voice has to say what
+  keeps it. Twenty commitments are named; the rest are classified as
+  recording something, each with a reason.
+- The gate found a wrong claim on its first run: a promise named `webhook.ts`
+  and the thing keeping it was in `stripe.ts`. Pointing at the wrong file is
+  exactly the drift it exists to catch.
+- **The rule underneath it: where the mechanism cannot, she must not say it.**
+  A sentence with nothing behind it comes out; it does not get documented.

@@ -22,8 +22,9 @@
     "gate:theme": "node tools/gates/theme-single-writer.ts",
     "gate:arabic": "node tools/gates/arabic-address.ts",
     "gate:wired": "node tools/gates/wired.ts",
+    "gate:promises": "node tools/gates/promises.ts",
     "gate:lessons": "node tools/gates/lessons-index.ts",
-    "gates": "npm run gate:boundaries && npm run gate:analysis && npm run gate:db:scoping && npm run gate:db:paging && npm run gate:tokens:audit && npm run gate:tokens:raw && npm run gate:tokens:contrast && npm run gate:tokens:tap && npm run gate:theme && npm run gate:voice && npm run gate:arabic && npm run gate:wired && npm run gate:lessons",
+    "gates": "npm run gate:boundaries && npm run gate:analysis && npm run gate:db:scoping && npm run gate:db:paging && npm run gate:tokens:audit && npm run gate:tokens:raw && npm run gate:tokens:contrast && npm run gate:tokens:tap && npm run gate:theme && npm run gate:voice && npm run gate:arabic && npm run gate:wired && npm run gate:promises && npm run gate:lessons",
     "verify": "npm run typecheck && npm run gates && npm run test",
     "db:up": "node tools/db/up.ts",
     "db:migrate": "node tools/db/migrate.ts",
@@ -36,6 +37,7 @@
     "report:economics": "node tools/report/economics.ts",
     "report": "node tools/report/weekly.ts",
     "preflight": "node tools/preflight.ts",
+    "shots": "node tools/shots/index.ts",
     "up": "node tools/up.ts"
   },
   "devDependencies": {

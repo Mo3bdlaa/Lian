@@ -44,8 +44,16 @@ export function count(value: number, language: Language): string {
  * here, and it is right for a currency this product has never seen.
  */
 export function money(minor: number, currency: string, language: Language): string {
+  // NO fraction-digit overrides. `minimumFractionDigits: 0` rendered AED
+  // 127.50 as "AED 127.5" — on the Money screen, in the headline slot, with a
+  // trailing single decimal that reads as a typo rather than as an amount.
+  // Intl already knows each currency's precision (AED and USD two, JPY none,
+  // KWD three), so saying nothing is both shorter and correct in more places
+  // than any pair of numbers picked here.
+  //
+  // Found by looking at a screenshot. Every test asserted "AED 400", which is
+  // the one case where two decimals and zero decimals agree.
   return new Intl.NumberFormat(locale(language), {
     style: 'currency', currency, currencyDisplay: 'narrowSymbol',
-    minimumFractionDigits: 0, maximumFractionDigits: 2,
   }).format(minor / 100);
 }

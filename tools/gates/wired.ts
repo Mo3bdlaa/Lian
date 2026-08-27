@@ -47,6 +47,25 @@ const TABLES_WITHOUT_A_REPOSITORY: Record<string, string> = {
     + 'right and the feature is wanted; listed because a coverage matrix said ✅.',
 };
 
+/**
+ * Columns that exist and that nothing reads or writes, with the reason.
+ *
+ * A table can be wired while a column on it is not, and the column is the
+ * finer-grained version of the same hole. `transactions.receipt_id` is the
+ * one that made this list necessary: it has existed since migration 0002,
+ * nothing has ever written it, and the Money screen filled the gap with
+ * `originMessageId === null` as a proxy — which is backwards, and captioned
+ * every chat-captured row "from a receipt" for as long as the screen existed.
+ */
+const COLUMNS_NOTHING_USES: Record<string, string> = {
+  'transactions.receipt_id':
+    'NOT WRITTEN. A photographed receipt becomes a transaction (that path is built and tested), '
+    + 'but nothing links the transaction back to the photograph — so UI-UX §7\'s "receipt attached / '
+    + 'view receipt" on the correction screen cannot be built, and the recent row cannot say where '
+    + 'it came from. Threading the attachment id from prepareAttachment through the turn into the '
+    + '<spend> handler is the fix.',
+};
+
 const violations: Violation[] = [];
 const exemptions: string[] = [];
 
@@ -105,6 +124,23 @@ if (tables.size === 0) {
 }
 void dbSource;
 
+// ── seam 1b: columns ───────────────────────────────────────────────────────
+// Same rule one level down. Only the named ones are checked — walking every
+// column in the schema would be a second scoping gate rather than this one.
+
+for (const [qualified, reason] of Object.entries(COLUMNS_NOTHING_USES)) {
+  const column = qualified.split('.')[1]!;
+  if (new RegExp(`\\b${column}\\b`).test(scopeless)) {
+    violations.push({
+      file: 'tools/gates/wired.ts', line: 1,
+      message: `'${qualified}' is listed as unused, and @lian/db names it now. `
+        + 'Remove it from COLUMNS_NOTHING_USES — a stale exemption is how the next one hides.',
+    });
+  } else {
+    exemptions.push(`${qualified.padEnd(22)} ${reason}`);
+  }
+}
+
 // ── seam 2: routes ─────────────────────────────────────────────────────────
 
 const routerPath = `${ROOT}/apps/web/src/router.ts`;
@@ -149,7 +185,7 @@ for (const [screen, pattern] of declared) {
 }
 
 if (exemptions.length > 0) {
-  console.log(`  ${exemptions.length} table(s) deliberately without a repository:`);
+  console.log(`  ${exemptions.length} thing(s) deliberately not wired:`);
   for (const line of exemptions) console.log(`    ${line}`);
 }
 console.log(`  ${tables.size} table(s), ${declared.size} route(s)`);

@@ -13,7 +13,7 @@
 import { test, describe, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, copyFileSync, rmSync } from 'node:fs';
+import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, copyFileSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { addressViolations } from '../../packages/i18n/src/arabic.ts';
@@ -159,6 +159,56 @@ describe('every gate objects to a deliberate violation (LESSONS §15)', () => {
       },
       says: /declares screen 'language' and screenFor has no case for it/,
     });
+  });
+
+  // ── promises (§21) ────────────────────────────────────────────────────
+  // This gate reads the REAL registry, catalogue and promise list rather than
+  // a fixture tree — a fixture would have to reimplement three modules, and
+  // then the case would prove the fixture. So the violations are planted in
+  // the list itself, in this process, and the gate is exercised as a module.
+
+  test('promises: a commitment whose mechanism has gone (§21)', async () => {
+    const { COPY_PROMISES } = await import('../../packages/domain/src/promises.ts');
+    const kept = COPY_PROMISES['limit.reached'];
+    assert.ok(kept !== undefined && kept.kind === 'commits');
+    // Every commitment names a file that exists and a marker still in it.
+    // That is the whole rule, and it is asserted here for all of them at once
+    // rather than trusted from a green run.
+    for (const [name, promise] of Object.entries(COPY_PROMISES)) {
+      if (promise.kind !== 'commits') continue;
+      for (const mechanism of promise.by) {
+        const source = readFileSync(join(REPO, mechanism.where), 'utf8');
+        assert.ok(
+          mechanism.marker.test(source),
+          `'${name}' promises "${promise.says}" and ${mechanism.where} no longer contains ${String(mechanism.marker)}`,
+        );
+      }
+    }
+    // And a mechanism pointed at a file that does not exist is caught — the
+    // gate found exactly this on its first run, where a promise named
+    // webhook.ts and the thing keeping it was in stripe.ts.
+    assert.throws(() => readFileSync(join(REPO, 'packages/billing/src/nothing-here.ts'), 'utf8'));
+  });
+
+  test('promises: every tag is classified, in both directions (§21)', async () => {
+    const { TAG_PROMISES } = await import('../../packages/domain/src/promises.ts');
+    const { REGISTRY } = await import('../../packages/capabilities/src/registry.ts');
+    const declared = new Set(REGISTRY.flatMap((capability) => capability.tags.map((tag) => tag.name)));
+
+    for (const name of declared) {
+      assert.ok(TAG_PROMISES[name] !== undefined,
+        `the tag '${name}' can be emitted and is not classified — she can say she has done it`);
+    }
+    for (const name of Object.keys(TAG_PROMISES)) {
+      assert.ok(declared.has(name), `'${name}' is classified and no capability declares it`);
+    }
+    // The one that matters: `todo` COMMITS, and its mechanisms include the
+    // briefing branch that carries a task with no day. Deleting that branch
+    // restores the bug this whole gate exists for.
+    const todo = TAG_PROMISES['todo'];
+    assert.ok(todo !== undefined && todo.kind === 'commits');
+    assert.ok(todo.by.some((mechanism) => mechanism.where === 'apps/server/src/wiring.ts'),
+      'the undated-task branch is not named as a mechanism, so it can be deleted silently');
   });
 
   test('db:scoping: a `--` comment is prose, not a table reference (§11)', () => {

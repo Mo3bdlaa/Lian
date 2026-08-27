@@ -102,6 +102,12 @@ const COVERAGE: Record<string, Coverage[]> = {
     { where: 'tools/gates/boundaries.ts', marker: /composes INTO the prompt/ },
     { where: 'packages/capabilities/src/capabilities.test.ts', marker: /adding a capability stayed cheap/ },
   ],
+  '21': [
+    { where: 'packages/domain/src/promises.ts', marker: /WHAT SHE IS ALLOWED TO PROMISE/ },
+    { where: 'tools/gates/promises.ts', marker: /she may not promise what nothing performs/ },
+    { where: 'tools/gates/gates.test.ts', marker: /every tag is classified, in both directions/ },
+    { where: 'apps/server/src/http.test.ts', marker: /a task with no day is still somewhere she will raise it/ },
+  ],
   '20': [
     { where: 'tools/gates/wired.ts', marker: /nothing is declared in one place and connected in none/ },
     { where: 'tools/gates/gates.test.ts', marker: /a route with no screen renders the CONVERSATION/ },

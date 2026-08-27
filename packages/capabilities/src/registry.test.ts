@@ -132,6 +132,39 @@ describe('§13 a capability composes into the prompt', () => {
     assert.match(inArabic[outcome.entityId]!.line, /النهاردة/, 'the row reads in the language it is being read in');
   });
 
+  test('consumer 6: a day that is not today is a DATE somebody reads, not a column', async () => {
+    // Found by looking at a screenshot rather than by a test failing. The
+    // chip read `AED 400 · gym · 2026-08-24` three lines under a day
+    // separator that said "25 August" — correct, asserted, and obviously
+    // wrong the moment it is next to the rest of the screen.
+    const ports = fakePorts();
+    const spend = async (date: string) => {
+      const outcome = await ownerOfTag('spend')!.handle(
+        { context: CONTEXT, tag: { name: 'spend', payload: { amount: 400, currency: 'AED', category: 'gym', date }, index: 0 }, messageId: `m-${date}` },
+        ports,
+      );
+      assert.ok(outcome.ok);
+      return (await describeCaptures([{ capability: 'money', entityId: outcome.entityId }], CONTEXT, ports))[outcome.entityId]!.line;
+    };
+
+    assert.match(await spend('2026-05-17'), /Yesterday/);
+    const older = await spend('2026-05-02');
+    assert.ok(!/\d{4}-\d{2}-\d{2}/.test(older), `an ISO date reached a chip: ${older}`);
+    assert.match(older, /May/);
+
+    // And in Arabic it is an Arabic date, because the row reads back in the
+    // language it is being read in.
+    const outcome = await ownerOfTag('spend')!.handle(
+      { context: CONTEXT, tag: { name: 'spend', payload: { amount: 400, currency: 'AED', category: 'gym', date: '2026-05-02' }, index: 0 }, messageId: 'm-ar' },
+      ports,
+    );
+    assert.ok(outcome.ok);
+    const arabic = (await describeCaptures(
+      [{ capability: 'money', entityId: outcome.entityId }], { ...CONTEXT, language: 'ar' }, ports,
+    ))[outcome.entityId]!.line;
+    assert.ok(!/\d{4}-\d{2}-\d{2}/.test(arabic), `an ISO date reached an Arabic chip: ${arabic}`);
+  });
+
   test('consumer 6: every capability answers, and a corrected-away row is absent', async () => {
     // Against the REGISTRY, so adding a capability does not edit this test.
     const ports = fakePorts();

@@ -17,3 +17,4 @@ export { backoffFor, isQuiet, SILENCE_AFTER, type BackoffDecision, type QuietHou
 export { affectFromMessages, activityFromCount, LEXICON, TYPICAL_MESSAGES_PER_DAY, type AffectLexicon } from './affect.ts';
 export { nextStep, isComplete, STEP_INSTRUCTION, type OnboardingFacts, type OnboardingStep } from './onboarding.ts';
 export { sanitiseRecalled, stripOurMarkers, looksLikeInstruction, MAX_RECALLED_LENGTH, MAX_SCENARIO_LENGTH } from './untrusted.ts';
+export { TAG_PROMISES, COPY_PROMISES, type Promise_, type Mechanism } from './promises.ts';

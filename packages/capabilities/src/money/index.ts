@@ -22,10 +22,35 @@ function formatMinor(minor: number, currency: string): string {
 
 type TransactionLike = { id: string; amountMinor: number; currency: string; category: string | null; occurredOn: string };
 
+/**
+ * The day, as a person reads it.
+ *
+ * `Today`, `Yesterday`, or a short localised date. Anything not today used to
+ * render the raw column — so a chip in a conversation read `AED 400 · gym ·
+ * 2026-08-24` three lines under a day separator saying "25 August". Nothing
+ * caught it because nothing was wrong with it: the string was correct, the
+ * test asserted the amount, and it only looks wrong next to the rest of the
+ * screen. A screenshot is what found it.
+ *
+ * Formatting for a language normally belongs to the client (HANDOFF §15) and
+ * this line is the exception the product already makes — the AMOUNT beside it
+ * is formatted here too, because a capture summary is composed as one
+ * sentence rather than as fields.
+ */
+function dayLabel(occurredOn: string, localDay: string, language: 'en' | 'ar'): string {
+  if (occurredOn === localDay) return line(language, 'Today', 'النهاردة');
+  const yesterday = new Date(`${localDay}T00:00:00Z`);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  if (occurredOn === yesterday.toISOString().slice(0, 10)) return line(language, 'Yesterday', 'إمبارح');
+  return new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en-GB', {
+    day: 'numeric', month: 'long', timeZone: 'UTC',
+  }).format(new Date(`${occurredOn}T00:00:00Z`));
+}
+
 function summaryOf(transaction: TransactionLike, language: 'en' | 'ar', localDay: string) {
   const parts = [formatMinor(transaction.amountMinor, transaction.currency)];
   if (transaction.category !== null) parts.push(transaction.category);
-  parts.push(transaction.occurredOn === localDay ? line(language, 'Today', 'النهاردة') : transaction.occurredOn);
+  parts.push(dayLabel(transaction.occurredOn, localDay, language));
   return { capability: 'money', icon: 'i-money', line: parts.join(' · '), correctionRoute: `/money/${transaction.id}` };
 }
 

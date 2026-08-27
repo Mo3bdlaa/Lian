@@ -586,6 +586,33 @@ describe('what using it found', () => {
     assert.ok(headline(later).includes(t('money.left', 'en')));
   });
 
+  test('money is shown with the currency\u2019s own precision', () => {
+    // AED 127.50 rendered as "AED 127.5" — on the Money screen, in the
+    // headline, with a trailing single decimal that reads as a typo. Every
+    // test asserted "AED 400", which is the one amount where two decimals and
+    // zero decimals agree, so nothing was ever red.
+    const markup = render(moneyScreen(me(), {
+      month: '2026-08', inMinor: 1_800_000, outMinor: 12_750, leftMinor: 1_787_250, currency: 'AED',
+      categories: [{ category: 'coffee', totalMinor: 12_750 }],
+      recent: [{ id: 't-1', line: 'coffee', amountMinor: 12_750, direction: 'out', occurredOn: '2026-08-25', fromReceipt: false }],
+    }));
+    assert.ok(markup.includes('127.50'), `a half-dirham lost its second decimal: ${markup.match(/AED[^<]*/)?.[0]}`);
+    assert.ok(!/127\.5[^0]/.test(markup));
+  });
+
+  test('a transaction row does not claim a provenance nothing can establish', () => {
+    // `fromReceipt` was `originMessageId === null` — backwards, since a real
+    // receipt capture HAS an origin message. Five seeded rows, none of them
+    // photographed, every one captioned "from a receipt".
+    const markup = render(moneyScreen(me(), {
+      month: '2026-08', inMinor: 0, outMinor: 40_000, leftMinor: -40_000, currency: 'AED',
+      categories: [],
+      recent: [{ id: 't-1', line: 'gym', amountMinor: 40_000, direction: 'out', occurredOn: '2026-08-25', fromReceipt: true }],
+    }));
+    assert.ok(!markup.includes(t('money.from_receipt', 'en')), 'the row claims a receipt nothing recorded');
+    assert.ok(!markup.includes(t('money.from_chat', 'en')));
+  });
+
   test('the first conversation does not claim a continuity that has not happened', () => {
     // 'Still with you' above somebody's very first message. The string is
     // correct, authored, in both languages, and wrong for that moment — the
