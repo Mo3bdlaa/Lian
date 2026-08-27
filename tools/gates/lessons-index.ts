@@ -107,6 +107,9 @@ const COVERAGE: Record<string, Coverage[]> = {
     { where: 'packages/jobs/src/reflect.ts', marker: /applied after a LIMIT is how a job silently serves/ },
     { where: 'packages/jobs/src/candidates.test.ts', marker: /a filter after a LIMIT starves the tail/ },
     { where: 'packages/jobs/src/candidates.test.ts', marker: /does not move the cursor past what it dropped/ },
+    // The general form, as far as it can be checked mechanically.
+    { where: 'tools/gates/db-paging.ts', marker: /a LIMIT is a page, not a sample/ },
+    { where: 'tools/gates/gates.test.ts', marker: /db:paging: a LIMIT with no ORDER BY/ },
   ],
   '15': [
     // The lesson is the test file, so the marker is the failing case itself.

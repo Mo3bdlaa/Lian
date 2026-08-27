@@ -175,14 +175,27 @@ export async function purge(scope: UserScope, sql: Sql = db()): Promise<void> {
   await sql.query(`DELETE FROM attachments WHERE user_id = $1`, [scope.userId]);
 }
 
-/** Uploads that were signed and never completed. Swept by the tick. */
+/**
+ * Uploads that were signed and never completed. Swept by the tick.
+ *
+ * OLDEST FIRST, and that ordering is the whole difference between a sweep and
+ * a leak (LESSONS §16). Unordered, this returns an arbitrary batch — and with
+ * more abandoned uploads than the batch size, Postgres is free to hand back
+ * the same ones every tick while the ones behind them are never reached. The
+ * sweep would report a number every run and the bucket would grow forever.
+ *
+ * Oldest first is also the right semantic: the longest-abandoned upload is
+ * the one least likely to still be in flight.
+ */
 export async function abandoned(before: Date, limit: number, sql: Sql = db()): Promise<{ userId: string; id: string; storageKey: string }[]> {
   // db-scoping:allow-unscoped — a sweep over every user's abandoned uploads,
   // by definition. It returns the user_id with each row so the caller stays
   // scoped when it deletes.
   const { rows } = await sql.query<{ user_id: string; id: string; storage_key: string }>(
     `SELECT user_id, id, storage_key FROM attachments
-     WHERE status = 'pending' AND created_at < $1 LIMIT $2`,
+     WHERE status = 'pending' AND created_at < $1
+     ORDER BY created_at ASC, id ASC
+     LIMIT $2`,
     [before, limit],
   );
   return rows.map((row) => ({ userId: row.user_id, id: row.id, storageKey: row.storage_key }));

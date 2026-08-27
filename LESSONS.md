@@ -303,8 +303,20 @@ what separates them.
 
 ## 16. A batch job that filters after its limit starves its tail
 
-**A `LIMIT` with no `ORDER BY` is an arbitrary sample, and a filter
-applied after a limit is a filter applied to the wrong rows.**
+**Any query that limits before filtering is reporting on its window,
+not on its subject.**
+
+That is the general form, and it is worth reading twice, because the
+consequence is not a wrong answer — it is a confident answer to a
+different question. `LIMIT 50` then "of those, the ones in this time
+zone" does not mean "fifty candidates, some eligible". It means "the
+eligible ones among an arbitrary fifty", and the arbitrary fifty may be
+the same fifty every time. A `LIMIT` with no `ORDER BY` is a sample, not
+a page; a filter after a limit is a filter applied to the wrong rows;
+and a count taken before the filter describes the window rather than the
+subject.
+
+The concrete case:
 
 `assistantsActiveOn` selected two hundred active accounts with no
 ordering. `runReflections` took fifty of them and then the scheduler
@@ -326,4 +338,12 @@ somebody else's phone, not happening.
   everything it filtered out.
 - If a bound is real and cannot be paged, say what was dropped. Silent
   truncation reads as full coverage.
+- Report on the SUBJECT, not the window. `considered: 50` where fifty is
+  the batch size is not a measurement, it is the constant you passed in.
+
+The sharp edge of the general form is mechanically checkable, so it is a
+gate: `db:paging` fails the build on any `LIMIT` with no `ORDER BY`
+outside an aggregate or an existence check. It cannot see a filter
+applied downstream in TypeScript — that part is still judgement — but it
+makes the half that can be seen impossible to reintroduce.
 

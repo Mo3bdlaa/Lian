@@ -120,6 +120,43 @@ describe('every gate objects to a deliberate violation (LESSONS §15)', () => {
     });
   });
 
+  test('db:paging: a LIMIT with no ORDER BY (§16)', () => {
+    // The bug this gate exists for, planted: a batch job selecting rows to
+    // work through, with nothing deciding which rows.
+    proves('db-paging', {
+      clean: {
+        'packages/db/src/repositories/thing.ts':
+          "export const q = `SELECT id FROM memories WHERE assistant_id = $1 ORDER BY created_at DESC LIMIT $2`;\n",
+      },
+      dirty: {
+        'packages/db/src/repositories/thing.ts':
+          "export const q = `SELECT id FROM memories WHERE assistant_id = $1 LIMIT $2`;\n",
+      },
+      says: /arbitrary sample, not a page/,
+    });
+  });
+
+  test('db:paging: LIMIT 1 and a bare aggregate are NOT violations (§16)', () => {
+    // The exemptions are part of the rule: a gate that fired on these would
+    // be turned off within a week, and then it would be protecting nothing.
+    // Asserted as a clean tree — this is the "prove the fixture passes" half
+    // of §15 doing real work rather than being a formality.
+    proves('db-paging', {
+      clean: {
+        'packages/db/src/repositories/one.ts':
+          "export const q = `SELECT id FROM memories WHERE assistant_id = $1 LIMIT 1`;\n",
+        'packages/db/src/repositories/count.ts':
+          "export const q = `SELECT count(*)::int AS n FROM memories WHERE assistant_id = $1 LIMIT 500`;\n",
+      },
+      dirty: {
+        // A LIMIT 10 is neither: it is a batch, and it needs an order.
+        'packages/db/src/repositories/batch.ts':
+          "export const q = `SELECT id FROM memories WHERE assistant_id = $1 LIMIT 10`;\n",
+      },
+      says: /arbitrary sample, not a page/,
+    });
+  });
+
   test('tokens:raw: a raw hex colour in application code (§9)', () => {
     proves('tokens-raw', {
       clean: { 'apps/web/styles/thing.css': `.a { color: var(--text); }\n` },
