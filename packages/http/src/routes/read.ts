@@ -128,6 +128,19 @@ export type SettingsView = {
   assistants: { id: string; name: string; gender: 'female' | 'male'; current: boolean }[];
 };
 
+/** The conversation switcher (UI-UX §14). Incognito IS listed here, unlike in
+ *  search: the person is in one and has to be able to leave it. */
+export type ConversationView = {
+  id: string;
+  kind: 'main' | 'side' | 'incognito';
+  title: string | null;
+  /** 'ephemeral' is the whole of what incognito promises, so it travels. */
+  retention: 'persist' | 'ephemeral';
+  lastMessageAt: string | null;
+  messages: number;
+  current: boolean;
+};
+
 /** UI-UX §12: what the USER says about themselves, in their own words. */
 export type ProfileView = { sections: { section: string; body: string }[] };
 
@@ -158,6 +171,11 @@ export type ReadPorts = MiddlewarePorts & {
   briefing(userId: string): Promise<BriefingView>;
   profile(userId: string): Promise<ProfileView>;
   settings(userId: string): Promise<SettingsView>;
+  conversations(userId: string): Promise<ConversationView[]>;
+  startConversation(input: { userId: string; kind: string; title: string | null; scenarioText: string | null }): Promise<{ ok: boolean; id?: string; reason?: string }>;
+  /** Incognito is really deleted; a side conversation is closed. The main
+   *  thread is neither — see the repository. */
+  endConversation(input: { userId: string; conversationId: string }): Promise<{ ok: boolean }>;
   saveProfile(input: { userId: string; section: string; body: string }): Promise<{ ok: boolean; reason?: string }>;
   album(input: { userId: string; before: string | null }): Promise<AlbumView>;
   security(input: { userId: string; deviceId: string | null }): Promise<SecurityView>;
@@ -272,6 +290,51 @@ export function readRoutes(ports: ReadPorts): { method: 'GET' | 'POST' | 'PATCH'
         const session = await requireSession(context, ports, ports.now());
         await enforceRate({ bucket: `read:${session.userId}`, rule: RATE_RULES.read, now: ports.now() }, ports);
         return { status: 200, json: await ports.briefing(session.userId) };
+      },
+    },
+    {
+      method: 'GET',
+      pattern: '/api/conversations',
+      handler: async (context) => {
+        const session = await requireSession(context, ports, ports.now());
+        await enforceRate({ bucket: `read:${session.userId}`, rule: RATE_RULES.read, now: ports.now() }, ports);
+        return { status: 200, json: { conversations: await ports.conversations(session.userId) } };
+      },
+    },
+    {
+      method: 'POST',
+      pattern: '/api/conversations',
+      handler: async (context) => {
+        const session = await requireSession(context, ports, ports.now());
+        await enforceRate({ bucket: `write:${session.userId}`, rule: RATE_RULES.write, now: ports.now() }, ports);
+        const body = context.body<{ kind?: string; title?: string; scenarioText?: string }>();
+        const result = await withIdempotency({ context, userId: session.userId, route: 'conversation' }, ports, async () => {
+          const started = await ports.startConversation({
+            userId: session.userId,
+            kind: body.kind ?? '',
+            title: typeof body.title === 'string' && body.title.trim() !== '' ? body.title.trim() : null,
+            scenarioText: typeof body.scenarioText === 'string' && body.scenarioText.trim() !== '' ? body.scenarioText.trim() : null,
+          });
+          if (!started.ok) throw new HttpError(422, 'bad_conversation', started.reason ?? 'I cannot start that');
+          return { status: 201, json: { id: started.id } };
+        });
+        return { status: result.status, json: result.json };
+      },
+    },
+    {
+      method: 'DELETE',
+      pattern: '/api/conversations/:id',
+      handler: async (context) => {
+        const session = await requireSession(context, ports, ports.now());
+        await enforceRate({ bucket: `write:${session.userId}`, rule: RATE_RULES.write, now: ports.now() }, ports);
+        const result = await withIdempotency({ context, userId: session.userId, route: 'conversation:end' }, ports, async () => {
+          const ended = await ports.endConversation({ userId: session.userId, conversationId: context.params['id']! });
+          // 404 for "not yours", "no such thread", and "that is the main one" —
+          // the same answer, so none of them is an oracle for the others.
+          if (!ended.ok) throw new HttpError(404, 'no_conversation', 'I cannot find that conversation');
+          return { status: 200, json: { ended: true } };
+        });
+        return { status: result.status, json: result.json };
       },
     },
     {

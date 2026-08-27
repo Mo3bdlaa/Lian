@@ -26,8 +26,12 @@ function sqlLiterals(source: string): { text: string; index: number }[] {
   return out;
 }
 
-/** `DO UPDATE SET` is not a table named "set"; a CTE is not a table at all. */
-const SQL_NOISE = new Set(['set', 'values', 'select']);
+/** `DO UPDATE SET` is not a table named "set"; a CTE is not a table at all;
+ *  and `JOIN LATERAL (` is a subquery, not a table called "lateral". The last
+ *  one was a false positive this gate reported on its own first encounter
+ *  with a lateral join — a gate with the wrong scope in the other direction,
+ *  which is the failure §15 is about wearing its friendlier face. */
+const SQL_NOISE = new Set(['set', 'values', 'select', 'lateral']);
 
 function tablesIn(sql: string): string[] {
   const cte = new Set<string>();

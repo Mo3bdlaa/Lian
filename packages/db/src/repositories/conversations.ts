@@ -70,10 +70,57 @@ export async function listSearchable(scope: AssistantScope, sql: Sql = db()): Pr
   return rows.map(toConversation);
 }
 
+/**
+ * Every thread, for the switcher (UI-UX §14) — including incognito.
+ *
+ * DIFFERENT from listSearchable on purpose. Search must not see an incognito
+ * thread, because a thread that turns up in search is a thread that was kept.
+ * The switcher must, because the person is IN one and has to be able to leave
+ * it. Two questions, two queries, so neither answer can drift into the other.
+ */
+export async function listAll(
+  scope: AssistantScope,
+  sql: Sql = db(),
+): Promise<{ conversation: Conversation; lastMessageAt: Date | null; messages: number }[]> {
+  const { rows } = await sql.query<ConversationRow & { last_message_at: Date | null; messages: number }>(
+    `SELECT ${C_COLUMNS.split(', ').map((column) => `c.${column}`).join(', ')},
+            m.last_message_at, coalesce(m.messages, 0)::int AS messages
+     FROM conversations c
+     LEFT JOIN LATERAL (
+       SELECT max(created_at) AS last_message_at, count(*) AS messages
+       FROM messages
+       WHERE conversation_id = c.id AND deleted_at IS NULL
+     ) m ON true
+     WHERE c.assistant_id = $1 AND c.deleted_at IS NULL
+     ORDER BY coalesce(m.last_message_at, c.created_at) DESC`,
+    [scope.assistantId],
+  );
+  return rows.map((row) => ({
+    conversation: toConversation(row),
+    lastMessageAt: row.last_message_at,
+    messages: row.messages,
+  }));
+}
+
 /** Incognito deletion is real deletion, not a flag (Q12). */
 export async function hardDeleteConversation(scope: AssistantScope, conversationId: string, sql: Sql = db()): Promise<boolean> {
   const { rowCount } = await sql.query(
     `DELETE FROM conversations WHERE assistant_id = $1 AND id = $2 AND retention = 'ephemeral'`,
+    [scope.assistantId, conversationId],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+/**
+ * Close a side conversation: soft, because its messages are memory's
+ * provenance and a memory whose source vanished cannot show where it came
+ * from (Q11). The MAIN thread cannot be closed — it is where she lives, and a
+ * person who closed it would have nowhere to talk.
+ */
+export async function closeConversation(scope: AssistantScope, conversationId: string, sql: Sql = db()): Promise<boolean> {
+  const { rowCount } = await sql.query(
+    `UPDATE conversations SET deleted_at = now()
+     WHERE assistant_id = $1 AND id = $2 AND kind = 'side' AND deleted_at IS NULL`,
     [scope.assistantId, conversationId],
   );
   return (rowCount ?? 0) > 0;

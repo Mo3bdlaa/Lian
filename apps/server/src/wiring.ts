@@ -898,6 +898,64 @@ export function readPorts(deps: Deps): ReadPorts {
       };
     },
 
+    /** The switcher (UI-UX §14). Incognito is listed — the person is in one
+     *  and has to be able to leave it — unlike in search, where a listed
+     *  thread would be a kept thread. */
+    async conversations(userId) {
+      const assistant = await assistantOf(userId);
+      if (assistant === null) return [];
+      const scope = { userId, assistantId: assistant.id };
+      const current = await mainConversation(scope);
+      return (await db.conversations.listAll(scope)).map((row) => ({
+        id: row.conversation.id,
+        kind: row.conversation.kind,
+        title: row.conversation.title,
+        retention: row.conversation.retention,
+        lastMessageAt: row.lastMessageAt?.toISOString() ?? null,
+        messages: row.messages,
+        current: row.conversation.id === current?.id,
+      }));
+    },
+
+    async startConversation({ userId, kind, title, scenarioText }) {
+      const assistant = await assistantOf(userId);
+      if (assistant === null) return { ok: false, reason: 'I cannot find that' };
+      // A second MAIN thread is not a thing: main is where she lives, and two
+      // of them is a person wondering which one she is reading.
+      if (kind !== 'side' && kind !== 'incognito') {
+        return { ok: false, reason: 'a conversation is either a side one or an incognito one' };
+      }
+      const conversation = await db.conversations.createConversation(
+        { userId, assistantId: assistant.id },
+        // `retention` is derived from `kind` inside the repository, so a
+        // caller cannot ask for a memory-writing incognito (Q15).
+        { kind, title, ...(kind === 'incognito' && scenarioText !== null ? { scenarioText } : {}) },
+      );
+      return { ok: true, id: conversation.id };
+    },
+
+    async endConversation({ userId, conversationId }) {
+      const assistant = await assistantOf(userId);
+      if (assistant === null) return { ok: false };
+      const scope = { userId, assistantId: assistant.id };
+      const conversation = await db.conversations.getConversation(scope, conversationId);
+      if (conversation === null) return { ok: false };
+      if (conversation.kind === 'incognito') {
+        // Q12: really deleted, rows and all — and its attachments with it,
+        // because a photograph from an incognito thread outliving the thread
+        // is the promise broken in the most visible way possible.
+        const attachments = await db.attachments.forConversation({ userId }, conversationId);
+        const keys = attachments.map((row) => row.storageKey).filter((key) => key !== '');
+        if (deps.store !== null && keys.length > 0) await deps.store.remove(keys);
+        await db.attachments.deleteRows({ userId }, attachments.map((row) => row.id));
+        return { ok: await db.conversations.hardDeleteConversation(scope, conversationId) };
+      }
+      // A side conversation is CLOSED, not deleted: its messages are the
+      // provenance of memories she kept, and a memory whose source vanished
+      // cannot show where it came from (Q11).
+      return { ok: await db.conversations.closeConversation(scope, conversationId) };
+    },
+
     async settings(userId) {
       const user = await db.accounts.getUser({ userId });
       const assistants = await db.accounts.listAssistants({ userId });

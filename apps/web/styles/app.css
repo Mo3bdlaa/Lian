@@ -757,6 +757,38 @@ body {
 }
 .button--disabled { opacity: .5; pointer-events: none; }
 .consent__links { display: flex; gap: var(--s-12); }
+
+/* --- the conversation switcher (UI-UX §14) ------------------------------- */
+.thread { display: flex; align-items: center; gap: var(--s-8); }
+.thread .row { flex: 1; }
+.thread__end { flex: 0 0 auto; color: var(--muted); }
+.sheet__note--strong { color: var(--text); }
+.sheet__note {
+  padding-inline: var(--s-4);
+  color: var(--muted);
+  font-size: var(--t-body-sm-fs);
+  line-height: var(--t-body-sm-lh);
+  font-weight: var(--t-body-sm-fw);
+}
+/* §14: "different subtle surface tint, small incognito label, short phrase".
+   A strip rather than a wash: tinting the whole conversation would make her
+   messages harder to read, and the phrase is the part that matters. */
+.incognito {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-8);
+  padding: var(--s-8) var(--s-16);
+  background: var(--surface);
+  border-block-end: var(--bw-1) solid var(--border);
+  color: var(--muted);
+  font-size: var(--t-body-sm-fs);
+  line-height: var(--t-body-sm-lh);
+  font-weight: var(--t-body-sm-fw);
+}
 /* Unmissable rather than tasteful: it exists to stop somebody mistaking
    placeholder text for a reviewed document. */
 .legal__warning {

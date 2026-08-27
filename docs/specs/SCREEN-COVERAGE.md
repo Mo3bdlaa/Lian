@@ -27,11 +27,18 @@ Status: ✅ purpose-built · ◐ standard desktop fallback
 | User profile | ✅ | ◐ | ✅ | name, about me, what assistant should know, self-authored notes |
 | Free limit | ✅ | ◐ | ✅ | message limit approaching/reached, memory capacity approaching/full (100 per assistant), pending memories, quiet upgrade |
 | Conversation types | ✅ | ◐ | ✅ | main, side, incognito, scenario role, edit/clear, switcher |
+| Account recovery | ✅ | ◐ | ✅ | forgot, link sent, new password, every other session ended |
 | Navigation drawer / rail | ✅ | ✅ | ✅ | grouped secondary nav, assistant header, open/close, desktop rail |
 
 ## Desktop fallback rule
 
 Every `◐` row uses persistent left rail + centered 720px main column at 900px+ (800px for legal/long-form), no bottom navigation, desktop dialogs/side sheets, and RTL mirroring. Only Chat, Money, Memory require purpose-built wide layouts for v1.
+
+**Every mobile row is built (2026-08-27).** The switcher was the last one:
+`/api/conversations` lists every thread including incognito — unlike search,
+which must never see one — and closing a side thread keeps its messages,
+because they are the provenance of what she remembered, while deleting an
+incognito thread takes its photographs with it.
 
 **Built as stated (2026-08-26).** One breakpoint at 900px, in one block at the
 end of `apps/web/styles/app.css`, and one rule for everything not

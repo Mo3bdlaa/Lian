@@ -542,6 +542,34 @@ describe('the app, in a browser', { skip: SKIP }, () => {
     await page.setViewport(390, 844);
   });
 
+  test('the switcher opens, an incognito thread says what it is, and closing it returns', async () => {
+    const page = browser!;
+    await page.setViewport(390, 844);
+    await page.goto(`${base}/chat`);
+    await page.waitFor('document.querySelectorAll(".bubble").length > 0', 15_000);
+
+    await page.click('[data-action="threads"]');
+    await page.waitFor('!!document.querySelector(\'[data-action="new-thread"][data-kind="incognito"]\')', 10_000);
+    // §14: the sentence is on the sheet BEFORE anybody starts one.
+    assert.match(await page.evaluate<string>('document.querySelector(".sheet").innerText'), /Nothing here is kept/);
+
+    await page.click('[data-action="new-thread"][data-kind="incognito"]');
+    await page.waitFor('location.pathname.startsWith("/chat/")', 10_000);
+    // And the at-a-glance state, once inside it.
+    await page.waitFor('!!document.querySelector(".incognito")', 10_000);
+    assert.match(await page.evaluate<string>('document.querySelector(".incognito").innerText'), /Nothing here is kept/);
+
+    const threadPath = await page.evaluate<string>('location.pathname');
+    await page.click('[data-action="threads"]');
+    await page.waitFor('!!document.querySelector(\'[data-action="end-thread"]\')', 10_000);
+    await page.click('[data-action="end-thread"]');
+    // Closing the thread you are reading returns you to the main one rather
+    // than leaving you looking at something that no longer exists.
+    await page.waitFor(`location.pathname === "/chat" && location.pathname !== "${threadPath}"`, 10_000);
+    assert.ok(await page.evaluate<boolean>('document.querySelector(".incognito") === null'));
+    assert.deepEqual(await page.errors(), []);
+  });
+
   test('the PWA is installable: manifest, icons, worker', async () => {
     const page = browser!;
     const manifest = await page.evaluate<{ ok: boolean; icons: number }>(

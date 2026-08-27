@@ -27,5 +27,8 @@ export function head(me: Snapshot, options: { back?: string; title?: string } = 
       <div class="head__name">${me.assistant.name}</div>
       <div class="head__mood">${me.assistant.moodPhrase}</div>
     </div>
+    <button class="head__button" data-action="threads" aria-label="${t('threads.title', language, me.assistant.gender)}">
+      ${icon('i-more')}
+    </button>
   </header>`;
 }

@@ -391,6 +391,82 @@ describe('attacked', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, () => {
     });
   });
 
+  // ── conversations, and what incognito promises ──────────────────────────
+  describe('the switcher (UI-UX §14)', () => {
+    test('a second account cannot list, join, or end somebody else\u2019s thread', async () => {
+      const victim = await account();
+      const attacker = await account();
+      const started = await call(victim.token, 'POST', '/api/conversations', { body: { kind: 'side' } });
+      const { id } = (await started.json()) as { id: string };
+
+      const listed = await call(attacker.token, 'GET', '/api/conversations');
+      const { conversations } = (await listed.json()) as { conversations: { id: string }[] };
+      assert.ok(!conversations.some((thread) => thread.id === id), 'a stranger saw somebody else\u2019s thread');
+
+      assert.equal((await call(attacker.token, 'DELETE', `/api/conversations/${id}`)).status, 404);
+      const spoken = await call(attacker.token, 'POST', `/api/conversations/${id}/messages`, {
+        body: { message: 'hello', clientId: `x-${Date.now()}` },
+      });
+      assert.notEqual(spoken.status, 200);
+    });
+
+    test('the main thread cannot be closed — it is where she lives', async () => {
+      const who = await account();
+      assert.equal((await call(who.token, 'DELETE', `/api/conversations/${who.conversationId}`)).status, 404);
+      assert.equal((await call(who.token, 'GET', `/api/conversations/${who.conversationId}/messages`)).status, 200);
+    });
+
+    test('an incognito thread cannot be asked to persist, however it is asked', async () => {
+      const who = await account();
+      // Q15: retention follows kind inside the repository, so this is not a
+      // field a client can set — asserted rather than assumed.
+      const started = await call(who.token, 'POST', '/api/conversations', {
+        body: { kind: 'incognito', retention: 'persist', scenarioText: 'Be an interviewer.' },
+      });
+      const { id } = (await started.json()) as { id: string };
+      const { rows } = await db().query<{ retention: string }>(`SELECT retention FROM conversations WHERE id = $1`, [id]);
+      assert.equal(rows[0]!.retention, 'ephemeral');
+    });
+
+    test('deleting an incognito thread takes its photographs with it', async () => {
+      const who = await account();
+      const started = await call(who.token, 'POST', '/api/conversations', { body: { kind: 'incognito' } });
+      const { id: threadId } = (await started.json()) as { id: string };
+
+      const begun = await call(who.token, 'POST', '/api/attachments', {
+        body: { kind: 'image', contentType: 'image/jpeg', conversationId: threadId },
+      });
+      const { id } = (await begun.json()) as { id: string };
+      const row = await attachmentRows.get({ userId: who.userId }, id);
+      await store.put({ key: row!.storageKey, bytes: new Uint8Array(128), contentType: 'image/jpeg' });
+      await call(who.token, 'POST', `/api/attachments/${id}/complete`);
+      assert.equal(row!.persist, false, 'an incognito attachment must be marked not to persist');
+
+      assert.equal((await call(who.token, 'DELETE', `/api/conversations/${threadId}`)).status, 200);
+      // A photograph outliving the thread is the promise broken in the most
+      // visible way there is.
+      assert.equal(await store.get(row!.storageKey), null, 'the incognito photograph survived the thread');
+      assert.equal(await attachmentRows.get({ userId: who.userId }, id), null);
+    });
+
+    test('a closed SIDE thread keeps its messages, because memory points at them', async () => {
+      const who = await account();
+      const started = await call(who.token, 'POST', '/api/conversations', { body: { kind: 'side' } });
+      const { id } = (await started.json()) as { id: string };
+      const sent = await call(who.token, 'POST', `/api/conversations/${id}/messages`, {
+        body: { message: 'The rent is due on the fifth.', clientId: `c-${Date.now()}` },
+      });
+      await sent.text();
+
+      assert.equal((await call(who.token, 'DELETE', `/api/conversations/${id}`)).status, 200);
+      // Q11: a memory whose source vanished cannot show where it came from.
+      const { rows } = await db().query<{ n: string }>(
+        `SELECT count(*)::text AS n FROM messages WHERE conversation_id = $1`, [id],
+      );
+      assert.ok(Number(rows[0]!.n) > 0, 'closing a side thread destroyed the provenance of what she kept');
+    });
+  });
+
   // ── 6. injection, through a photograph ──────────────────────────────────
   describe('the analysis path, fed a hostile picture', () => {
     test('an instruction written on a receipt reaches no field and no turn', async () => {

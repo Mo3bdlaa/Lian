@@ -18,6 +18,7 @@ import { t, TERMS, PRIVACY } from './copy.ts';
 import { applyTheme as writeTheme, THEME_COOKIE, DIRECTION_COOKIE, type ThemeName } from '@lian/design';
 import { head } from './components/head.ts';
 import { nav, railGroups } from './components/nav.ts';
+import { threadSheet, incognitoBanner, type Thread } from './screens/threads.ts';
 import { drawer } from './components/drawer.ts';
 import { chatScreen, composer, recorder, actionSheet, deleteSheet, thinking, permissionCard, installCard } from './screens/chat.ts';
 import { welcome, signUp, signIn, heldDevice, consent, legalScreen, forgotPassword, resetPassword, notFound, outage } from './screens/entry.ts';
@@ -80,6 +81,14 @@ const legalBack = (): string => (current().me === null ? '/consent' : '/data');
  *  arrive" rather than leaving somebody waiting for an email nothing sends. */
 const recovery = { sent: false, canEmail: true };
 
+/** Which thread the chat screen is showing: the one in the URL, or the main
+ *  one from the snapshot. */
+function currentThreadId(): string | null {
+  const match = /^\/chat\/([^/]+)$/.exec(current().path);
+  return match !== null ? match[1]! : current().me?.conversation?.id ?? null;
+}
+const currentThread = (): Thread | undefined => screenData.threads.find((thread) => thread.id === currentThreadId());
+
 /** The two answers, held until sign-up sends them. Nothing is written until
  *  the account is created — an under-18 answer must not leave a trace. */
 const consentState: { adult: boolean | null; agreed: boolean } = { adult: null, agreed: false };
@@ -112,6 +121,12 @@ function draw(state: State): void {
   paint(where.head, head(me));
   where.screen.className = `screen ${screen === 'chat' ? 'screen--chat' : ''}`;
   paint(where.screen, screenFor(screen, state, me));
+  // The at-a-glance incognito state (UI-UX §14), from the thread's RETENTION
+  // as the server reported it — never from a client flag that could disagree
+  // with what is actually being kept.
+  if (screen === 'chat' && currentThread()?.retention === 'ephemeral') {
+    where.screen.insertAdjacentHTML('afterbegin', render(incognitoBanner(me)));
+  }
   if (screen === 'chat' && state.busy && state.messages.some((message) => message.pending === 'sending')) {
     where.screen.insertAdjacentHTML('beforeend', render(thinking(me)));
   }
@@ -149,6 +164,7 @@ function draw(state: State): void {
 
   const overlays: string[] = [];
   if (state.drawerOpen) overlays.push(render(drawer(me)));
+  if (screenData.threadsOpen) overlays.push(render(threadSheet(me, screenData.threads, currentThreadId())));
   if (screenData.correcting !== null) overlays.push(render(correctionSheet(me, screenData.correcting)));
   if (screenData.editing !== null) overlays.push(render(memoryEditor(memoryState(state, me))));
   if (screenData.deleting !== null) overlays.push(render(memoryDeleteSheet(memoryState(state, me))));
@@ -175,12 +191,14 @@ const screenData: {
   health: Health | null; album: Album | null; viewing: string | null;
   search: Search | null; briefing: Briefing | null; profile: Profile | null; savedSection: string | null;
   plan: Plan | null; settings: Settings | null;
+  threads: Thread[]; threadsOpen: boolean;
 } = {
   memories: [], query: '', filter: 'all', editing: null, deleting: null,
   tasks: { tasks: [], notes: [] }, money: null, story: null, security: null,
   data: { export: null, confirming: false, typed: '', busy: false }, correcting: null,
   health: null, album: null, viewing: null,
   search: null, briefing: null, profile: null, savedSection: null, plan: null, settings: null,
+  threads: [], threadsOpen: false,
 };
 
 const memoryState = (state: State, me: Snapshot): MemoryState => ({
@@ -245,7 +263,10 @@ async function load(path: string): Promise<void> {
   const screen = match(path)?.screen ?? 'notFound';
   set({ busy: true });
   try {
-    if (screen === 'chat' && state.messages.length === 0) await loadMessages();
+    if (screen === 'chat') {
+      await loadThreads();
+      await loadMessages();
+    }
     else if (screen === 'memory') screenData.memories = (await get<{ memories: Memory[] }>(`/api/memories${screenData.query === '' ? '' : `?q=${encodeURIComponent(screenData.query)}`}`)).memories;
     else if (screen === 'tasks') screenData.tasks = await get('/api/tasks');
     else if (screen === 'money') screenData.money = await get('/api/money');
@@ -266,20 +287,23 @@ async function load(path: string): Promise<void> {
 }
 
 async function loadMessages(): Promise<void> {
-  const me = current().me!;
-  if (me.conversation === null) return;
-  const page = await get<{ messages: Message[]; hasOlder: boolean }>(`/api/conversations/${me.conversation.id}/messages`);
+  // The thread in the URL, or the main one. /chat/:id is how a side or
+  // incognito conversation is read.
+  const conversationId = currentThreadId();
+  if (conversationId === null) return;
+  const page = await get<{ messages: Message[]; hasOlder: boolean }>(`/api/conversations/${conversationId}/messages`);
   set({ messages: page.messages, hasOlder: page.hasOlder });
 }
 
 async function loadOlder(): Promise<void> {
   const state = current();
   const oldest = state.messages[0];
-  if (oldest === undefined || state.me?.conversation == null) return;
+  const conversationId = currentThreadId();
+  if (oldest === undefined || conversationId === null) return;
   const where = regions().screen;
   const before = where.scrollHeight;
   const page = await get<{ messages: Message[]; hasOlder: boolean }>(
-    `/api/conversations/${state.me.conversation.id}/messages?before_at=${encodeURIComponent(oldest.at)}&before_id=${oldest.id}`,
+    `/api/conversations/${conversationId}/messages?before_at=${encodeURIComponent(oldest.at)}&before_id=${oldest.id}`,
   );
   set({ messages: [...page.messages, ...state.messages], hasOlder: page.hasOlder });
   // UI-UX §38: preserve the exact position, never jump to the top.
@@ -294,6 +318,38 @@ async function loadOlder(): Promise<void> {
  * and a card form inside somebody else's frame is the shape a person should
  * be suspicious of anyway.
  */
+// ── conversations (UI-UX §14) ─────────────────────────────────────────────
+
+async function loadThreads(): Promise<void> {
+  screenData.threads = (await get<{ conversations: Thread[] }>('/api/conversations')).conversations;
+}
+
+async function openThreads(): Promise<void> {
+  await loadThreads();
+  screenData.threadsOpen = true;
+  set({});
+}
+
+async function startThread(kind: 'side' | 'incognito'): Promise<void> {
+  const { id } = await post<{ id: string }>('/api/conversations', { kind });
+  await loadThreads();
+  screenData.threadsOpen = false;
+  go(`/chat/${id}`);
+}
+
+async function endThread(id: string): Promise<void> {
+  await remove(`/api/conversations/${id}`);
+  await loadThreads();
+  // If they closed the thread they were reading, go back to the main one
+  // rather than leaving them looking at something that no longer exists.
+  if (currentThreadId() === id) {
+    screenData.threadsOpen = false;
+    go('/chat', true);
+    return;
+  }
+  set({});
+}
+
 async function goToStripe(route: string): Promise<void> {
   const me = current().me;
   if (me === null) return;
@@ -386,9 +442,10 @@ document.addEventListener('visibilitychange', () => {
 async function send(text: string, attachment: { id: string; kind: string; contentType: string } | null = null): Promise<void> {
   const state = current();
   const me = state.me!;
+  const conversationId = currentThreadId();
   // A photograph with no words is a whole message; empty is only empty when
   // there is nothing attached either.
-  if (me.conversation === null || (text.trim() === '' && attachment === null)) return;
+  if (conversationId === null || (text.trim() === '' && attachment === null)) return;
 
   const clientId = newKey();
   const mine: Message = {
@@ -407,7 +464,7 @@ async function send(text: string, attachment: { id: string; kind: string; conten
   let started = false;
   try {
     await stream(
-      `/api/conversations/${me.conversation.id}/messages`,
+      `/api/conversations/${conversationId}/messages`,
       { message: text, clientId, replyToId: state.replyTo?.id ?? null, attachmentId: attachment?.id ?? null },
       clientId,
       (event) => {
@@ -498,6 +555,18 @@ document.addEventListener('click', (event) => {
     set({ acting: { id, mode: 'delete' as 'sheet' } });
   } else if (action === 'confirm-delete') {
     void deleteMessage(id, actor.dataset['keep'] === 'true');
+  } else if (action === 'threads') {
+    void openThreads();
+  } else if (action === 'close-threads') {
+    screenData.threadsOpen = false;
+    set({});
+  } else if (action === 'open-thread') {
+    screenData.threadsOpen = false;
+    go(`/chat/${id}`);
+  } else if (action === 'new-thread') {
+    void startThread(actor.dataset['kind'] as 'side' | 'incognito');
+  } else if (action === 'end-thread') {
+    void endThread(id);
   } else if (action === 'consent-adult') {
     consentState.adult = actor.dataset['value'] === 'yes';
     set({});

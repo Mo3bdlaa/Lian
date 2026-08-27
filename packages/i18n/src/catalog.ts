@@ -421,6 +421,26 @@ export const CATALOG = {
     addressee: 'none',
   },
 
+  // ── the conversation switcher (UI-UX §14) ───────────────────────────────
+  'threads.title': { en: 'Conversations', ar: 'المحادثات', addressee: 'none' },
+  'threads.main': { en: 'Main', ar: 'الأساسية', addressee: 'none' },
+  'threads.side': { en: 'Side conversation', ar: 'محادثة جانبية', addressee: 'none' },
+  'threads.incognito': { en: 'Incognito', ar: 'سرية', addressee: 'none' },
+  'threads.new_side': { en: 'Start a side conversation', ar: 'محادثة جانبية جديدة', addressee: 'none' },
+  'threads.new_incognito': { en: 'Start an incognito conversation', ar: 'محادثة سرية جديدة', addressee: 'none' },
+  'threads.side_note': { en: 'Same memory, same her. Just a separate thread.', ar: 'نفس الذاكرة، ونفس الشخص. مجرد خيط منفصل.', addressee: 'none' },
+  'threads.incognito_note': { en: 'Nothing here is kept.', ar: 'مفيش حاجة هنا بتتحفظ.', addressee: 'none' },
+  'threads.incognito_detail': {
+    en: 'She can use what she already remembers. Nothing said here becomes a memory, and the whole thread goes when you close it.',
+    ar: 'تقدر تستخدم اللي فاكراه. مفيش حاجة تتقال هنا بتبقى ذكرى، والمحادثة كلها بتروح لما تتقفل.',
+    arMale: 'يقدر يستخدم اللي فاكره. مفيش حاجة تتقال هنا بتبقى ذكرى، والمحادثة كلها بتروح لما تتقفل.',
+    addressee: 'none',
+  },
+  'threads.close': { en: 'Close', ar: 'إقفال', addressee: 'none' },
+  'threads.delete_incognito': { en: 'Delete this thread', ar: 'امسح المحادثة دي', addressee: 'none' },
+  'threads.messages': { en: '{n} messages', ar: '{n} رسالة', addressee: 'none' },
+  'threads.empty_thread': { en: 'Nothing said yet', ar: 'لسه مفيش كلام', addressee: 'none' },
+
   // ── account recovery (UI-UX §21) ────────────────────────────────────────
   //
   // The copy here is careful about one thing: it never confirms whether an
