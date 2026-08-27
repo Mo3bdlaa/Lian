@@ -362,12 +362,9 @@ async function prepareAttachment(
     const transcribed = await transcribeVoiceNote(
       {
         userId: input.userId, audio: object.bytes, contentType: object.contentType,
-        // Duration is not known server-side without decoding the container,
-        // so the SIZE ceiling is what bounds this (policy.MAX_ATTACHMENT_BYTES
-        // for audio, sized against five minutes of Opus). Passing 0 here
-        // would silently skip the length check, so the bytes-per-second
-        // assumption is made explicit instead.
-        durationSeconds: Math.ceil(object.bytes.byteLength / AUDIO_BYTES_PER_SECOND),
+        // The recorder's number, floored by what the bytes prove — see
+        // secondsToCharge. Never the reported number alone.
+        durationSeconds: secondsToCharge(object.bytes.byteLength, attachment.durationSeconds),
         month: input.localDay.slice(0, 7),
         secondsCeiling: limitsFor(input.plan).sttSecondsPerMonth,
         languageHint: input.language,
@@ -434,13 +431,49 @@ async function prepareAttachment(
 
 /**
  * ASSUMPTION: 4 kB per second of audio — Opus at roughly 32 kbit/s, which is
- * what a browser's MediaRecorder produces for speech by default. Used only to
- * turn a byte count into the seconds the STT meter charges for; a denser
- * codec is charged more than it should be, which is the safe direction for a
- * ceiling and the wrong one for a bill, so a real duration from the client
- * should replace it when the recorder reports one.
+ * what a browser's MediaRecorder produces for speech by default. Turns a byte
+ * count into the seconds the STT meter charges for, when there is nothing
+ * better. A denser codec is over-charged, which is the safe direction for a
+ * ceiling and the wrong one for a bill — which is what DECISIONS §29 asked to
+ * fix, and what `secondsToCharge` below now does.
  */
 const AUDIO_BYTES_PER_SECOND = 4_000;
+
+/**
+ * ASSUMPTION: 16 kB per second — 128 kbit/s — is the most a browser's
+ * MediaRecorder plausibly spends on a second of mono speech. It is well above
+ * the ~32 kbit/s it actually uses; being generous here is the point.
+ *
+ * This is the DENSEST plausible encoding, so `bytes / this` is the SHORTEST a
+ * recording of that size can honestly be. Note the direction: more bytes per
+ * second means the same file holds LESS time, so the densest rate gives the
+ * smallest duration — which is exactly the floor a reported number has to
+ * clear. (The first version of this had the two rates the wrong way round and
+ * charged a truthful minute as two; the test below is what said so.)
+ */
+const MAX_AUDIO_BYTES_PER_SECOND = 16_000;
+
+/**
+ * What the STT meter charges for one voice note.
+ *
+ * DECISIONS §29, resolved. The recorder has always known the real duration —
+ * the client computes it to decide whether the recording was long enough to
+ * send, and then threw it away — but a duration reported by a client is a
+ * number somebody can choose, and a client claiming one second for a
+ * five-minute note would have five minutes transcribed and be billed for one.
+ *
+ * So it is neither trusted nor ignored: the charge is the LARGER of what the
+ * recorder said and the floor the bytes themselves prove. An honest recording
+ * is charged what it actually was, which is the accuracy §29 wanted. A
+ * dishonest one cannot be charged less than its bytes could possibly hold.
+ * With no reported duration at all — an older row, or a client that does not
+ * send one — it falls back to the estimate, which is where it started.
+ */
+export function secondsToCharge(byteLength: number, reported: number | null): number {
+  const estimated = Math.ceil(byteLength / AUDIO_BYTES_PER_SECOND);
+  if (reported === null || !Number.isFinite(reported) || reported < 0) return estimated;
+  return Math.max(Math.ceil(reported), Math.ceil(byteLength / MAX_AUDIO_BYTES_PER_SECOND));
+}
 
 // ── chat ──────────────────────────────────────────────────────────────────
 
@@ -1380,7 +1413,7 @@ export function attachmentPorts(deps: Deps): AttachmentPorts {
     ...middlewarePorts(deps),
     now: deps.now,
 
-    async beginUpload({ userId, kind, contentType, conversationId }) {
+    async beginUpload({ userId, kind, contentType, conversationId, durationSeconds }) {
       if (deps.store === null) return { status: 'no_storage' as const };
       const attachmentKind = kindOf(kind);
       if (attachmentKind === null || !ACCEPTED[attachmentKind].includes(contentType)) {
@@ -1405,7 +1438,9 @@ export function attachmentPorts(deps: Deps): AttachmentPorts {
 
       const attachment = await db.attachments.reserve(
         { userId },
-        { kind: attachmentKind, contentType, persist, conversationId },
+        // Only audio has a duration, and only audio is metered by one.
+        { kind: attachmentKind, contentType, persist, conversationId,
+          durationSeconds: attachmentKind === 'audio' ? durationSeconds : null },
       );
       const key = attachmentKey({
         userId, kind: attachmentKind, attachmentId: attachment.id,

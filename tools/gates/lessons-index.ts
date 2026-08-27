@@ -102,6 +102,12 @@ const COVERAGE: Record<string, Coverage[]> = {
     { where: 'tools/gates/boundaries.ts', marker: /composes INTO the prompt/ },
     { where: 'packages/capabilities/src/capabilities.test.ts', marker: /adding a capability stayed cheap/ },
   ],
+  '19': [
+    { where: 'packages/db/src/repositories/usage.ts', marker: /THE INSERT NEEDS ITS OWN GUARD/ },
+    { where: 'packages/db/src/repositories/limits.ts', marker: /the way somebody closes a route in a hurry/ },
+    { where: 'packages/db/src/repositories/lessons.test.ts', marker: /the FIRST reservation of a period is bounded too/ },
+    { where: 'apps/server/src/attachments.test.ts', marker: /The test proving voice worked was the test\s*\n?\s*\/\/ proving the leak|proving the leak/ },
+  ],
   '18': [
     { where: 'packages/db/src/repositories/auth.ts', marker: /Revoke a device, and say whether one actually was/ },
     { where: 'apps/server/src/hardening.test.ts', marker: /a stranger could \$\{attempt\.what\}|written by someone trying to get at somebody/ },

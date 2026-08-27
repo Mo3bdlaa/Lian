@@ -404,3 +404,38 @@ error is retried, and a confirmation is acted on.
   is now `apps/server/src/hardening.test.ts`. Every other test in the
   repository was written by somebody trying to make it work.
 
+## 19. A conditional upsert bounds only the branch it is written on
+
+**`ON CONFLICT (…) DO UPDATE … WHERE` is not a check on the statement. It
+is a check on the UPDATE. When there is no row yet there is no conflict,
+the WHERE never runs, and the INSERT happens whatever the numbers say.**
+
+`usage.reserve` is the product's ceiling: messages a day, model spend a
+month, characters of speech, seconds of transcription, bytes held. It
+was one statement, atomic, correctly scoped, and it did not check the
+ceiling on the first reservation of a period.
+
+    ceiling 0, asking for 30 seconds  ->  granted
+    ceiling 20, asking for 5000       ->  granted
+
+The free plan's transcription ceiling is ZERO, because voice is paid-only,
+and it was enforced entirely by this function. So a free account's first
+voice note of every calendar month was transcribed and paid for, forever.
+
+- **Every test passed.** Every test reserves one unit at a time against a
+  ceiling above one, which is the exact case the missing guard cannot
+  affect. The §12 test reserves 400 against 1000 — it fits, so it never
+  looked. A limit is only tested by a request that should be REFUSED, and
+  the first request of a period is the one nobody writes a test for.
+- **The test that proved the feature was the test that proved the leak.**
+  `attachments.test.ts` asserted a voice note is transcribed, on a free
+  account, and passed for two runs.
+- The fix is to guard the insert as well: `SELECT … WHERE $4 <= $5`
+  proposes no row at all when the amount alone exceeds the ceiling.
+- The same shape was in `takeToken` and was not reachable, because every
+  rate rule is at least three. Fixed anyway: setting a limit to zero is
+  how somebody closes a route in a hurry.
+- **It surfaced as a copy bug, not as a bill.** A free user was told "I
+  couldn't make out that recording" — a sentence that says the product is
+  broken when the truth is the feature is on the other plan. A ceiling
+  enforced by returning the wrong error is a ceiling nobody can read.

@@ -1,0 +1,23 @@
+-- 0015 — a voice note's real length.
+--
+-- DECISIONS §29 said the bytes-per-second estimate should be replaced by a
+-- real duration "when the recorder reports one".  The recorder has always
+-- reported one — apps/web/src/main.ts computes it to decide whether the
+-- recording was long enough to send, and then threw it away.
+--
+-- THE DECISION THIS ROW ENCODES, because it is the whole reason it took a
+-- migration rather than a line: a duration reported by a client is a number
+-- somebody can choose.  A client that claims one second for a five-minute
+-- note would transcribe five minutes and be billed for one.
+--
+-- So it is not trusted, and it is not ignored either.  The meter charges the
+-- LARGER of the reported duration and the floor the bytes themselves prove
+-- (see AUDIO_BYTES_PER_SECOND and MAX_AUDIO_BYTES_PER_SECOND in
+-- apps/server/src/wiring.ts).  An honest recording is charged what it
+-- actually was, which is what §29 wanted; a dishonest one cannot be charged
+-- less than its bytes could possibly hold.
+--
+-- Nullable: a row written before this column existed, or by a client that
+-- does not report one, falls back to the estimate alone.
+ALTER TABLE attachments
+  ADD COLUMN duration_seconds int CHECK (duration_seconds IS NULL OR duration_seconds >= 0);

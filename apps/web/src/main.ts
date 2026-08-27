@@ -944,6 +944,11 @@ async function stopRecording(send_: boolean): Promise<void> {
     const uploaded = await upload(audio, {
       kind: 'audio', contentType,
       conversationId: current().me?.conversation?.id ?? null,
+      // The recorder has always known this; it was only used to decide
+      // whether the clip was long enough to send. The server floors it with
+      // what the bytes prove, so an honest number is charged accurately and
+      // a made-up one buys nothing (DECISIONS §29).
+      durationSeconds: seconds,
     });
     set({ busy: false });
     // No text: the transcript becomes the body server-side.

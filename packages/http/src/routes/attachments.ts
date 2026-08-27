@@ -13,7 +13,11 @@ import { HttpError, type Handler } from '../router.ts';
 import { RATE_RULES, enforceRate, requireSession, withIdempotency, type MiddlewarePorts } from '../middleware.ts';
 
 export type AttachmentPorts = MiddlewarePorts & {
-  beginUpload(input: { userId: string; kind: string; contentType: string; conversationId: string | null }): Promise<
+  beginUpload(input: {
+    userId: string; kind: string; contentType: string; conversationId: string | null;
+    /** Audio only. What the recorder reported, or null. */
+    durationSeconds: number | null;
+  }): Promise<
     | { status: 'ready'; id: string; url: string; method: string; headers: Record<string, string>; expiresIn: number }
     | { status: 'unsupported_type' }
     | { status: 'ceiling_reached'; heldBytes: number; ceiling: number }
@@ -38,7 +42,7 @@ export function attachmentRoutes(ports: AttachmentPorts): { method: 'GET' | 'POS
       handler: async (context) => {
         const session = await requireSession(context, ports, ports.now());
         await enforceRate({ bucket: `write:${session.userId}`, rule: RATE_RULES.write, now: ports.now() }, ports);
-        const body = context.body<{ kind?: string; contentType?: string; conversationId?: string }>();
+        const body = context.body<{ kind?: string; contentType?: string; conversationId?: string; durationSeconds?: number }>();
 
         const result = await withIdempotency({ context, userId: session.userId, route: 'attachment' }, ports, async () => {
           const begun = await ports.beginUpload({
@@ -46,6 +50,10 @@ export function attachmentRoutes(ports: AttachmentPorts): { method: 'GET' | 'POS
             kind: body.kind ?? '',
             contentType: body.contentType ?? '',
             conversationId: body.conversationId ?? null,
+            // Audio only, and never trusted alone — the meter floors it with
+            // what the bytes prove (apps/server/src/wiring.ts).
+            durationSeconds: typeof body.durationSeconds === 'number' && Number.isFinite(body.durationSeconds)
+              && body.durationSeconds >= 0 ? Math.ceil(body.durationSeconds) : null,
           });
           if (begun.status === 'unsupported_type') {
             throw new HttpError(415, 'unsupported_type', 'I cannot read that kind of file');

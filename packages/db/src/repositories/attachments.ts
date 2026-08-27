@@ -26,6 +26,10 @@ export type Attachment = {
   persist: boolean;
   messageId: string | null;
   conversationId: string | null;
+  /** Seconds, as the recorder reported them — null when it did not, or when
+   *  the row predates the column. NOT trusted on its own: the meter charges
+   *  the larger of this and what the bytes prove (migration 0015). */
+  durationSeconds: number | null;
   createdAt: Date;
 };
 
@@ -33,27 +37,33 @@ type Row = {
   id: string; kind: AttachmentKind; storage_key: string; content_type: string;
   bytes: string | number | null; status: AttachmentStatus; persist: boolean;
   message_id: string | null; conversation_id: string | null; created_at: Date;
+  duration_seconds: number | null;
 };
 
-const COLUMNS = 'id, kind, storage_key, content_type, bytes, status, persist, message_id, conversation_id, created_at';
+const COLUMNS = 'id, kind, storage_key, content_type, bytes, status, persist, message_id, conversation_id, created_at, duration_seconds';
 const toAttachment = (row: Row): Attachment => ({
   id: row.id, kind: row.kind, storageKey: row.storage_key, contentType: row.content_type,
   bytes: row.bytes === null ? null : Number(row.bytes), status: row.status, persist: row.persist,
   messageId: row.message_id, conversationId: row.conversation_id, createdAt: row.created_at,
+  durationSeconds: row.duration_seconds === null ? null : Number(row.duration_seconds),
 });
 
 /** Claim an id, before the bytes exist. The key is built from the id, so the
  *  caller writes the row first and signs second. */
 export async function reserve(
   scope: UserScope,
-  input: { kind: AttachmentKind; contentType: string; persist: boolean; conversationId?: string | null },
+  input: {
+    kind: AttachmentKind; contentType: string; persist: boolean;
+    conversationId?: string | null; durationSeconds?: number | null;
+  },
   sql: Sql = db(),
 ): Promise<Attachment> {
   const { rows } = await sql.query<Row>(
-    `INSERT INTO attachments (user_id, kind, content_type, storage_key, status, persist, conversation_id)
-     VALUES ($1, $2, $3, '', 'pending', $4, $5)
+    `INSERT INTO attachments (user_id, kind, content_type, storage_key, status, persist, conversation_id, duration_seconds)
+     VALUES ($1, $2, $3, '', 'pending', $4, $5, $6)
      RETURNING ${COLUMNS}`,
-    [scope.userId, input.kind, input.contentType, input.persist, input.conversationId ?? null],
+    [scope.userId, input.kind, input.contentType, input.persist, input.conversationId ?? null,
+     input.durationSeconds ?? null],
   );
   return toAttachment(rows[0]!);
 }

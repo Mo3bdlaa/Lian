@@ -21,6 +21,7 @@ import { DEFAULT_MODEL, type CompletionRequest, type Provider } from '@lian/llm'
 import { generateVapidKeys } from '@lian/push';
 import { memoryStore } from '@lian/storage';
 import { createApplication } from './app.ts';
+import { secondsToCharge } from './wiring.ts';
 import { loadConfig } from './config.ts';
 
 const HAS_DB = (process.env['DATABASE_URL'] ?? '') !== '';
@@ -218,6 +219,43 @@ describe('attachments, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not se
     // travelled: not into her turn, and not into the transaction.
     const { rows: money } = await db().query(`SELECT id FROM transactions WHERE user_id = $1`, [app.account.userId]);
     assert.equal(money.length, 0, 'she emitted no tag, so nothing was captured — the instruction reached no field');
+  });
+
+  // ── what the STT meter charges (DECISIONS §29) ──────────────────────────
+  test('a reported duration is neither trusted nor ignored', () => {
+    // §29 asked for the recorder's real duration to replace the
+    // bytes-per-second estimate. The reason that took a decision rather than
+    // a line: a duration reported by a client is a number somebody can
+    // choose.
+    const ONE_MINUTE_OF_OPUS = 60 * 4_000; // 240 kB at ~32 kbit/s
+
+    // An honest recording is charged what it actually was — the accuracy §29
+    // wanted. Not the estimate, which happens to agree here, but the number
+    // the recorder measured.
+    assert.equal(secondsToCharge(ONE_MINUTE_OF_OPUS, 60), 60);
+
+    // A denser codec: the same minute in half the bytes. The estimate alone
+    // would charge 30 seconds for a 60-second note — under-charging, which is
+    // the wrong direction for a bill.
+    assert.equal(secondsToCharge(ONE_MINUTE_OF_OPUS / 2, 60), 60);
+
+    // And the reason it is not simply believed: a client claiming one second
+    // for a minute of audio still pays the floor its bytes prove. Not the
+    // full minute — nothing server-side can know that without decoding the
+    // container — but not one second either.
+    // 240 kB cannot be one second of anything a browser records: even at
+    // 128 kbit/s it is fifteen. That is what they pay. Not the full minute —
+    // nothing server-side can know that without decoding the container — but
+    // fifteen times what they asked to be charged.
+    const lying = secondsToCharge(ONE_MINUTE_OF_OPUS, 1);
+    assert.equal(lying, 15, `a claimed second bought a minute of transcription (charged ${lying})`);
+
+    // Nothing reported at all — an older row, or a client that does not send
+    // one — falls back to the estimate, which is where this started.
+    assert.equal(secondsToCharge(ONE_MINUTE_OF_OPUS, null), 60);
+    // As does a number that is not one.
+    assert.equal(secondsToCharge(ONE_MINUTE_OF_OPUS, -5), 60);
+    assert.equal(secondsToCharge(ONE_MINUTE_OF_OPUS, Number.NaN), 60);
   });
 
   // ── a voice note becomes a message ──────────────────────────────────────

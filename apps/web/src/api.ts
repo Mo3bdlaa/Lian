@@ -125,11 +125,18 @@ export function parseEvent(chunk: string): StreamEvent | null {
  */
 export async function upload(
   file: Blob,
-  input: { kind: 'image' | 'audio' | 'receipt'; contentType: string; conversationId: string | null },
+  input: {
+    kind: 'image' | 'audio' | 'receipt'; contentType: string; conversationId: string | null;
+    /** Audio only: what the recorder measured. */
+    durationSeconds?: number;
+  },
 ): Promise<{ id: string; bytes: number }> {
   const begun = await post<{ id: string; url: string; method: string; headers: Record<string, string> }>(
     '/api/attachments',
-    { kind: input.kind, contentType: input.contentType, conversationId: input.conversationId },
+    {
+      kind: input.kind, contentType: input.contentType, conversationId: input.conversationId,
+      ...(input.durationSeconds === undefined ? {} : { durationSeconds: input.durationSeconds }),
+    },
   );
   const put = await fetch(begun.url, {
     method: begun.method,
