@@ -26,7 +26,18 @@ export type Seeded = {
   email: string;
 };
 
-export type Fullness = 'full' | 'empty';
+export type Fullness = 'full' | 'empty' | 'onboarding';
+
+/**
+ * `onboarding` is an account that has just signed up and answered nothing.
+ *
+ * It exists because the coverage matrix has an "Onboarding conversation" row
+ * and nothing could photograph it: every seeded account set `onboarded_at`,
+ * so the product's first five minutes — the part FIRST-IMPRESSIONS says is
+ * the best thing about it — had no picture. The step is DERIVED from what is
+ * known (packages/domain/src/onboarding.ts), so leaving the facts unset is
+ * the whole of it; there is no flag to fake.
+ */
 
 /**
  * @param fullness `empty` is a brand-new account — no memories, no money, no
@@ -52,17 +63,32 @@ export async function seed(fullness: Fullness, options: {
     `INSERT INTO users (email, password_hash, time_zone, display_name, language_style, plan,
                         theme_preference, is_adult, consented_at, consent_version, onboarded_at,
                         notification_prompted_at, email_verified_at)
-     VALUES ($1, 'x', 'Asia/Dubai', $2, $3, $4, $5, true, now(), 'shots', now(), now(), $6)
+     VALUES ($1, 'x', 'Asia/Dubai', $2, $3, $4, $5, true, now(), 'shots', $7, $7, $6)
      RETURNING id`,
-    [email, arabic ? 'رانيا' : 'Rania', language, options.plan ?? 'free',
-     options.themePreference ?? 'auto', fullness === 'full' ? new Date() : null],
+    [
+      email,
+      // No name yet: the first thing she asks for is what to call them.
+      fullness === 'onboarding' ? null : arabic ? 'رانيا' : 'Rania',
+      // 'auto' is what a new account has — the language question comes later.
+      fullness === 'onboarding' ? 'auto' : language,
+      options.plan ?? 'free',
+      options.themePreference ?? 'auto',
+      fullness === 'full' ? new Date() : null,
+      // $7 — onboarded_at AND notification_prompted_at. Both unset is what
+      // being mid-onboarding IS: the step is derived from the facts, so there
+      // is no flag to fake (packages/domain/src/onboarding.ts).
+      fullness === 'onboarding' ? null : new Date(),
+    ],
   );
   const userId = user!.id;
 
   const { rows: [assistant] } = await sql.query<{ id: string }>(
     `INSERT INTO assistants (user_id, name, gender, language_style, named_by_user)
-     VALUES ($1, $2, 'female', $3, true) RETURNING id`,
-    [userId, arabic ? 'ليان' : 'Lian', language],
+     VALUES ($1, $2, 'female', $3, $4) RETURNING id`,
+    // `named_by_user` false: she has a working name and has not been given
+    // one, which is the state the last onboarding question is about.
+    [userId, arabic ? 'ليان' : 'Lian', fullness === 'onboarding' ? 'auto' : language,
+     fullness !== 'onboarding'],
   );
   const assistantId = assistant!.id;
 
@@ -117,7 +143,7 @@ export async function seed(fullness: Fullness, options: {
     );
   }
 
-  if (fullness === 'empty') return { userId, assistantId, conversationId, sessionToken: token, email };
+  if (fullness !== 'full') return { userId, assistantId, conversationId, sessionToken: token, email };
 
   // ── the conversation ──────────────────────────────────────────────────
   // Four days of it, with the capture chips that make chat look like chat.

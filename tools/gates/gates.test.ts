@@ -133,6 +133,12 @@ describe('every gate objects to a deliberate violation (LESSONS §15)', () => {
     'apps/web/src/main.ts':
       "const ENTRY = {\n  welcome, signUp,\n};\n"
       + "function screenFor(screen) {\n  switch (screen) {\n    case 'money': return moneyScreen();\n    default: return chatScreen();\n  }\n}\n",
+    // The third seam needs a matrix and a shot list, and a fixture that
+    // omitted them would make every OTHER case fail for the wrong reason —
+    // which is how it first behaved, and is worth a sentence rather than a
+    // silent fix: a shared clean tree has to be clean for every rule.
+    'docs/specs/SCREEN-COVERAGE.md': '| Area | Mobile |\n|---|---|\n| Chat | ✅ | notes |\n',
+    'tools/shots/index.ts': "const SHOTS = [{ area: 'Chat', path: '/chat' }];\n",
   };
 
   test('wired: a table a migration creates and no repository names (§20)', () => {
@@ -144,6 +150,21 @@ describe('every gate objects to a deliberate violation (LESSONS §15)', () => {
         'packages/db/migrations/0002_more.sql': 'CREATE TABLE gadgets (id uuid PRIMARY KEY);\n',
       },
       says: /table 'gadgets' is created by a migration and named by no repository/,
+    });
+  });
+
+  test('wired: a matrix row nothing has ever looked at (§20)', () => {
+    // The coverage matrix has overclaimed TWICE — two rows said ✅ over things
+    // nothing had built, and both survived seven review passes, because a
+    // matrix row is a claim checked by whoever wrote it. Now it is checked by
+    // whether the row can be reached in a browser.
+    proves('wired', {
+      clean: WIRED_BASE,
+      dirty: {
+        'docs/specs/SCREEN-COVERAGE.md':
+          '| Area | Mobile |\n|---|---|\n| Chat | ✅ | notes |\n| Our story | ✅ | timeline |\n',
+      },
+      says: /'Our story' is a row in the coverage matrix and nothing[\s\S]*reaches it/,
     });
   });
 

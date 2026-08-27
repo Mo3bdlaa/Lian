@@ -258,6 +258,27 @@ const SHOTS: Shot[] = [
   { name: 'not-found-day-rtl', area: 'Splash / 404 / outage', path: '/no-such-page', language: 'ar-eg', themePreference: 'always-light' },
   { name: 'outage-day-ltr', area: 'Splash / 404 / outage', path: '/outage', themePreference: 'always-light' },
 
+  // ── Onboarding conversation ─────────────────────────────────────────────
+  // The matrix has this row and NOTHING COULD PHOTOGRAPH IT until now: every
+  // seeded account had onboarded_at set, so the product's first five minutes
+  // had no picture. Her first message is scripted by the provider here, the
+  // way it is scripted in tools/preview.ts — the WORDS are a stand-in, the
+  // screen is real.
+  {
+    name: 'onboarding-greet-ltr', area: 'Onboarding conversation', path: '/chat',
+    fullness: 'onboarding', themePreference: 'always-light',
+    note: 'no header mood yet, no captures, no nav destination but the conversation',
+  },
+  {
+    name: 'onboarding-greet-rtl', area: 'Onboarding conversation', path: '/chat',
+    fullness: 'onboarding', language: 'ar-eg', themePreference: 'always-light',
+  },
+  {
+    name: 'onboarding-permission-ltr', area: 'Onboarding conversation', path: '/chat',
+    fullness: 'onboarding', themePreference: 'always-light',
+    note: 'the permission card — asked AFTER she has remembered something (PRD §18)',
+  },
+
   // ── Morning briefing ────────────────────────────────────────────────────
   { name: 'briefing-day-ltr', area: 'Morning briefing', path: '/briefing', themePreference: 'always-light' },
   { name: 'briefing-day-rtl', area: 'Morning briefing', path: '/briefing', language: 'ar-eg', themePreference: 'always-light' },

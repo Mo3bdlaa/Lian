@@ -21,6 +21,9 @@
 //
 //   1. every table a migration creates is named by @lian/db
 //   2. every route in ROUTES has a case in screenFor
+//   3. every row of the coverage matrix is REACHED by a screenshot, or has a
+//      recorded gap saying why it cannot be — because the matrix has
+//      overclaimed twice, and a row is a claim checked by whoever wrote it
 //
 // It is deliberately narrow.  It does not know what "wired" means in general
 // and does not try — it knows two specific seams where the product has
@@ -187,9 +190,49 @@ for (const [screen, pattern] of declared) {
   });
 }
 
+// ── seam 3: the coverage matrix ────────────────────────────────────────────
+//
+// The document has overclaimed twice — two rows said ✅ over things nothing
+// had built, and both survived seven review passes because a matrix row is a
+// claim checked by the person making it.
+//
+// So it is checked by whether the row can be REACHED. `npm run shots` drives
+// every one of them in a real browser; a row with neither a shot nor a stated
+// gap is a row nobody has looked at.
+
+const matrix = read(`${ROOT}/docs/specs/SCREEN-COVERAGE.md`);
+const shotsSource = read(`${ROOT}/tools/shots/index.ts`);
+const rows = [...matrix.matchAll(/^\| ([^|]+?) \| [✅◐]/gm)].map((match) => match[1]!);
+const exercised = new Set([...shotsSource.matchAll(/area: '([^']+)'/g)].map((match) => match[1]!));
+
+if (rows.length === 0) {
+  violations.push({
+    file: 'docs/specs/SCREEN-COVERAGE.md', line: 1,
+    message: 'no matrix rows found — this gate is looking in the wrong place',
+  });
+}
+for (const row of rows) {
+  if (exercised.has(row)) continue;
+  violations.push({
+    file: 'docs/specs/SCREEN-COVERAGE.md', line: 1,
+    message: `'${row}' is a row in the coverage matrix and nothing in tools/shots/index.ts `
+      + 'reaches it — no screenshot and no recorded gap. A matrix row is a claim, and this '
+      + 'one has never been looked at. Add a shot, or add a GAP saying why it cannot be taken.',
+  });
+}
+for (const area of exercised) {
+  if (!rows.includes(area)) {
+    violations.push({
+      file: 'tools/shots/index.ts', line: 1,
+      message: `shots reach '${area}' and the coverage matrix has no such row. `
+        + 'Either the row was renamed and this should follow it, or a screen exists that the matrix does not know about.',
+    });
+  }
+}
+
 if (exemptions.length > 0) {
   console.log(`  ${exemptions.length} thing(s) deliberately not wired:`);
   for (const line of exemptions) console.log(`    ${line}`);
 }
-console.log(`  ${tables.size} table(s), ${declared.size} route(s)`);
-report('wired', violations, tables.size + declared.size);
+console.log(`  ${tables.size} table(s), ${declared.size} route(s), ${rows.length} matrix row(s)`);
+report('wired', violations, tables.size + declared.size + rows.length);

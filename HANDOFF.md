@@ -14,16 +14,25 @@ confirmation at sign-up, recovery, new-device confirmation, and the first real
 send is a preflight command that reads the provider's own error back. It found
 a misclassification on its first live call, which is the whole argument for it.
 
-`npm run verify` is green: typecheck (server and browser), **13 gates**,
-**667 tests**, including 19 that drive real Chromium, 23 that prove each gate
-FAILS on a deliberate violation, and 27 that attack the product with a second
-account.
+**CI IS GREEN.** It was red for seventeen consecutive runs and the cause was
+one line: `postgres:16` ships no pgvector, so migration 0003 died and every
+database-backed test with it. `npm run verify` is green too: typecheck (server
+and browser), **14 gates**, **675 tests**, including 19 that drive real
+Chromium, 26 that prove each gate FAILS on a deliberate violation, and 27 that
+attack the product with a second account.
 
-**Read the test summary, not the exit code.** `pass 462, fail 0, cancelled
-100` is what a dead database looks like, and it happened once. **And export
-`DATABASE_URL` before you run the suite** — without it 137 tests SKIP silently
-and the count reads 530, which looks like a smaller suite rather than a
-crippled one.
+**`npm run shots` photographs 95 screens** into `docs/shots/`, with seven gaps
+listed rather than skipped. Start there — reading HTML is not looking at a
+product, and four things were wrong in ways only a picture showed.
+
+**`npm run test:ci` reads the summary, because the summary can lie.** Four
+runs of HANDOFF have said "read the test summary, not the exit code", on the
+strength of `pass 462, fail 0, cancelled 100`. That advice is not enough.
+With `DATABASE_URL` merely unset the suite reports **`tests 520, pass 520,
+fail 0, cancelled 0, skipped 0`** — a perfect summary, exit zero, and 155
+tests that were never reported at all, because a skipped `describe` counts as
+a skipped SUITE and its subtests vanish from the count. The COUNT is the only
+signal, so `test:ci` asserts a floor.
 
 **Every number below states the assumption it rests on.** Where an assumption
 is soft, it says so. Where a thing has never touched a live service, it says
@@ -31,7 +40,46 @@ that too.
 
 ---
 
-## 0. What the ninth run did
+## 0. What the tenth run did
+
+### CI, so green means green
+
+Seventeen red runs, one cause, and it was neither of the things we guessed:
+the service container and DATABASE_URL were already right and preflight was
+never in the CI path. `pgvector/pgvector:pg16` fixes it. Two steps now run
+BEFORE the suite (the database is reachable; pgvector is available; migrate as
+its own step) so the next breakage names itself instead of arriving as three
+hundred cancelled tests. `preflight.yml` is `workflow_dispatch` only — a
+push-triggered preflight is a red build meaning "no API key".
+
+### 95 screenshots, and four bugs only a picture found
+
+`npm run shots`. Money's headline read `AED 127.5`; a capture chip read
+`2026-08-24` under a separator saying "25 August"; five transactions, none
+photographed, were all captioned "from a receipt" (`fromReceipt` was
+`originMessageId === null` — backwards); and **she says nothing on day one**
+while the prompt tells her "this is the very first thing they will read from
+you". The first three are fixed. The fourth is §3.0 below.
+
+### LESSONS §21: she can promise what nothing performs
+
+The generalisation of "I'll remind you". `packages/domain/src/promises.ts`
+classifies every control tag and every promise-shaped sentence; the gate
+enforces that each commitment names a mechanism that still exists. It found a
+wrong claim on its first run — mine.
+
+### The story timeline
+
+Milestones built and derived from facts the product already has; moments and
+inside jokes scoped OUT with the reason. `story_events` spent exactly one run
+as a printed "NOT BUILT" exemption, which is what an announced hole is for.
+
+### The matrix is checked by whether a row can be REACHED
+
+`tools/gates/wired.ts` grew a third seam. The document has overclaimed twice;
+now a row with neither a screenshot nor a stated gap fails the build.
+
+## 0a. What the ninth run did
 
 ### It used the product
 
@@ -69,7 +117,7 @@ PRD §27 is built on both sides now. And every one of the eight PlanLimits
 fields is enforced — seven by a comparison in code, the eighth by the
 reservation above, which is how §19 was found.
 
-## 0a. What the eighth run built
+## 0b. What the eighth run built
 
 ### Consent, terms and privacy — the mechanism, not the wording
 
@@ -154,7 +202,7 @@ and says which. Verified against a real S3 endpoint: it correctly reported
 
 ---
 
-## 0b. What the seventh run built
+## 0c. What the seventh run built
 
 ### Object storage, and the two features it unblocked
 
@@ -270,6 +318,14 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
    who never opens the briefing is never reminded; that is the trade, and it
    is felt by the person the first time it matters.
 
+6b. **The story timeline holds COPY KEYS, not sentences.** A derived
+   milestone stores `story.began` and is resolved on the read, in the language
+   it is being read in; anything a person authors later holds their own words
+   and is never re-translated. `dedupe_key IS NOT NULL` tells them apart.
+   Reversing it strands half of somebody's history in whichever language they
+   used on the day — and it cannot be recovered, because the words would be
+   all that was kept.
+
 ### Very expensive — a migration, a backfill, or a bill
 
 7. **The system/turn channel split.** Reversing it gives up history caching,
@@ -342,6 +398,13 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
     conversation is worse — and recorded because it is a decision, not an
     oversight.
 
+17b. **Moments and inside jokes are NOT built, deliberately.** UI-UX §8 lists
+    three timeline types; milestones are derived from facts the product has,
+    and the other two are a judgement only she can make — a control tag, which
+    under LESSONS §21 is a promise needing a mechanism. That is a capability.
+    The schema keeps all three so building it later is a writer, not a
+    migration.
+
 ### Moderate — people will feel it, changeable in a day
 
 18. **Every image sent in a conversation is read as a possible receipt.**
@@ -380,6 +443,14 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
     is recorded or uploaded — she says once, in the conversation, that voice
     notes are on the paid plan.
 26. **A test client address per test file.**
+
+25d. **A transaction row says its date and nothing about where it came
+    from.** `fromReceipt` was `originMessageId === null`, which is backwards;
+    `transactions.receipt_id` has never been written, so nothing can answer
+    the question. Retreating to the truth rather than guessing — and the gate
+    prints the column as NOT WRITTEN every run.
+25e. **Money is formatted with the currency's own precision**, by passing no
+    fraction-digit options at all. AED and USD get two, JPY none, KWD three.
 
 ### Cheap — a line, a number, a file
 
@@ -449,7 +520,29 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
 
 ## 3. What will block me next
 
-**Nothing here needs deciding. Every item is a key, a device, or a person.**
+**One thing needs deciding, and it is first because it is the first screen.**
+
+0. **Does she speak first?** The screenshot of a brand-new account
+   (`docs/shots/onboarding-greet-ltr.png`) is an empty conversation saying
+   *"We haven't talked yet. I'm here when you're ready."* Her greeting — the
+   thing FIRST-IMPRESSIONS §1 calls the best part of the product — only
+   happens in reply to the person's first message. Meanwhile the instruction
+   she is given for that step reads **"This is the very first thing they will
+   read from you."** It is not.
+
+   Two ways to make it true, and it is your call because it is a product
+   decision with a cost:
+   (a) **Run a turn at sign-up** on the onboarding surface with no user
+       message — the proactive path already does this. Costs one model call
+       per account, and changes the app on first open from a text box into a
+       person.
+   (b) **Change the instruction** to say she is answering rather than
+       opening, and accept an empty first screen.
+
+   I did not pick, because (a) spends money on every sign-up and (b) gives up
+   something the product is arguably for.
+
+**Everything else here is a key, a device, or a person.**
 
 0. **A real Stripe account, on the phone.** Checkout, the webhook reaching a
    public URL, and the plan changing under a person. Everything in billing is
@@ -483,11 +576,10 @@ it felt like.
 8. **"Message limit approaching" is not shown anywhere.** UI-UX §19 asks for
    a quiet indicator near the end. `messagesRemaining` travels in every
    snapshot and no screen reads it, so you find out at zero.
-9. **The story timeline does not exist.** `story_events` has held its three
-   types since migration 0001 and no code has ever written a row. It is the
-   largest genuinely unbuilt thing left, and the only one whose absence a
-   person notices as an absence rather than as thinness. The gate prints it
-   as "NOT BUILT" on every run.
+9. **`transactions.receipt_id` is never written**, so UI-UX §7's "receipt
+   attached / view receipt" cannot be built and a row cannot say where it came
+   from. Threading the attachment id from `prepareAttachment` through the turn
+   into the `<spend>` handler is the fix. The gate prints it every run.
 10. **The first briefing is a money figure and four empty lists.** The rule
     producing it is right — she has written no line, and the screen refuses
     to invent her voice. The screen is still somebody's first meeting with
@@ -498,8 +590,9 @@ it felt like.
 
 ```sh
 npm run up                      # migrate, server, ticker
-npm run verify                  # typecheck, 13 gates, 667 tests
+npm run verify                  # typecheck, 14 gates, 675 tests
 #   export DATABASE_URL first, or 137 of them SKIP without saying so
+npm run shots                   # 95 screenshots into docs/shots/, gaps listed
 npm run preflight               # the five live integrations, each diagnosed
 npm run report                  # retention and cost, with their definitions
 node tools/preview.ts 8790      # the app, with a model that costs nothing
@@ -518,7 +611,9 @@ npm run report:economics        # the free tier, every assumption named
 | `apps/web/styles/app.css` | the token layer as it ships, desktop at the end |
 | `apps/server/src/browser.test.ts` | the app, running, on a phone and at 1280px |
 | `docs/RECONCILIATIONS.md` | every disagreement, and which four changed the specs |
-| `docs/FIRST-IMPRESSIONS.md` | the product used rather than read — start here |
+| `docs/shots/INDEX.md` | the product photographed — start here |
+| `docs/FIRST-IMPRESSIONS.md` | the product used rather than read |
+| `packages/domain/src/promises.ts` | what she is allowed to promise (§21) |
 | `tools/gates/wired.ts` | the two seams nothing else reads across (§20) |
 | `packages/db/src/repositories/usage.ts` | why an upsert's WHERE is not a check (§19) |
 | `packages/llm/src/pooled.ts` | LESSONS §12's rotation, finally connected |

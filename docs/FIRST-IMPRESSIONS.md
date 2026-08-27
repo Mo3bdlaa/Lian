@@ -113,11 +113,14 @@ The spec asks for location/time metadata; the time is there and nothing else
 is. Not fixed — it needs a User-Agent parse and an IP-to-city lookup, and the
 second is a third-party service and a privacy decision, not a patch.
 
-**The timeline in "Our story" does not exist at all.** `story_events` has held
+**The timeline in "Our story" did not exist at all.** `story_events` had held
 the three types the spec names — milestone, moment, inside joke — since
-migration 0001, with an index, and no code has ever written a row. The coverage
-matrix said ✅. It is now a named exemption in `tools/gates/wired.ts` that
-prints "NOT BUILT" on every CI run.
+migration 0001, with an index, and no code had ever written a row. The coverage
+matrix said ✅. It became a named exemption in `tools/gates/wired.ts` printing
+"NOT BUILT" on every CI run, and then it got looked at: **milestones are built**
+(the day you started talking, each stage reached), and moments and inside jokes
+are scoped out with a reason — that is a judgement only she can make, which is
+a capability, not a repository function.
 
 **Money's "her observation"** (UI-UX §7) is not in the view either. The screen
 is figures and a list, with nothing of her on it — on a screen the spec wanted
@@ -184,6 +187,40 @@ wrong for the first nine messages of a person's life with the product.
 **"Does she know it's me?"** — see the Security screen above.
 
 ---
+
+## 5b. And then I looked at it
+
+`npm run shots` photographs 95 screens. Four things were wrong in ways that
+were invisible in HTML, in tests, and in prose, and obvious in a picture.
+
+**`AED 127.5`.** In the Money headline, the largest text on the screen. The
+formatter said `minimumFractionDigits: 0`, so a half-dirham lost its second
+decimal and read as a typo. Every test asserted `AED 400` — the one amount
+where two decimals and zero decimals agree.
+
+**`AED 400 · gym · 2026-08-24`** on a capture chip, three lines under a day
+separator reading "25 August". The chip returned the raw column for anything
+that was not today.
+
+**Five transactions, none photographed, every one captioned "from a
+receipt".** `fromReceipt` was `originMessageId === null` — not what that
+means, and backwards, since a real receipt capture HAS an origin message.
+`transactions.receipt_id` has existed since migration 0002 and nothing has
+ever written it, so nothing can answer the question. A fourth §20.
+
+**She says nothing on day one.** The first screen a new person sees is an
+empty conversation: *"We haven't talked yet. I'm here when you're ready."*
+Her greeting — the "Good to meet you. I'm a secretary, more or less" that §1
+calls the best thing about the product — only happens in reply to their first
+message. Meanwhile the prompt instruction she is given for that step reads
+**"This is the very first thing they will read from you."** It is not. The
+instruction is written for an assistant opening a conversation and the
+mechanism has her answering one.
+
+That last one is not a bug I fixed, because it is a product decision with a
+cost: greeting somebody at sign-up means a model call per account, and it
+changes what the app is on first open — a person, or a text box. It is at the
+top of HANDOFF §3 with both options. The first three are fixed.
 
 ## 6. The pattern underneath most of this
 
