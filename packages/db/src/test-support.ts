@@ -9,11 +9,30 @@ import type { AssistantScope, UserScope } from './scope.ts';
 export const HAS_DB = (process.env['DATABASE_URL'] ?? '') !== '';
 
 let migrated = false;
+
+/**
+ * Migrate once per process, and say plainly when the database is not there.
+ *
+ * The plain saying matters more than it looks. A `before` hook that throws
+ * cancels its suite rather than failing it, so node reports `pass 462,
+ * fail 0, cancelled 100` — a summary that says nothing failed while a
+ * hundred tests did not run. The exit code is still non-zero, so a build
+ * catches it; a person reading the summary might not. Hence a message that
+ * names the difference between "skipped" and "broken".
+ */
 export async function ready(): Promise<void> {
-  if (!migrated) {
+  if (migrated) return;
+  try {
     await migrate(() => {});
-    migrated = true;
+  } catch (error) {
+    const url = process.env['DATABASE_URL'] ?? '';
+    throw new Error(
+      `DATABASE_URL is set (${url.replace(/:[^:@/]*@/, ':***@')}) but Postgres could not be reached or migrated: `
+      + `${(error as Error).message}. These tests are NOT skipped — they are broken, and node will report them `
+      + `as 'cancelled' with a failure count of zero. Start Postgres (npm run db:up) or unset DATABASE_URL to skip them deliberately.`,
+    );
   }
+  migrated = true;
 }
 
 let counter = 0;
