@@ -120,6 +120,32 @@ describe('every gate objects to a deliberate violation (LESSONS §15)', () => {
     });
   });
 
+  test('db:scoping: a `--` comment is prose, not a table reference (§11)', () => {
+    // A false positive this gate actually reported. Its parser read `--`
+    // comments as SQL, so a comment reading "deduced from BOTH the column it
+    // feeds" was a reference to a table called `both`, and the gate demanded
+    // it be added to the scope list.
+    //
+    // Half the queries in @lian/db carry a comment saying why they are shaped
+    // as they are — which is the practice this project wants — so a gate that
+    // reads them as SQL punishes exactly what it should encourage. Pinned as
+    // a CLEAN tree, with the violation below proving the rule still bites.
+    proves('db-scoping', {
+      clean: {
+        'packages/db/src/repositories/thing.ts':
+          "export const q = `SELECT id\n"
+          + "  -- deduced from BOTH the column it feeds and the comparison\n"
+          + "  -- and INTO whatever else a sentence happens to say\n"
+          + "  FROM memories WHERE assistant_id = $1`;\n",
+      },
+      dirty: {
+        'packages/db/src/repositories/other.ts':
+          "export const q = `SELECT id -- FROM memories\n  FROM memories`;\n",
+      },
+      says: /without assistant_id|scoped table/,
+    });
+  });
+
   test('db:paging: a LIMIT with no ORDER BY (§16)', () => {
     // The bug this gate exists for, planted: a batch job selecting rows to
     // work through, with nothing deciding which rows.

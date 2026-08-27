@@ -276,6 +276,19 @@ export const CATALOG = {
   'attachment.receipt_only': { en: '(a receipt)', ar: '(إيصال)', addressee: 'none' },
   'attachment.voice_only': { en: '(a voice note)', ar: '(رسالة صوتية)', addressee: 'none' },
   // A voice note that could not be transcribed is never a silent message.
+  // Three outcomes that were one sentence until the plan gate was audited.
+  // PRD §11's quiet upgrade: said once, in her voice, with no banner and no
+  // second ask — she says what is true and offers the alternative.
+  'error.voice_not_on_plan': {
+    en: "Voice notes are part of the paid plan. Tell me here and I'll pick it up the same way.",
+    ar: 'الرسايل الصوتية في الخطة المدفوعة. اكتبهالي هنا وهاخدها عادي.',
+    addressee: 'none',
+  },
+  'error.voice_ceiling': {
+    en: "That's all the voice I can listen to this month. Tell me here instead and nothing is lost.",
+    ar: 'ده كل الصوت اللي أقدر أسمعه الشهر ده. اكتبهالي هنا ومش هيضيع حاجة.',
+    addressee: 'none',
+  },
   'error.voice_not_understood': { en: "I couldn't make out that recording. Tell me instead?", ar: 'ما قدرتش أفهم التسجيل ده. ممكن بالكتابة بدل الصوت؟', addressee: 'user' },
   'error.attachment_failed': { en: "That didn't upload properly. Want to try again?", ar: 'الملف ما اترفعش صح. أجرب تاني؟', addressee: 'user' },
 

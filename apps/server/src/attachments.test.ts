@@ -81,6 +81,9 @@ describe('attachments, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not se
     analysis: AnalysisModel;
     speech?: { transcribe(input: { audio: Uint8Array; contentType: string; languageHint: string | null }): Promise<{ text: string; language: string | null }>; synthesise(input: { text: string; voiceId: string }): Promise<{ audio: Uint8Array; contentType: string }> };
     address: string;
+    /** Voice is paid-only (PRD §10), so a test about voice has to say which
+     *  plan it is testing. Defaults to free, which is what a sign-up is. */
+    plan?: 'free' | 'paid';
   }) {
     const store = memoryStore();
     const config = loadConfig({
@@ -106,6 +109,9 @@ describe('attachments, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not se
     });
     const account = (await signUp.json()) as { userId: string; sessionToken: string };
     created.push(account.userId);
+    if (options.plan === 'paid') {
+      await db().query(`UPDATE users SET plan = 'paid' WHERE id = $1`, [account.userId]);
+    }
     const { rows } = await db().query<{ id: string; assistant_id: string }>(
       `SELECT c.id, c.assistant_id FROM conversations c JOIN assistants a ON a.id = c.assistant_id WHERE a.user_id = $1`,
       [account.userId],
@@ -217,6 +223,13 @@ describe('attachments, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not se
   // ── a voice note becomes a message ──────────────────────────────────────
   test('a voice note is transcribed into the body, and the audio stays beside it', async () => {
     const app = await boot({
+      // PAID, and it has to be said out loud. This test passed on a free
+      // account for two runs — not because free accounts get voice, but
+      // because usage.reserve did not bound the first reservation of a
+      // period, so the free plan's ceiling of ZERO seconds granted the first
+      // note of every month. The test proving voice worked was the test
+      // proving the leak.
+      plan: 'paid',
       address: '192.0.2.62',
       analysis: analysisWithEyes({ total: null }),
       replies: ['Got it.'],
@@ -249,6 +262,39 @@ describe('attachments, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not se
       `SELECT status FROM attachments WHERE id = $1 AND deleted_at IS NULL`, [uploaded.id],
     );
     assert.equal(kept[0]!.status, 'ready');
+  });
+
+  test('a free account is told voice is paid, not that it was not understood', async () => {
+    const app = await boot({
+      address: '192.0.2.66',
+      analysis: analysisWithEyes({ total: null }),
+      replies: ['Got it.'],
+      speech: {
+        async transcribe() { throw new Error('a free account must never reach the provider'); },
+        async synthesise() { return { audio: new Uint8Array(64), contentType: 'audio/mpeg' }; },
+      },
+    });
+
+    const uploaded = await app.upload({
+      kind: 'audio', contentType: 'audio/webm', bytes: new Uint8Array(16_000), conversationId: app.conversationId,
+    });
+    const sent = await app.call('POST', `/api/conversations/${app.conversationId}/messages`, {
+      message: '', clientId: `c-${Date.now()}`, attachmentId: uploaded.id,
+    });
+    const body = await sent.text();
+
+    // The copy bug this found, which no test could catch while both paths
+    // returned the same shape: a free user was told "I couldn't make out
+    // that recording", which says the product is broken rather than that the
+    // feature is on the other plan.
+    assert.match(body, /paid plan/i);
+    assert.ok(!/make out/i.test(body), 'a free user was told their recording was noise');
+    // And nothing was transcribed, so nothing was billed. The fake throws if
+    // it is called at all.
+    const { rows } = await db().query<{ value: string }>(
+      `SELECT value FROM usage_counters WHERE user_id = $1 AND kind = 'stt_seconds'`, [app.account.userId],
+    );
+    assert.equal(rows.length, 0, 'a free account spent transcription seconds');
   });
 
   test('her sentence is spoken on demand, and only when asked for', async () => {

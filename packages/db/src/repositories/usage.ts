@@ -47,9 +47,29 @@ export async function current(scope: UserScope, kind: CounterKind, periodKey: st
 }
 
 /**
- * Reserve one unit against a ceiling, atomically.  Returns whether the unit
- * was granted; a refusal never increments, so a user at the limit does not
+ * Reserve `by` units against a ceiling, atomically.  Returns whether they
+ * were granted; a refusal never increments, so a user at the limit does not
  * keep pushing the number up.
+ *
+ * THE INSERT NEEDS ITS OWN GUARD, and the first version did not have one.
+ *
+ * `ON CONFLICT DO UPDATE ... WHERE` bounds the UPDATE branch only.  When no
+ * row exists yet — the first reservation of a period — there is no conflict,
+ * so the WHERE never runs and the row is inserted whatever `by` is and
+ * whatever the ceiling is.
+ *
+ * That is not theoretical.  The free plan's STT ceiling is zero, because
+ * voice is paid-only, and it was enforced ENTIRELY by this function: a free
+ * account's first voice note of each calendar month was transcribed and paid
+ * for, every month, forever.  A single reservation larger than the whole
+ * ceiling went through the same way.  Every test passed, because every test
+ * reserved one unit at a time against a ceiling above one, which is the
+ * exact case the missing guard does not affect.
+ *
+ * LESSONS §16 again, in a new place: correctly scoped, atomic, and wrong in
+ * a way that looks identical to working.  The `SELECT ... WHERE $4 <= $5`
+ * is the insert's half of the check — no row is proposed at all when the
+ * amount alone would exceed the ceiling, so neither branch can grant it.
  */
 export async function reserve(
   scope: UserScope,
@@ -61,7 +81,10 @@ export async function reserve(
 ): Promise<{ granted: boolean; value: number }> {
   const { rows } = await sql.query<{ value: number }>(
     `INSERT INTO usage_counters (user_id, kind, period_key, value, updated_at)
-     VALUES ($1, $2, $3, $4, now())
+     -- Explicitly typed: in a bare SELECT the parameter's type is deduced
+     -- from BOTH the column it feeds and the comparison it appears in, and
+     -- Postgres refuses the two readings ("text versus bigint").
+     SELECT $1::uuid, $2::text, $3::text, $4::bigint, now() WHERE $4::bigint <= $5::bigint
      ON CONFLICT (user_id, kind, period_key)
      DO UPDATE SET value = usage_counters.value + EXCLUDED.value, updated_at = now()
      WHERE usage_counters.value + EXCLUDED.value <= $5

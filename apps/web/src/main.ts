@@ -891,6 +891,18 @@ let recording: { recorder: MediaRecorder; chunks: Blob[]; startedAt: number; tim
 async function startRecording(): Promise<void> {
   const me = current().me;
   if (me === null) return;
+  // PRD §10: voice is paid-only. The button STAYS — hiding a feature is how
+  // nobody learns it exists, and §11's quiet upgrade is about not nagging,
+  // not about hiding. What changes is that nothing is recorded and nothing
+  // is uploaded: she answers in the conversation, once, and the person's
+  // storage is not spent on bytes the server is going to refuse.
+  //
+  // The server refuses independently (wiring.ts). A client check is a
+  // courtesy, never a gate.
+  if (me.user.plan === 'free') {
+    set({ error: t('error.voice_not_on_plan', me.user.language, me.assistant.gender) });
+    return;
+  }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const media = new MediaRecorder(stream);

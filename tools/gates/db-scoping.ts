@@ -33,7 +33,21 @@ function sqlLiterals(source: string): { text: string; index: number }[] {
  *  which is the failure §15 is about wearing its friendlier face. */
 const SQL_NOISE = new Set(['set', 'values', 'select', 'lateral']);
 
-function tablesIn(sql: string): string[] {
+/**
+ * A `--` comment inside a query is prose, not SQL.
+ *
+ * This gate read them, and it cost a real false positive: a comment saying a
+ * parameter's type is "deduced from BOTH the column it feeds and the
+ * comparison it appears in" was parsed as a reference to a table called
+ * `both`, and the gate demanded it be added to the scope list. Half of these
+ * queries carry a comment explaining WHY they are shaped as they are — which
+ * is the practice this project wants — so a gate that reads them as SQL
+ * punishes exactly the thing it should encourage.
+ */
+const stripSqlComments = (sql: string): string => sql.replace(/--[^\n]*/g, ' ');
+
+function tablesIn(rawSql: string): string[] {
+  const sql = stripSqlComments(rawSql);
   const cte = new Set<string>();
   for (const m of sql.matchAll(/(?:\bWITH|,)\s+([a-z_][a-z0-9_]*)\s+AS\s*\(/gi)) cte.add(m[1]!.toLowerCase());
   const names = new Set<string>();

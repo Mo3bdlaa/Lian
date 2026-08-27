@@ -346,6 +346,18 @@ async function prepareAttachment(
   if (object === null) return { status: 'failed', line: t('error.attachment_failed', input.language, input.gender) };
 
   if (attachment.kind === 'audio') {
+    // PRD §10: voice is paid-only, checked HERE, the way speakForTurn checks
+    // it on the way out — before a provider call, and with its own sentence.
+    //
+    // Until the reservation bug in usage.reserve was fixed this was enforced
+    // entirely by an STT ceiling of zero, and the answer a free user got was
+    // `error.voice_not_understood` — "I couldn't make out that recording."
+    // That is not what happened. It tells somebody the product is broken when
+    // the truth is that the feature is on the other plan, and no test could
+    // catch it because both paths returned the same shape.
+    if (!limitsFor(input.plan).voice) {
+      return { status: 'failed', line: t('error.voice_not_on_plan', input.language, input.gender) };
+    }
     if (deps.speech === null) return { status: 'failed', line: t('error.voice_not_understood', input.language, input.gender) };
     const transcribed = await transcribeVoiceNote(
       {
@@ -370,7 +382,15 @@ async function prepareAttachment(
       },
     );
     if (transcribed.status !== 'transcribed') {
-      return { status: 'failed', line: t('error.voice_not_understood', input.language, input.gender) };
+      // Three different things, and they were one sentence. A paid user out
+      // of minutes for the month is not somebody whose recording was noise.
+      return {
+        status: 'failed',
+        line: t(
+          transcribed.status === 'ceiling_reached' ? 'error.voice_ceiling' : 'error.voice_not_understood',
+          input.language, input.gender,
+        ),
+      };
     }
     return {
       status: 'ready',

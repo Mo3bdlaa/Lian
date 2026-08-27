@@ -34,7 +34,23 @@ Status: ✅ purpose-built · ◐ standard desktop fallback
 
 Every `◐` row uses persistent left rail + centered 720px main column at 900px+ (800px for legal/long-form), no bottom navigation, desktop dialogs/side sheets, and RTL mirroring. Only Chat, Money, Memory require purpose-built wide layouts for v1.
 
-**Every mobile row is built (2026-08-27).** The switcher was the last one:
+**Audited row by row, key state by key state (2026-08-27).** Not by reading
+the ticks — by grepping for each key state and following it to the code that
+serves it. Three looked missing and two were not: `recurring` is built as
+habits (a habit is a task with a recurrence, one capability, one correction
+screen), and `quick lock` is `sign-out-everywhere` on the security screen.
+
+The third was real, and its shape is the reason this audit was worth doing.
+**`scenario role` was built on the server and nowhere else** — the column, its
+CHECK constraint, the prompt block in the override zone, an injection test,
+and a `POST /api/conversations` that accepted the field. Nothing in the
+product could set it, read it back or show it, so none of that had ever run
+for a person. Every one of those pieces looks like coverage from the outside;
+together they are a hole with tests around it. It is built now, on both
+sides, with the mood phrase suppressed and the chip rendering from what the
+server says is in effect.
+
+**Every mobile row is built (2026-08-27).** The switcher was the last screen:
 `/api/conversations` lists every thread including incognito — unlike search,
 which must never see one — and closing a side thread keeps its messages,
 because they are the provenance of what she remembered, while deleting an

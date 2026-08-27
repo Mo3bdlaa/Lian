@@ -13,6 +13,7 @@ import * as relationshipRepo from './relationship.ts';
 import * as conversations from './conversations.ts';
 import * as captures from './captures.ts';
 import * as usage from './usage.ts';
+import * as limits from './limits.ts';
 import { nextStage, STAGE_THRESHOLDS } from '@lian/domain';
 
 describe('LESSONS, enforced by the database', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, () => {
@@ -242,6 +243,54 @@ describe('LESSONS, enforced by the database', { skip: HAS_DB ? false : 'DATABASE
     const cost = await usage.reserve(user, 'model_cost_micros', '2026-05', 1000, 400);
     assert.equal(cost.granted, true);
     assert.equal((await usage.reserve(user, 'model_cost_micros', '2026-05', 1000, 700)).granted, false);
+  });
+
+  test('§12 the FIRST reservation of a period is bounded too', async () => {
+    // The bug this pins, found auditing the plan gate rather than by a
+    // failing test:  `ON CONFLICT DO UPDATE ... WHERE` bounds the UPDATE
+    // branch only.  With no row yet there is no conflict, so the ceiling
+    // was never consulted and the first reservation of a period was granted
+    // whatever it asked for.
+    //
+    // The test above passes either way — it reserves one unit at a time
+    // against a ceiling of three, and its larger reservation (400 of 1000)
+    // fits.  That is the whole reason this went unseen: the missing guard is
+    // invisible to every case that fits inside the ceiling anyway.
+    const user = await freshUser();
+
+    // What it cost a real person.  Voice is paid-only, and the free plan's
+    // STT ceiling is ZERO — enforced entirely here.  So a free account's
+    // first voice note of each calendar month was transcribed and billed,
+    // every month, for as long as the account existed.
+    const firstOfTheMonth = await usage.reserve(user, 'stt_seconds', '2026-05', 0, 30);
+    assert.equal(firstOfTheMonth.granted, false, 'a zero ceiling granted thirty seconds');
+    assert.equal(await usage.current(user, 'stt_seconds', '2026-05'), 0, 'a refusal must not leave a row behind');
+
+    // And the general case: one reservation larger than the entire ceiling.
+    const wholeMonthAtOnce = await usage.reserve(await freshUser(), 'messages', '2026-05-18', 20, 5_000);
+    assert.equal(wholeMonthAtOnce.granted, false);
+
+    // The boundary, both sides — the guard is `<=`, and an off-by-one here
+    // would refuse the last message of every day.
+    const edge = await freshUser();
+    assert.equal((await usage.reserve(edge, 'messages', '2026-05-18', 20, 20)).granted, true);
+    assert.equal((await usage.reserve(await freshUser(), 'messages', '2026-05-18', 20, 21)).granted, false);
+  });
+
+  test('§12 a rate rule of zero closes the route rather than letting one through', async () => {
+    // Same shape as the reservation above, in the other database-backed
+    // counter — and not reachable today, because every rule in RATE_RULES is
+    // at least three. It is pinned because setting a limit to zero is how
+    // somebody closes a route in a hurry, and "one request per window gets
+    // through, silently" is the worst possible answer to "is it off".
+    const now = new Date('2026-05-18T09:00:00.000Z');
+    const closed = await limits.takeToken(`gate-closed-${Date.now()}`, 60, 0, now);
+    assert.equal(closed.allowed, false);
+
+    const bucket = `gate-two-${Date.now()}`;
+    assert.equal((await limits.takeToken(bucket, 60, 2, now)).allowed, true);
+    assert.equal((await limits.takeToken(bucket, 60, 2, now)).allowed, true);
+    assert.equal((await limits.takeToken(bucket, 60, 2, now)).allowed, false, 'the third took a token it did not have');
   });
 
   // ── LESSONS §11, scoping ────────────────────────────────────────────────

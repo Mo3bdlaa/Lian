@@ -15,6 +15,15 @@ export type RateVerdict = { readonly allowed: boolean; readonly count: number; r
  * read-then-write across two round trips is how a limit leaks under exactly
  * the load it exists for. A refusal does not increment — otherwise a client
  * hammering a closed door keeps pushing its own reset further away.
+ *
+ * The `WHERE $3 > 0` on the insert is the same fix as usage.reserve's, and
+ * unlike that one it was NOT reachable: `ON CONFLICT DO UPDATE ... WHERE`
+ * bounds the update branch only, so the first request of a window was
+ * allowed whatever the limit — and every rule in RATE_RULES is at least
+ * three, so the first request was always allowed anyway. It is here because
+ * the way somebody closes a route in a hurry is to set its limit to zero,
+ * and without this that would let one request per window through, quietly,
+ * which is the worst possible answer to "is this route off".
  */
 export async function takeToken(
   bucketKey: string,
@@ -28,7 +37,7 @@ export async function takeToken(
 
   const { rows } = await sql.query<{ count: number }>(
     `INSERT INTO rate_limits (bucket_key, window_start, count)
-     VALUES ($1, $2, 1)
+     SELECT $1::text, $2::timestamptz, 1 WHERE $3::int > 0
      ON CONFLICT (bucket_key, window_start)
      DO UPDATE SET count = rate_limits.count + 1
      WHERE rate_limits.count < $3
