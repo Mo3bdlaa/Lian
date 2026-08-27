@@ -157,6 +157,12 @@ const COVERAGE: Record<string, Coverage[]> = {
     { where: 'packages/domain/src/relationship.ts', marker: /must never cross the network/ },
     { where: 'packages/db/src/repositories/lessons.test.ts', marker: /separate memory, no shared awareness/ },
   ],
+  '23': [
+    { where: 'tools/gates/formatting.ts', marker: /AND FOR THE OTHER KIND, which the first version of this gate could not see/ },
+    { where: 'tools/gates/lib.ts', marker: /Skipped by PATH, not by name/ },
+    { where: 'tools/gates/gates.test.ts', marker: /the gates can see the product screens at all/ },
+    { where: 'packages/capabilities/src/registry.test.ts', marker: /Eastern Arabic numerals, like every other number on the screen/ },
+  ],
 };
 
 const lessons = read(`${ROOT}/LESSONS.md`);

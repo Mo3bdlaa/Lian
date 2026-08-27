@@ -38,6 +38,7 @@
     "report:economics": "node tools/report/economics.ts",
     "report": "node tools/report/weekly.ts",
     "preflight": "node tools/preflight.ts",
+    "keys": "node tools/keys.ts",
     "shots": "node tools/shots/index.ts",
     "up": "node tools/up.ts"
   },

@@ -16,6 +16,13 @@ tells you *which* of the possible causes it was.
 
 Total time if nothing goes wrong: about an hour, most of it waiting for DNS.
 
+> **Setting the accounts up for the first time? Start with
+> [`ACCOUNTS.md`](ACCOUNTS.md).** It is the same services from the other end —
+> what each one is for, which tier suffices at launch scale, what credentials
+> it produces, and, the part that matters, **the order**, so you do not
+> discover on the third service that the second needed a verified domain
+> first. Come back here for what each failure looks like on the day.
+
 ---
 
 ## 0. Before anything

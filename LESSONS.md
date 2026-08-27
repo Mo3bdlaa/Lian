@@ -551,3 +551,45 @@ did.
   fix.** Intl already knows each currency's precision — AED and USD two, JPY
   none, KWD three — so saying nothing is shorter and right in more places than
   any pair of numbers chosen by hand.
+
+## 23. A gate is only as wide as the spelling it was written for
+
+**The formatting gate (§22) was written against a second `Intl` call. The
+third copy of money formatting used no `Intl` at all — it was
+`` `${currency} ${(minor / 100).toFixed(2)}` `` — so the gate reported green
+while an Arabic capture chip read `AED 400 · جيم · ٢٤ أغسطس`: Latin digits and
+a Latin currency code, three lines under a bubble saying ٤٠٠ درهم and beside a
+date in Eastern numerals.**
+
+A gate that knows one spelling of a mistake catches that spelling and reports
+green on every other, and its file count makes that look like coverage.
+
+- **The fix is a second pattern, not a wider one.** `toFixed` is what a
+  hand-rolled number formatter is made of, so the gate checks for it too, with
+  `FIXED_POINT` as a named allowlist — the same shape as `CALCULATORS`, each
+  entry saying who reads the output. Three files are on it, and all three are
+  read by Postgres or by the model.
+- **The way it was found was the same as §22's: looking at a screenshot.**
+  Not the English one, which had been looked at twice; the Arabic one, where a
+  Latin `AED 400` sits beside numerals it does not match.
+
+### And the same failure in the gates' own foundation
+
+**`walk` skipped any directory named `screens`, for `design-system/screens`
+— the reference HTML. The name also matched `apps/web/src/screens`. Twenty
+files of product UI, every screen a person actually looks at, were invisible
+to all fifteen gates.**
+
+- **Nothing reported it.** Each gate printed a healthy file count, because a
+  gate counts the files it can see. A skipped tree is indistinguishable from a
+  clean one in every output the gates produce.
+- **Skip by PATH, not by name.** One line, and the formatting gate immediately
+  found `screens/chat.ts` building a day key with its own `Intl` call — a
+  duplicate of a calculation already in `format.ts`, in a file no gate had
+  ever read.
+- **The meta-test for this is not a fixture.** A fixture would prove the
+  fixture. It asserts against the real tree: `apps/web/src/screens/chat.ts` is
+  in what `walk` returns, and `design-system/screens/` is not. §15's rule —
+  a gate that has never been shown to fail is a gate nobody has shown to run —
+  has a sibling: **a gate that has never been shown to READ something is a
+  gate nobody has shown to look.**
