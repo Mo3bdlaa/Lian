@@ -18,6 +18,9 @@ import { tasksScreen, moneyScreen, storyScreen } from './screens/life.ts';
 import { settingsScreen, securityScreen, dataScreen } from './screens/trust.ts';
 import { healthScreen, albumScreen, type Health, type Album } from './screens/album.ts';
 import { dialsScreen, quietHoursScreen, DIALS, STOPS, type Settings } from './screens/her.ts';
+import { threadSheet, incognitoChip, scenarioSheet, type Thread } from './screens/threads.ts';
+import { head } from './components/head.ts';
+import { MAX_SCENARIO_LENGTH } from '@lian/domain';
 import { initial, type Message, type Snapshot, type State } from './state.ts';
 import { t, CONSENT_VERSION, TERMS, PRIVACY, type LegalDocument } from './copy.ts';
 
@@ -30,6 +33,11 @@ const me = (overrides: Partial<Snapshot> = {}): Snapshot => ({
   relationship: { stageName: 'Getting acquainted', prose: 'We are still getting acquainted.' },
   limits: { messagesRemaining: 18, memoriesKept: 3, memoriesPending: 0, memoryCapacity: 100, capacityLine: 'I can keep up to 100 lasting memories on the free plan.' },
   ...overrides,
+});
+
+const thread = (overrides: Partial<Thread> = {}): Thread => ({
+  id: 'c-2', kind: 'incognito', title: null, retention: 'ephemeral', scenarioText: null,
+  lastMessageAt: null, messages: 0, current: true, ...overrides,
 });
 
 const message = (overrides: Partial<Message> = {}): Message => ({
@@ -451,5 +459,69 @@ describe('terms and privacy are in the app, and say they are unreviewed', () => 
     assert.ok(markup.includes('Nothing has been created and nothing was kept'));
     assert.ok(!markup.includes('data-action="consent-agree"'), 'there is nothing left to agree to');
     assert.ok(!markup.includes('href="/sign-up"'), 'and no way onward');
+  });
+});
+
+describe('the incognito role (PRD §27, UI-UX §46)', () => {
+  test('the mood phrase is suppressed, and the label takes its place', () => {
+    const plain = render(head(me()));
+    assert.ok(plain.includes('Feeling warm today'), 'the ordinary header still carries her mood');
+
+    const hidden = render(head(me(), { incognito: true }));
+    // Her mood is real and comes from the real conversation. Printing it
+    // above a thread where she is playing an interviewer attributes a feeling
+    // to a part she is acting.
+    assert.ok(!hidden.includes('Feeling warm today'), 'her mood was shown over a role she is playing');
+    assert.ok(hidden.includes(t('mood.incognito', 'en')));
+  });
+
+  test('the chip shows the role in the person\u2019s own words, and is the way in', () => {
+    const without = render(incognitoChip(me(), null));
+    assert.ok(without.includes(t('threads.incognito_note', 'en')), 'the promise is on it whether or not there is a role');
+    assert.ok(!without.includes('Playing'), 'no role, no role line');
+
+    const withRole = render(incognitoChip(me(), 'Interviewer for a senior RPA role'));
+    assert.ok(withRole.includes('Playing: Interviewer for a senior RPA role'));
+    // §46 hangs edit, clear and delete off tapping it, and there is nowhere
+    // else in the conversation they could hang from.
+    assert.ok(withRole.includes('data-action="scenario"'));
+  });
+
+  test('a role is text on the chip, not markup', () => {
+    // It is free text somebody typed, and it renders inside the conversation.
+    const markup = render(incognitoChip(me(), '<img src=x onerror="alert(1)">'));
+    assert.ok(!markup.includes('<img'), 'a role reached the DOM as markup');
+    assert.ok(markup.includes('&lt;img'));
+  });
+
+  test('the sheet offers §46\u2019s three, and only offers clearing when there is one', () => {
+    const empty = render(scenarioSheet(me(), thread()));
+    assert.ok(empty.includes('data-action="scenario-save"'));
+    assert.ok(empty.includes('data-action="end-thread"'));
+    assert.ok(!empty.includes('data-action="scenario-clear"'), 'nothing to clear when no role is set');
+
+    const set = render(scenarioSheet(me(), thread({ scenarioText: 'Be a skeptical customer.' })));
+    assert.ok(set.includes('data-action="scenario-clear"'));
+    // Prefilled from the SERVER's copy: someone who edits, fails and reopens
+    // the sheet sees the role she is still playing, not the one they tried.
+    assert.ok(set.includes('Be a skeptical customer.'));
+  });
+
+  test('both boxes stop at the length the prompt actually renders', () => {
+    // The server refuses anything longer (hardening.test.ts). This is the
+    // half that means nobody types it in the first place, and it must be the
+    // SAME number — a client cap of its own would drift.
+    for (const markup of [render(scenarioSheet(me(), thread())), render(threadSheet(me(), [], null))]) {
+      assert.ok(markup.includes(`maxlength="${MAX_SCENARIO_LENGTH}"`));
+    }
+  });
+
+  test('the role box is on the start sheet, where the first message can still use it', () => {
+    const markup = render(threadSheet(me(), [], null));
+    assert.ok(markup.includes('name="scenarioText"'));
+    assert.ok(markup.includes(t('scenario.ask', 'en')));
+    // Optional, and it says so — §46 calls it optional and a required-looking
+    // field in front of an incognito thread is a reason not to start one.
+    assert.ok(markup.includes(t('scenario.optional', 'en')));
   });
 });

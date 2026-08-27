@@ -439,6 +439,52 @@ export const CATALOG = {
   'threads.close': { en: 'Close', ar: 'إقفال', addressee: 'none' },
   'threads.delete_incognito': { en: 'Delete this thread', ar: 'امسح المحادثة دي', addressee: 'none' },
   'threads.messages': { en: '{n} messages', ar: '{n} رسالة', addressee: 'none' },
+
+  // ── the incognito role (PRD §27, UI-UX §46) ─────────────────────────────
+  // The examples are the only strings in the catalogue that are ADDRESSED TO
+  // HER: they are examples of what the person would type into the role box,
+  // and in Arabic that is a feminine imperative when she is female and a
+  // masculine one when he is male.  `addressee: 'assistant'` is what lets the
+  // gate accept اتصرفي and still refuse it in a string spoken to the user.
+  'scenario.ask': { en: 'Who should I be in this conversation?', ar: 'أكون مين في المحادثة دي؟', addressee: 'none' },
+  'scenario.optional': { en: 'Optional. You can add or change it later.', ar: 'اختياري، وينفع يتضاف أو يتغيّر بعدين.', addressee: 'none' },
+  'scenario.example_1': {
+    en: 'Act as an interviewer for a senior RPA role.',
+    ar: 'اتصرفي كإنك بتعملي إنترفيو لوظيفة RPA سينيور.',
+    arMale: 'اتصرف كإنك بتعمل إنترفيو لوظيفة RPA سينيور.',
+    addressee: 'assistant',
+  },
+  'scenario.example_2': {
+    en: 'Be a skeptical customer reviewing my pitch.',
+    ar: 'كوني عميلة مش مقتنعة وبتسمع العرض بتاعي.',
+    arMale: 'كون عميل مش مقتنع وبيسمع العرض بتاعي.',
+    addressee: 'assistant',
+  },
+  'scenario.example_3': {
+    en: 'Help me rehearse this as if you were my manager.',
+    ar: 'ساعديني أتمرن على ده كإنك مديرتي.',
+    arMale: 'ساعدني أتمرن على ده كإنك مديري.',
+    addressee: 'assistant',
+  },
+  // §46's role line.  {role} is the person's own words, shown back verbatim.
+  'scenario.playing': { en: 'Playing: {role}', ar: 'بتلعب دور: {role}', arMale: 'بيلعب دور: {role}', addressee: 'none' },
+  'scenario.edit': { en: 'Edit the role', ar: 'تعديل الدور', addressee: 'none' },
+  'scenario.clear': { en: 'Clear the role', ar: 'إلغاء الدور', addressee: 'none' },
+  'scenario.save': { en: 'Save', ar: 'حفظ', addressee: 'none' },
+  'scenario.title': { en: 'The role', ar: 'الدور', addressee: 'none' },
+  // Said once, on the sheet, because it is the part people assume wrongly:
+  // a role is not a disguise for the rest of the product.
+  'scenario.note': {
+    en: 'A role changes the part she plays here. It does not change what she remembers, and nothing in this conversation is kept.',
+    ar: 'الدور بيغيّر الشخصية اللي بتتكلم هنا بس. مبيغيّرش اللي فاكراه، ومفيش حاجة في المحادثة دي بتتحفظ.',
+    arMale: 'الدور بيغيّر الشخصية اللي بيتكلم هنا بس. مبيغيّرش اللي فاكره، ومفيش حاجة في المحادثة دي بتتحفظ.',
+    addressee: 'none',
+  },
+  'scenario.too_long': {
+    en: 'That role is longer than I can hold on to. Shorten it a little.',
+    ar: 'الدور ده أطول من اللي أقدر أمسكه. اختصار بسيط يكفي.',
+    addressee: 'none',
+  },
   'threads.empty_thread': { en: 'Nothing said yet', ar: 'لسه مفيش كلام', addressee: 'none' },
 
   // ── the three emails ────────────────────────────────────────────────────

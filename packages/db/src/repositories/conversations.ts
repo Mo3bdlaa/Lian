@@ -102,6 +102,32 @@ export async function listAll(
   }));
 }
 
+/**
+ * Set or clear the role (PRD §27, UI-UX §46).
+ *
+ * `kind = 'incognito'` is in the WHERE clause rather than checked first and
+ * written second, so there is no window in which a thread stops being
+ * incognito between the two.  The CHECK constraint says the same thing; this
+ * says it in the query, which is the one that returns a row count the caller
+ * can answer 404 with.
+ *
+ * Clearing writes NULL rather than an empty string: the block renders on
+ * `null`, and two ways to mean "no role" is two things to keep in step.
+ */
+export async function setScenario(
+  scope: AssistantScope,
+  conversationId: string,
+  scenarioText: string | null,
+  sql: Sql = db(),
+): Promise<boolean> {
+  const { rowCount } = await sql.query(
+    `UPDATE conversations SET scenario_text = $3
+     WHERE assistant_id = $1 AND id = $2 AND kind = 'incognito' AND deleted_at IS NULL`,
+    [scope.assistantId, conversationId, scenarioText],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
 /** Incognito deletion is real deletion, not a flag (Q12). */
 export async function hardDeleteConversation(scope: AssistantScope, conversationId: string, sql: Sql = db()): Promise<boolean> {
   const { rowCount } = await sql.query(

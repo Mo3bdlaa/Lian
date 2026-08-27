@@ -964,6 +964,7 @@ export function readPorts(deps: Deps): ReadPorts {
         kind: row.conversation.kind,
         title: row.conversation.title,
         retention: row.conversation.retention,
+        scenarioText: row.conversation.scenarioText,
         lastMessageAt: row.lastMessageAt?.toISOString() ?? null,
         messages: row.messages,
         current: row.conversation.id === current?.id,
@@ -985,6 +986,18 @@ export function readPorts(deps: Deps): ReadPorts {
         { kind, title, ...(kind === 'incognito' && scenarioText !== null ? { scenarioText } : {}) },
       );
       return { ok: true, id: conversation.id };
+    },
+
+    /** PRD §27.  The repository's WHERE clause is what refuses a non-incognito
+     *  thread, so this cannot answer ok for a thread that has no role field. */
+    async setScenario({ userId, conversationId, scenarioText }) {
+      const assistant = await assistantOf(userId);
+      if (assistant === null) return { ok: false };
+      return {
+        ok: await db.conversations.setScenario(
+          { userId, assistantId: assistant.id }, conversationId, scenarioText,
+        ),
+      };
     },
 
     async endConversation({ userId, conversationId }) {

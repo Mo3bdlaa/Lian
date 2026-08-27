@@ -570,6 +570,42 @@ describe('the app, in a browser', { skip: SKIP }, () => {
     assert.deepEqual(await page.errors(), []);
   });
 
+  test('a role is typed, played, and cleared \u2014 in a real browser', async () => {
+    // PRD §27 end to end. The interesting part is not that the text arrives:
+    // it is that the chip and the header are rendered from what the SERVER
+    // says is in effect, so a failed write shows the old role rather than the
+    // one somebody typed. That only shows up when a real browser does it.
+    const page = browser!;
+    await page.setViewport(390, 844);
+    await page.goto(`${base}/chat`);
+    await page.waitFor('document.querySelectorAll(".bubble").length > 0', 15_000);
+
+    await page.click('[data-action="threads"]');
+    await page.waitFor('!!document.querySelector(\'textarea[name="scenarioText"]\')', 10_000);
+    await page.type('textarea[name="scenarioText"]', 'Interviewer for a senior RPA role');
+    await page.click('[data-action="new-thread"][data-kind="incognito"]');
+
+    await page.waitFor('location.pathname.startsWith("/chat/")', 10_000);
+    await page.waitFor('!!document.querySelector(".incognito__role")', 10_000);
+    assert.match(
+      await page.evaluate<string>('document.querySelector(".incognito").innerText'),
+      /Playing: Interviewer for a senior RPA role/,
+    );
+    // The mood phrase is HER mood, and she is playing a part.
+    const header = await page.evaluate<string>('document.querySelector(".head").innerText');
+    assert.match(header, /Incognito/);
+    assert.ok(!/Feeling warm|Still with you|quiet/i.test(header), `the mood phrase survived into a role: ${header}`);
+
+    // §46: tapping the chip is the way to edit, clear, or delete.
+    await page.click('.incognito');
+    await page.waitFor('!!document.querySelector(\'[data-action="scenario-clear"]\')', 10_000);
+    await page.click('[data-action="scenario-clear"]');
+    await page.waitFor('document.querySelector(".incognito__role") === null', 10_000);
+    // The thread is still incognito — clearing the role is not leaving it.
+    assert.match(await page.evaluate<string>('document.querySelector(".incognito").innerText'), /Nothing here is kept/);
+    assert.deepEqual(await page.errors(), []);
+  });
+
   test('the PWA is installable: manifest, icons, worker', async () => {
     const page = browser!;
     const manifest = await page.evaluate<{ ok: boolean; icons: number }>(

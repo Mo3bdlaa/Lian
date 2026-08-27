@@ -12,6 +12,7 @@
 //      relationship stage, never how far through it, and never the day count.
 import { HttpError, type Handler } from '../router.ts';
 import { RATE_RULES, enforceRate, requireSession, withIdempotency, type MiddlewarePorts } from '../middleware.ts';
+import { MAX_SCENARIO_LENGTH } from '@lian/domain';
 
 export type Snapshot = {
   user: { id: string; name: string | null; timeZone: string; languageStyle: string; language: 'en' | 'ar'; plan: 'free' | 'paid'; themePreference: string };
@@ -136,6 +137,11 @@ export type ConversationView = {
   title: string | null;
   /** 'ephemeral' is the whole of what incognito promises, so it travels. */
   retention: 'persist' | 'ephemeral';
+  /** PRD §27's role, null on everything that is not incognito.  It travels
+   *  because the chip has to show what is ACTUALLY in effect — a client that
+   *  kept its own copy of what was typed would show the old role after a
+   *  failed edit, which is the one moment it matters. */
+  scenarioText: string | null;
   lastMessageAt: string | null;
   messages: number;
   current: boolean;
@@ -176,6 +182,8 @@ export type ReadPorts = MiddlewarePorts & {
   /** Incognito is really deleted; a side conversation is closed. The main
    *  thread is neither — see the repository. */
   endConversation(input: { userId: string; conversationId: string }): Promise<{ ok: boolean }>;
+  /** PRD §27: edit or clear the role of an incognito thread.  `null` clears. */
+  setScenario(input: { userId: string; conversationId: string; scenarioText: string | null }): Promise<{ ok: boolean }>;
   saveProfile(input: { userId: string; section: string; body: string }): Promise<{ ok: boolean; reason?: string }>;
   album(input: { userId: string; before: string | null }): Promise<AlbumView>;
   security(input: { userId: string; deviceId: string | null }): Promise<SecurityView>;
@@ -317,6 +325,42 @@ export function readRoutes(ports: ReadPorts): { method: 'GET' | 'POST' | 'PATCH'
           });
           if (!started.ok) throw new HttpError(422, 'bad_conversation', started.reason ?? 'I cannot start that');
           return { status: 201, json: { id: started.id } };
+        });
+        return { status: result.status, json: result.json };
+      },
+    },
+    {
+      // UI-UX §46's "Edit scenario" and "Clear role".  A PATCH rather than a
+      // second start route: the thread already exists, and a role changed
+      // mid-conversation is the same field written again.
+      method: 'PATCH',
+      pattern: '/api/conversations/:id',
+      handler: async (context) => {
+        const session = await requireSession(context, ports, ports.now());
+        await enforceRate({ bucket: `write:${session.userId}`, rule: RATE_RULES.write, now: ports.now() }, ports);
+        const body = context.body<{ scenarioText?: string | null }>();
+        const raw = body.scenarioText;
+        if (raw !== null && typeof raw !== 'string') {
+          throw new HttpError(422, 'bad_scenario', 'I cannot use that as a role');
+        }
+        const trimmed = raw === null ? '' : raw.trim();
+        // Refused, not truncated.  The prompt block renders at most this many
+        // characters, so anything longer would be shown on the chip and not
+        // be in effect — see MAX_SCENARIO_LENGTH.
+        if (trimmed.length > MAX_SCENARIO_LENGTH) {
+          throw new HttpError(422, 'scenario_too_long', 'That role is longer than I can hold on to');
+        }
+        const result = await withIdempotency({ context, userId: session.userId, route: 'conversation:scenario' }, ports, async () => {
+          const done = await ports.setScenario({
+            userId: session.userId,
+            conversationId: context.params['id']!,
+            scenarioText: trimmed === '' ? null : trimmed,
+          });
+          // Same 404 as DELETE, and for the same reason: "not yours", "no
+          // such thread" and "that thread is not incognito" are one answer,
+          // so none of them is an oracle for the others.
+          if (!done.ok) throw new HttpError(404, 'no_conversation', 'I cannot find that conversation');
+          return { status: 200, json: { scenarioText: trimmed === '' ? null : trimmed } };
         });
         return { status: result.status, json: result.json };
       },

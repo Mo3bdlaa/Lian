@@ -788,7 +788,27 @@ body {
   font-size: var(--t-body-sm-fs);
   line-height: var(--t-body-sm-lh);
   font-weight: var(--t-body-sm-fw);
+  /* It is a button now (UI-UX §46) — edit, clear and delete hang off it. */
+  inline-size: 100%;
+  border-inline: 0;
+  border-block-start: 0;
+  text-align: center;
+  font-family: inherit;
+  cursor: pointer;
 }
+.incognito__lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  align-items: center;
+}
+/* The role is the person's own words, so it carries the emphasis and the
+   promise above it stays quiet. */
+.incognito__role { color: var(--text); }
+/* PRD §27's tint. The header says which conversation this is at a glance,
+   in a thread where getting that wrong means saying something you thought
+   was private in one that is not. */
+.head--incognito { background: var(--surface); }
 /* Unmissable rather than tasteful: it exists to stop somebody mistaking
    placeholder text for a reviewed document. */
 .legal__warning {

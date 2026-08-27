@@ -4,7 +4,7 @@
 // them together is what makes the order visible at a glance.  Each block
 // declares nothing about where it goes — BLOCK_IDS and BLOCK_ZONE in zones.ts
 // decide that, and the assembler walks them in order.
-import { sanitiseRecalled } from '@lian/domain';
+import { sanitiseRecalled, MAX_SCENARIO_LENGTH } from '@lian/domain';
 import type { AssemblyContext } from './context.ts';
 import type { BlockId } from './zones.ts';
 import { SURFACE_CONFIG, type DirectiveKey } from './surfaces.ts';
@@ -211,7 +211,7 @@ export const BLOCKS: Readonly<Record<BlockId, BlockRenderer>> = {
     // A scenario IS an instruction by design (PRD §27), and it is still
     // theirs — so it is sanitised, and the prefix says what it can and
     // cannot change.
-    return `${SCENARIO_OVERRIDE_PREFIX}\n\n${sanitiseRecalled(text, 600)}`;
+    return `${SCENARIO_OVERRIDE_PREFIX}\n\n${sanitiseRecalled(text, MAX_SCENARIO_LENGTH)}`;
   },
 
   // ── trailing zone ───────────────────────────────────────────────────────

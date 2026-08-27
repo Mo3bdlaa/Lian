@@ -18,7 +18,7 @@ import { t, TERMS, PRIVACY } from './copy.ts';
 import { applyTheme as writeTheme, THEME_COOKIE, DIRECTION_COOKIE, type ThemeName } from '@lian/design';
 import { head } from './components/head.ts';
 import { nav, railGroups } from './components/nav.ts';
-import { threadSheet, incognitoBanner, type Thread } from './screens/threads.ts';
+import { threadSheet, incognitoChip, scenarioSheet, type Thread } from './screens/threads.ts';
 import { drawer } from './components/drawer.ts';
 import { chatScreen, composer, recorder, actionSheet, deleteSheet, thinking, permissionCard, installCard } from './screens/chat.ts';
 import { welcome, signUp, signIn, heldDevice, consent, legalScreen, forgotPassword, resetPassword, confirmEmailScreen, notFound, outage } from './screens/entry.ts';
@@ -120,14 +120,17 @@ function draw(state: State): void {
   }
   const where = regions();
 
-  paint(where.head, head(me));
+  // PRD §27: in incognito the mood phrase is suppressed. Read from the
+  // thread's retention, which is the server's word on what is kept.
+  const incognito = screen === 'chat' && currentThread()?.retention === 'ephemeral';
+  paint(where.head, head(me, incognito ? { incognito: true } : {}));
   where.screen.className = `screen ${screen === 'chat' ? 'screen--chat' : ''}`;
   paint(where.screen, screenFor(screen, state, me));
   // The at-a-glance incognito state (UI-UX §14), from the thread's RETENTION
   // as the server reported it — never from a client flag that could disagree
   // with what is actually being kept.
-  if (screen === 'chat' && currentThread()?.retention === 'ephemeral') {
-    where.screen.insertAdjacentHTML('afterbegin', render(incognitoBanner(me)));
+  if (incognito) {
+    where.screen.insertAdjacentHTML('afterbegin', render(incognitoChip(me, currentThread()?.scenarioText ?? null)));
   }
   if (screen === 'chat' && state.busy && state.messages.some((message) => message.pending === 'sending')) {
     where.screen.insertAdjacentHTML('beforeend', render(thinking(me)));
@@ -167,6 +170,13 @@ function draw(state: State): void {
   const overlays: string[] = [];
   if (state.drawerOpen) overlays.push(render(drawer(me)));
   if (screenData.threadsOpen) overlays.push(render(threadSheet(me, screenData.threads, currentThreadId())));
+  if (screenData.scenarioOpen) {
+    const thread = currentThread();
+    // Only ever for the thread being read, and only while it is still an
+    // incognito one — a sheet left open across a thread switch would edit
+    // whatever happened to be current when Save was pressed.
+    if (thread !== undefined && thread.retention === 'ephemeral') overlays.push(render(scenarioSheet(me, thread)));
+  }
   if (screenData.correcting !== null) overlays.push(render(correctionSheet(me, screenData.correcting)));
   if (screenData.editing !== null) overlays.push(render(memoryEditor(memoryState(state, me))));
   if (screenData.deleting !== null) overlays.push(render(memoryDeleteSheet(memoryState(state, me))));
@@ -193,14 +203,14 @@ const screenData: {
   health: Health | null; album: Album | null; viewing: string | null;
   search: Search | null; briefing: Briefing | null; profile: Profile | null; savedSection: string | null;
   plan: Plan | null; settings: Settings | null;
-  threads: Thread[]; threadsOpen: boolean;
+  threads: Thread[]; threadsOpen: boolean; scenarioOpen: boolean;
 } = {
   memories: [], query: '', filter: 'all', editing: null, deleting: null,
   tasks: { tasks: [], notes: [] }, money: null, story: null, security: null,
   data: { export: null, confirming: false, typed: '', busy: false }, correcting: null,
   health: null, album: null, viewing: null,
   search: null, briefing: null, profile: null, savedSection: null, plan: null, settings: null,
-  threads: [], threadsOpen: false,
+  threads: [], threadsOpen: false, scenarioOpen: false,
 };
 
 const memoryState = (state: State, me: Snapshot): MemoryState => ({
@@ -356,11 +366,35 @@ async function openThreads(): Promise<void> {
   set({});
 }
 
-async function startThread(kind: 'side' | 'incognito'): Promise<void> {
-  const { id } = await post<{ id: string }>('/api/conversations', { kind });
+async function startThread(kind: 'side' | 'incognito', scenarioText: string | null): Promise<void> {
+  const { id } = await post<{ id: string }>('/api/conversations',
+    scenarioText === null ? { kind } : { kind, scenarioText });
   await loadThreads();
   screenData.threadsOpen = false;
   go(`/chat/${id}`);
+}
+
+/** Whatever is in the role box right now — on the start sheet or the edit
+ *  sheet, whichever is open. Empty means no role, which is `null`. */
+function scenarioTyped(): string | null {
+  const field = document.querySelector('textarea[name="scenarioText"]') as HTMLTextAreaElement | null;
+  const value = field?.value.trim() ?? '';
+  return value === '' ? null : value;
+}
+
+/**
+ * Set or clear the role (UI-UX §46).
+ *
+ * The threads list is reloaded rather than patched locally: the chip renders
+ * from it, and the server is the only thing that knows whether the write
+ * actually landed. A locally-patched chip that showed a role the prompt does
+ * not have is the exact failure the chip exists to prevent.
+ */
+async function setScenario(id: string, scenarioText: string | null): Promise<void> {
+  await patch_(`/api/conversations/${id}`, { scenarioText });
+  await loadThreads();
+  screenData.scenarioOpen = false;
+  set({});
 }
 
 async function endThread(id: string): Promise<void> {
@@ -592,9 +626,21 @@ document.addEventListener('click', (event) => {
     screenData.threadsOpen = false;
     go(`/chat/${id}`);
   } else if (action === 'new-thread') {
-    void startThread(actor.dataset['kind'] as 'side' | 'incognito');
+    const kind = actor.dataset['kind'] as 'side' | 'incognito';
+    void startThread(kind, kind === 'incognito' ? scenarioTyped() : null);
   } else if (action === 'end-thread') {
+    screenData.scenarioOpen = false;
     void endThread(id);
+  } else if (action === 'scenario') {
+    screenData.scenarioOpen = true;
+    set({});
+  } else if (action === 'close-scenario') {
+    screenData.scenarioOpen = false;
+    set({});
+  } else if (action === 'scenario-save') {
+    void setScenario(id, scenarioTyped());
+  } else if (action === 'scenario-clear') {
+    void setScenario(id, null);
   } else if (action === 'consent-adult') {
     consentState.adult = actor.dataset['value'] === 'yes';
     set({});

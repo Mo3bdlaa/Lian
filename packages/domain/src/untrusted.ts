@@ -31,6 +31,19 @@
 export const MAX_RECALLED_LENGTH = 400;
 
 /**
+ * PRD §27's free-text role, capped where it is WRITTEN as well as where it is
+ * rendered.
+ *
+ * The prompt block has always truncated at this length.  The write boundary
+ * did not, which meant somebody could type a page, see it stored, see it
+ * echoed back on the chip — and have the last two thirds of it silently not
+ * be in effect.  A role that is displayed but not obeyed is worse than a
+ * refusal, so the write refuses instead of truncating: the person finds out
+ * while they are still typing rather than three answers later.
+ */
+export const MAX_SCENARIO_LENGTH = 600;
+
+/**
  * Markers this product uses to frame content. If they appear inside
  * untrusted text they are removed, not escaped: a user who types
  * `<<context>>` should see it echoed back as ordinary text, never have it
