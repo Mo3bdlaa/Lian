@@ -164,6 +164,12 @@ const COVERAGE: Record<string, Coverage[]> = {
     { where: 'packages/capabilities/src/registry.test.ts', marker: /Eastern Arabic numerals, like every other number on the screen/ },
     { where: 'tools/gates/formatting.ts', marker: /THE OUTCOME, NOT THE API/ },
   ],
+  '24': [
+    { where: 'apps/web/src/main.ts', marker: /overlays and the keyboard/ },
+    { where: 'apps/web/src/main.ts', marker: /function wrapTab/ },
+    { where: 'tools/browser.ts', marker: /A REAL key press, through the browser's input pipeline/ },
+    { where: 'apps/server/src/browser.test.ts', marker: /a sheet takes the keyboard, keeps it, and gives it back/ },
+  ],
 };
 
 const lessons = read(`${ROOT}/LESSONS.md`);

@@ -92,7 +92,12 @@ function viewer(me: Snapshot, item: Album['items'][number]): Html {
   const source = item.source === 'user'
     ? t('album.from_you', language, gender)
     : t('album.from_her', language, gender).replace('{name}', me.assistant.name);
-  return html`<div class="viewer" data-action="close-photo">
+  // A dialog by role as well as by shape. It is the one overlay in the product
+  // that renders inside the SCREEN region rather than the overlays region —
+  // it belongs to this screen — so saying so is what lets the focus manager in
+  // main.ts find it, trap the keyboard inside it and put focus back on the
+  // thumbnail afterwards.
+  return html`<div class="viewer" role="dialog" aria-label="${t('album.title', language, gender)}" data-action="close-photo">
     <img class="viewer__image" src="/api/attachments/${item.id}" alt="">
     <div class="viewer__bar">
       <span class="viewer__meta">${dateLabel(item.at.slice(0, 10), language, me.user.timeZone)} · ${source}</span>

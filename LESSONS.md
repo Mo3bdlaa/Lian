@@ -618,3 +618,39 @@ in the worst way — it says green, with a plausible number beside it.
   cases in front of it and reported green on the ones it could not express.
   The count beside a gate's tick is not evidence; it is the size of the set
   the gate happened to look at.
+
+## 24. A word in the markup is not the behaviour it names
+
+**Seven overlays carried `role="dialog"`. None of them behaved like one:
+focus stayed on the button behind, Tab walked straight out into a page that
+was still live, Escape did nothing, and closing left focus on `document.body`.
+Nobody had ever run this product without a mouse.**
+
+`role="dialog"` is a promise to a screen reader, in the same way a sentence in
+her voice is a promise to a person (§21) — and it had exactly as much behind
+it. The attribute was in seven templates and the behaviour was in none.
+
+- **It took both halves, and each does something the other cannot.** `inert`
+  on everything behind removes it from the tab order *and* from the
+  accessibility tree, so a reader cannot swipe into it; a hand-rolled Tab wrap
+  does not do that second part. But **`inert` is not a trap**: Tab past the
+  last control wraps through the document, so focus lands on `body` with
+  everything around it inert and the keyboard is nowhere at all. Measured, not
+  reasoned about — the test caught it on the tenth press.
+- **The test had to use real key events.** A dispatched `KeyboardEvent` is
+  untrusted, so the browser runs no default action and Tab does not move
+  focus. A trap test written that way passes against a page with no focus
+  management whatsoever, which makes it worse than no test —
+  `Input.dispatchKeyEvent` over the DevTools protocol is what actually presses
+  a key.
+- **Restoring focus needs a SELECTOR, not an element.** Every draw repaints
+  whole regions from state, so the button that opened a sheet is a different
+  DOM node by the time the sheet is on screen. Holding the reference gives a
+  detached element that can be focused and does nothing, silently. What
+  survives a repaint is `data-action` plus `data-id` — what identified the
+  control to the click handler in the first place.
+- **One manager, because one attribute marks every dialog.** It looks for
+  `[role="dialog"]` anywhere rather than in the overlays region, because the
+  photo viewer renders inside the album screen — a manager watching only
+  `#r-overlays` would have missed the one overlay that covers the whole
+  display, and would have made it inert along with the screen it sits in.

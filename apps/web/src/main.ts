@@ -187,12 +187,170 @@ function draw(state: State): void {
       : actionSheet(state)));
   }
   paint(where.overlays, overlays.join(''));
+  manageFocus(where);
 
   if (state.path !== lastPath || screen === 'chat') {
     lastPath = state.path;
     if (screen === 'chat') where.screen.scrollTop = where.screen.scrollHeight;
   }
 }
+
+// ── overlays and the keyboard ──────────────────────────────────────────────
+//
+// Every sheet, the drawer and the photo viewer carry `role="dialog"` and,
+// until now, none of the behaviour that word promises: focus stayed on the
+// button behind, Tab walked straight out into a page that was still
+// interactive, Escape did nothing, and closing left focus wherever it had
+// drifted. HANDOFF called them "focus traps by shape", which had it exactly
+// backwards — they LOOK like they should trap focus and did not.
+//
+// It is one function because every dialog in the product is `[role="dialog"]`
+// and nothing else is, so the trap is written once and a sheet added later
+// gets it without knowing this exists. It looks for the dialog ANYWHERE
+// rather than in the overlays region, because the photo viewer is not there:
+// it belongs to the album screen and renders inside it. A manager that only
+// watched `#r-overlays` would have missed the one overlay that covers the
+// entire display, and would have made it inert along with the screen it sits
+// in the moment anything else opened.
+//
+// It takes BOTH halves, and each does something the other cannot:
+//
+//   `inert` on everything behind removes it from the tab order and from the
+//   accessibility tree, so a screen reader cannot swipe into it either. A
+//   hand-rolled Tab wrap does not do that second part, and it is the half
+//   that is easy to forget.
+//
+//   A Tab wrap on the last and first controls, because inert is not a trap.
+//   Tab past the final control in the dialog wraps through the DOCUMENT — the
+//   browser's own chrome and then back to the top — so focus lands on `body`
+//   with everything around it inert, and the keyboard is nowhere at all.
+//   Measured, not assumed: the test below caught it on the tenth press.
+
+/**
+ * What opened the overlay, so closing can put focus back where it was.
+ *
+ * A SELECTOR, not the element. Every draw repaints whole regions from state,
+ * so the button that opened a sheet is a different DOM node by the time the
+ * sheet is on screen — holding the reference gives you a detached element
+ * that can be focused and does nothing, silently. `data-action` plus
+ * `data-id` is what identifies a control across a repaint, because it is what
+ * identified it to the click handler in the first place.
+ */
+let returnFocusTo: string | null = null;
+
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
+
+function manageFocus(where: ReturnType<typeof regions>): void {
+  const regionList = [where.head, where.screen, where.composer, where.nav, where.overlays];
+  // The LAST one, so a sheet opened over the drawer is the one that gets the
+  // keyboard rather than whichever happened to be painted first.
+  const dialogs = document.querySelectorAll('[role="dialog"]');
+  const dialog = (dialogs[dialogs.length - 1] ?? null) as HTMLElement | null;
+
+  if (dialog === null) {
+    for (const region of regionList) {
+      region.removeAttribute('inert');
+      for (const child of region.children) child.removeAttribute('inert');
+    }
+    // Only if focus is nowhere useful: a close that already moved focus
+    // deliberately (following a link out of the drawer) must not be undone.
+    if (returnFocusTo !== null) {
+      const active = document.activeElement;
+      if (active === null || active === document.body) {
+        (document.querySelector(returnFocusTo) as HTMLElement | null)?.focus();
+      }
+      returnFocusTo = null;
+    }
+    return;
+  }
+
+  // `aria-modal` here rather than in seven templates: it is a fact about how
+  // the dialog is being presented, and this is the only code that knows the
+  // background has actually been made inert.
+  dialog.setAttribute('aria-modal', 'true');
+  // Every region EXCEPT the one holding the dialog. Marking the region a
+  // dialog lives in as inert would make the dialog itself unreachable, which
+  // is a worse bug than the one this fixes and is silent: everything renders,
+  // and nothing can be operated at all.
+  //
+  // Then the same rule one level down, INSIDE that region. The photo viewer
+  // is a sibling of the album grid, so stopping at the region boundary would
+  // leave the grid behind it tabbable — a full-screen overlay with the page
+  // it covers still reachable by keyboard, which is the exact bug this is
+  // for. Two levels is enough for every overlay the product has; a third
+  // would mean an overlay nested deeper than its screen, which is a reason to
+  // move it to the overlays region rather than to generalise this.
+  for (const region of regionList) {
+    if (!region.contains(dialog)) { region.setAttribute('inert', ''); continue; }
+    region.removeAttribute('inert');
+    for (const child of region.children) {
+      if (child.contains(dialog)) child.removeAttribute('inert');
+      else child.setAttribute('inert', '');
+    }
+  }
+
+  // Already inside — a re-render while the sheet is open (a reaction landing,
+  // a thread list refreshing) must not yank focus back to the first control.
+  if (dialog.contains(document.activeElement)) return;
+
+  const first = dialog.querySelector(FOCUSABLE) as HTMLElement | null;
+  if (first !== null) { first.focus(); return; }
+  // A dialog with nothing focusable in it still has to receive focus, or the
+  // reader is left announcing whatever is behind an inert region.
+  dialog.tabIndex = -1;
+  dialog.focus();
+}
+
+/**
+ * Keep Tab inside the open dialog.
+ *
+ * Only at the two edges: everywhere else the browser's own tab order is
+ * correct and interfering with it is how a wrap ends up skipping a control
+ * or reversing two. Hidden elements are filtered by `offsetParent`, because
+ * a sheet renders its cancel button conditionally and tabbing to something
+ * with no box is indistinguishable from tabbing to nothing.
+ */
+function wrapTab(event: KeyboardEvent): void {
+  const dialogs = document.querySelectorAll('[role="dialog"]');
+  const dialog = dialogs[dialogs.length - 1] as HTMLElement | undefined;
+  if (dialog === undefined) return;
+  const stops = [...dialog.querySelectorAll(FOCUSABLE)]
+    .filter((element) => (element as HTMLElement).offsetParent !== null) as HTMLElement[];
+  if (stops.length === 0) { event.preventDefault(); return; }
+  const first = stops[0]!;
+  const last = stops[stops.length - 1]!;
+  const active = document.activeElement;
+  if (event.shiftKey && (active === first || !dialog.contains(active))) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (active === last || !dialog.contains(active))) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+/**
+ * Escape closes the top overlay.
+ *
+ * One listener, and it closes whatever is open by clearing the state that
+ * opened it — rather than by clicking a close button, which would depend on
+ * every sheet having one in the same shape. The scrim already answers a click
+ * anywhere outside; this is the same affordance for somebody who is not using
+ * a mouse.
+ */
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Tab') { wrapTab(event); return; }
+  if (event.key !== 'Escape') return;
+  const state = current();
+  if (screenData.viewing !== null) { screenData.viewing = null; set({}); return; }
+  if (state.acting !== null) { set({ acting: null }); return; }
+  if (screenData.deleting !== null) { screenData.deleting = null; set({}); return; }
+  if (screenData.editing !== null) { screenData.editing = null; set({}); return; }
+  if (screenData.correcting !== null) { screenData.correcting = null; set({}); return; }
+  if (screenData.scenarioOpen) { screenData.scenarioOpen = false; set({}); return; }
+  if (screenData.threadsOpen) { screenData.threadsOpen = false; set({}); return; }
+  if (state.drawerOpen) set({ drawerOpen: false });
+});
 
 /** What each screen has loaded. Kept beside the store rather than inside it
  *  so the chat's state stays readable. */
@@ -671,6 +829,16 @@ document.addEventListener('click', (event) => {
   if (actor === null) return;
   const action = actor.dataset['action']!;
   const id = actor.dataset['id'] ?? '';
+
+  // Remembered HERE and not in manageFocus, because by the time that runs the
+  // control has already been repainted out of existence — the click that
+  // opens a sheet triggers a draw, and a draw replaces whole regions. This is
+  // the last moment the opener is still on the page.
+  if (returnFocusTo === null) {
+    returnFocusTo = id === ''
+      ? `[data-action="${action}"]`
+      : `[data-action="${action}"][data-id="${id}"]`;
+  }
 
   if (action === 'close-sheet') { screenData.editing = null; screenData.deleting = null; screenData.correcting = null; }
   if (action === 'drawer') set({ drawerOpen: true });

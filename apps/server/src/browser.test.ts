@@ -684,6 +684,126 @@ describe('the app, in a browser', { skip: SKIP }, () => {
     }
   });
 
+  test('a sheet takes the keyboard, keeps it, and gives it back', async () => {
+    // Every sheet, the drawer and the photo viewer carried role="dialog" and
+    // none of the behaviour that word promises: focus stayed on the button
+    // behind, Tab walked straight out into a page that was still live, and
+    // Escape did nothing. Nobody had ever run this product without a mouse.
+    //
+    // Driven with REAL key events (Input.dispatchKeyEvent). A dispatched
+    // KeyboardEvent is untrusted, so the browser runs no default action for
+    // it and Tab does not move focus — a trap test written that way passes
+    // against a page with no focus management whatsoever.
+    const page = browser!;
+    await page.goto(`${base}/chat`);
+    await page.waitFor('!!document.querySelector(\'[data-action="drawer"]\')', 10_000);
+
+    // Focus the opener the way a keyboard user reaches it, so there is a real
+    // thing to return focus TO.
+    await page.evaluate('(document.querySelector(\'[data-action="drawer"]\').focus(), true)');
+    await page.click('[data-action="drawer"]');
+    await page.waitFor('!!document.querySelector(".drawer")', 8_000);
+
+    // 1. Focus moved INTO the dialog rather than staying on the button.
+    assert.ok(
+      await page.evaluate<boolean>('document.querySelector(\'[role="dialog"]\').contains(document.activeElement)'),
+      'the sheet opened and focus stayed behind it',
+    );
+    assert.equal(await page.evaluate('document.querySelector(\'[role="dialog"]\').getAttribute("aria-modal")'), 'true');
+
+    // 2. The page behind is inert — out of the tab order AND out of the
+    // accessibility tree, which a hand-rolled Tab wrap does not achieve.
+    assert.ok(await page.evaluate<boolean>('document.getElementById("r-screen").hasAttribute("inert")'));
+    assert.ok(await page.evaluate<boolean>('document.getElementById("r-nav").hasAttribute("inert")'));
+
+    // 3. Tab all the way round and never leave. Twenty presses is more
+    // controls than any sheet has, so this wraps several times.
+    for (let press = 0; press < 20; press += 1) {
+      await page.key('Tab');
+      assert.ok(
+        await page.evaluate<boolean>('document.querySelector(\'[role="dialog"]\')?.contains(document.activeElement) ?? false'),
+        `Tab ${press + 1} left the dialog — the page behind it is still reachable`,
+      );
+    }
+    // And backwards, which is the direction a wrap written by hand gets wrong.
+    for (let press = 0; press < 5; press += 1) {
+      await page.key('Tab', { shift: true });
+      assert.ok(
+        await page.evaluate<boolean>('document.querySelector(\'[role="dialog"]\')?.contains(document.activeElement) ?? false'),
+        'Shift+Tab left the dialog',
+      );
+    }
+
+    // 4. Escape closes it — the same way out the scrim gives a mouse.
+    await page.key('Escape');
+    await page.waitFor('!document.querySelector(".drawer")', 8_000);
+
+    // 5. The page behind is live again, and focus is back on what opened it
+    // rather than lost to the body.
+    assert.ok(!(await page.evaluate<boolean>('document.getElementById("r-screen").hasAttribute("inert")')));
+    assert.equal(
+      await page.evaluate('document.activeElement?.dataset?.action ?? null'), 'drawer',
+      'focus was not returned to the control that opened the sheet',
+    );
+    assert.deepEqual(await page.errors(), []);
+  });
+
+  test('the full-screen photo viewer is a dialog too, though it is not in the overlays region', async () => {
+    // The one overlay that renders inside its SCREEN rather than in
+    // #r-overlays. A focus manager that watched only the overlays region
+    // would have missed the overlay that covers the entire display — and
+    // would have made it inert along with the screen it lives in.
+    const page = browser!;
+    const userId = await page.evaluate<string>("fetch('/api/me').then((r) => r.json()).then((m) => m.user.id)");
+    const { rows: [assistant] } = await db().query<{ id: string }>('SELECT id FROM assistants WHERE user_id = $1 LIMIT 1', [userId]);
+    // Conversations are scoped by ASSISTANT, not by user — the same split
+    // that puts a story event on an assistant's timeline rather than an
+    // account's.
+    const { rows: [conversation] } = await db().query<{ id: string }>(
+      'SELECT id FROM conversations WHERE assistant_id = $1 AND deleted_at IS NULL LIMIT 1', [assistant!.id],
+    );
+    const { rows: [message] } = await db().query<{ id: string }>(
+      `INSERT INTO messages (conversation_id, assistant_id, role, body, surface)
+       VALUES ($1, $2, 'user', 'a photo', 'chat') RETURNING id`,
+      [conversation!.id, assistant!.id],
+    );
+    await db().query(
+      `INSERT INTO attachments (user_id, message_id, kind, content_type, bytes, storage_key, status)
+       VALUES ($1, $2, 'image', 'image/png', 100, 'k/1', 'ready')`,
+      [userId, message!.id],
+    );
+
+    await page.goto(`${base}/album`);
+    await page.waitFor('!!document.querySelector(".album__cell")', 10_000);
+    await page.evaluate('(document.querySelector(".album__cell").focus(), true)');
+    await page.click('.album__cell');
+    await page.waitFor('!!document.querySelector(".viewer")', 8_000);
+
+    assert.ok(await page.evaluate<boolean>('document.querySelector(".viewer").matches(\'[role="dialog"]\')'));
+    assert.ok(
+      await page.evaluate<boolean>('document.querySelector(".viewer").contains(document.activeElement)'),
+      'the viewer opened and focus stayed on the thumbnail behind it',
+    );
+    // The grid it sits BESIDE is inert, not just the other regions — a
+    // full-screen overlay with the page it covers still tabbable is the
+    // whole bug.
+    assert.ok(
+      await page.evaluate<boolean>('document.querySelector(".album").hasAttribute("inert")'),
+      'the album grid behind the viewer is still reachable by keyboard',
+    );
+    for (let press = 0; press < 8; press += 1) {
+      await page.key('Tab');
+      assert.ok(
+        await page.evaluate<boolean>('document.querySelector(".viewer")?.contains(document.activeElement) ?? false'),
+        'Tab escaped the full-screen viewer',
+      );
+    }
+    await page.key('Escape');
+    await page.waitFor('!document.querySelector(".viewer")', 8_000);
+    assert.ok(!(await page.evaluate<boolean>('document.querySelector(".album").hasAttribute("inert")')));
+    assert.deepEqual(await page.errors(), []);
+  });
+
   test('the PWA is installable: manifest, icons, worker', async () => {
     const page = browser!;
     const manifest = await page.evaluate<{ ok: boolean; icons: number }>(

@@ -187,6 +187,32 @@ export class Browser {
     })()`);
   }
 
+  /**
+   * A REAL key press, through the browser's input pipeline.
+   *
+   * Not `dispatchEvent(new KeyboardEvent('keydown', …))`, which is what a
+   * test reaches for first and which does not work for the thing it is
+   * usually testing: a synthetic event has `isTrusted: false`, so the browser
+   * runs no default action for it. Tab does not move focus. A focus-trap test
+   * written that way passes against a page with no focus management at all,
+   * which makes it worse than no test.
+   *
+   * `Input.dispatchKeyEvent` goes in where a keyboard does, so Tab moves
+   * focus, Shift+Tab moves it back, and Escape reaches the page listener.
+   */
+  async key(key: 'Tab' | 'Escape' | 'Enter', modifiers: { shift?: boolean } = {}): Promise<void> {
+    const codes: Record<string, { code: string; keyCode: number }> = {
+      Tab: { code: 'Tab', keyCode: 9 },
+      Escape: { code: 'Escape', keyCode: 27 },
+      Enter: { code: 'Enter', keyCode: 13 },
+    };
+    const { code, keyCode } = codes[key]!;
+    // 8 is the shift bit in the protocol's modifier mask.
+    const shared = { key, code, windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode, modifiers: modifiers.shift === true ? 8 : 0 };
+    await this.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...shared });
+    await this.send('Input.dispatchKeyEvent', { type: 'keyUp', ...shared });
+  }
+
   /** Anything the page threw since it loaded. */
   async errors(): Promise<string[]> {
     return this.evaluate<string[]>('window.__errors || []');
