@@ -24,9 +24,9 @@ export function databaseUrl(): string {
  *
  * ASSUMPTION, stated because it is a judgement rather than a measurement: 15
  * seconds. The slowest query in the measured baseline is memory retrieval at
- * ten thousand memories, at roughly 40ms (docs/PERFORMANCE.md), so this is
- * three hundred times the worst normal case — it can only fire on something
- * genuinely wedged. It is set on the SERVER (`statement_timeout`) rather than
+ * ten thousand memories, at 74ms p95 84ms (docs/PERFORMANCE.md), so this is
+ * roughly two hundred times the worst measured case — it can only fire on
+ * something genuinely wedged. It is set on the SERVER (`statement_timeout`) rather than
  * with a client-side timer on purpose: a client that gives up leaves the
  * query running, holding its locks and its connection, which is how one slow
  * statement becomes an outage.

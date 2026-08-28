@@ -22,12 +22,20 @@ confirmation at sign-up, recovery, new-device confirmation, and the first real
 send is a preflight command that reads the provider's own error back. It found
 a misclassification on its first live call, which is the whole argument for it.
 
+**Twelfth run: `docs/PERFORMANCE.md`.** Every number in it is measured against
+real Postgres and real Chromium by `npm run perf`, with the machine it came
+from, and the three readings spelled out rather than left to be derived. The
+headline: **retrieval is roughly three quarters of a turn** at ten thousand
+memories, and **a turn does not grow with the conversation** — which is the row
+to watch.
+
 **CI IS GREEN.** It was red for seventeen consecutive runs and the cause was
 one line: `postgres:16` ships no pgvector, so migration 0003 died and every
 database-backed test with it. `npm run verify` is green too: typecheck (server
-and browser), **15 gates**, **685 tests**, including 19 that drive real
-Chromium, 29 that prove each gate FAILS on a deliberate violation, and 27 that
-attack the product with a second account.
+and browser), **16 gates**, **762 tests**, including 23 that drive real
+Chromium, 31 that prove each gate FAILS on a deliberate violation, 32 that
+attack the product with a second account, and 32 that break its dependencies
+on purpose.
 
 **`npm run shots` photographs 98 screens** into `docs/shots/`, with six gaps
 listed rather than skipped. Start there — reading HTML is not looking at a
@@ -51,7 +59,81 @@ that too.
 
 ---
 
-## 0. What the eleventh run did
+## 0. What the twelfth run did
+
+### Every dependency failure is now something she says
+
+The product had many dependencies and had never been tested against any of
+them failing. It is now, and the standard each test holds to is the same one:
+**a third party having a bad minute must arrive as a sentence in her voice,
+not as a stack trace and above all not as three dots that never stop.**
+
+- **The model provider.** `retrying()` wraps whatever provider the application
+  has, on two rules. A retry is only safe **before the first delta** — once
+  text is on the screen a second attempt appends a whole answer to half of
+  one. And a stream that goes **silent** is abandoned on a deadline measured
+  from the *last* delta, not from the start of the call, so a long answer may
+  take a long time and a dead one may not. Backoff is full-jitter.
+- **When it is genuinely down**, `runTurn` returns `provider_unavailable`
+  rather than throwing: her line in the conversation, **the message
+  refunded**, their own words kept, and her half-sentence discarded rather
+  than persisted as something she said. The outage is not recorded against the
+  idempotency key either — recording it would replay "I'm a little away" long
+  after the provider came home.
+- **Postgres.** `transaction()` ran `ROLLBACK` unguarded in its catch, so on a
+  connection that had just died the rollback's own failure **replaced the real
+  error**. And nothing listened for `'error'` on the pool or on a checked-out
+  client — an unhandled `'error'` is thrown from a socket callback, outside
+  every `try` in the process, so a database restart took the server with it.
+  Both proved by terminating real backends.
+- **Storage.** `presignPut`, `head` and `presignGet` threw straight through to
+  a 500. They degrade to statuses the client already handles, log the cause,
+  and release the reserved row.
+- **The scheduler**, which lied in three directions — see below.
+
+### The tick's comment was true sequentially and false concurrently
+
+`tick.ts` said "a scheduler that fires twice costs nothing". `sent_at` is
+written **after** delivery, so two overlapping runs both saw `NULL` and both
+pushed: two identical notifications from someone meant to sound like a person,
+and two charged turns. Migration 0021 adds a claim — a conditional `UPDATE …
+RETURNING` that exactly one writer wins, as a **five-minute lease** so a run
+killed mid-delivery does not take its rows to the grave. Proved against real
+concurrency, because a read-then-write would pass a unit test (§19).
+
+Two more from the same pass: **stale is not late** — her own outreach more
+than four hours behind is dropped rather than delivered, while a reminder the
+user set still arrives (§4's distinction at a second layer) — and **every row
+is guarded**, because one throw used to abandon the ninety-nine behind it.
+
+That guard earned itself immediately: it caught a live `operator does not
+exist: timestamp with time zone < interval` in the claim's own SQL, named the
+row, and let the rest of the batch through.
+
+### Six copies of one test helper, and the sixth broke the suite
+
+Every integration test file had its own `clientAddress()` reading
+`10.${process.pid % 256}…`. That is unique per call and *almost* unique per
+process — eight bits of process identity, so two files collide whenever their
+pids are congruent mod 256. A seventh file made it near certain and the suite
+started failing on a 429 that moved depending on what else ran. **An
+approximation of uniqueness is not uniqueness.** One helper now, in
+`apps/server/src/test-support.ts`, returning a unique-local IPv6 with 112
+random bits — which also means the v6 path is exercised, which the old
+v4-only scheme never did. LESSONS §28 gained the refinement.
+
+### LESSONS §29 and §30
+
+**§29 — the cleanup on the error path fails on exactly the errors that
+matter.** The rollback on a dead connection, the refund when the thing being
+undone is itself a failure, the `'error'` event that is not an error you can
+catch, and the retry that is safe only until the first token.
+
+**§30 — a scheduler is a dependency too, and it lies in three directions.**
+Twice at once, six hours late all at once, and one failure taking a hundred
+with it.
+
+## 0aa. What the eleventh run did
 
 ### She speaks first, and it is not generated
 
@@ -528,6 +610,42 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
 
 ### Moderate — people will feel it, changeable in a day
 
+18z. **A provider outage refunds the message it took.** They asked and got
+   nothing; charging a message for that means one bad minute of ours costs
+   somebody two things. The alternative reading is that the reservation
+   bounds *our* cost and should hold regardless — but nothing was spent, so
+   there is no cost to bound. The refund is exact (it returns what that same
+   turn took, and the repository floors at zero), so it is not a way to mint
+   allowance by making the provider fail. Reversing it is one line and a
+   test.
+
+18y. **Her half-sentence is discarded rather than persisted.** When the
+   provider dies mid-stream, whatever arrived is dropped: a truncated reply
+   stored as her words is a lie about what she said, and the next turn would
+   read it back as history and continue from a thought she never had. The
+   argument the other way is that a person watching text appear and then
+   vanish has lost something real. This direction was taken because the
+   conversation is the record, and a record that contains half-thoughts stops
+   being one. Reversible; the client already drops the bubble to match.
+
+18x. **Her own outreach goes stale after four hours; a reminder the user set
+   never does.** ASSUMPTION, and it is a product judgement rather than a
+   measurement: four hours is roughly the width of a part of the day, so past
+   it a morning message has stopped being about now. The cost is that a
+   scheduler outage silently loses her side of a day. `STALE_AFTER_HOURS` is
+   one constant and the tests name it.
+
+18w. **A claim on outreach is a five-minute lease.** Too short and a slow
+   turn is delivered twice; too long and a crashed run's work waits. Five
+   minutes is thirty times the worst measured delivery. `CLAIM_LEASE_SECONDS`.
+
+18v. **The provider gets three attempts and 45 seconds of silence.** The
+   silence budget is a judgement against the published one-to-two-second
+   time-to-first-token for this model family, NOT against a number of ours —
+   `docs/PERFORMANCE.md` deliberately does not measure the provider, because
+   there is no key here. Measure it and revisit.
+
+
 18. **Every image sent in a conversation is read as a possible receipt.**
     A cost decision, stated in the code: one vision call per image message.
     The alternative is asking somebody to declare which of their
@@ -574,6 +692,13 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
     fraction-digit options at all. AED and USD get two, JPY none, KWD three.
 
 ### Cheap — a line, a number, a file
+
+26z. **`statement_timeout` is 15 seconds and `connectionTimeoutMillis` is 10.**
+    The first is ~200× the slowest measured query (retrieval at ten thousand
+    memories, 74ms — `docs/PERFORMANCE.md`), so it can only fire on something
+    genuinely wedged. The second exists because a `connect()` that waits
+    forever on a saturated pool piles every request behind the stuck one.
+
 
 27. **The desktop widths are tokens**, and every number in them is quoted in
     design.md §11. The rail's 260px is the one choice the spec does not
@@ -717,15 +842,6 @@ saying hello.
    allowance cannot grow without moving `modelCostPerMonth`, and that moves
    how many free users a subscription funds.
 
-0a. **A refused message loses what the person typed.** Send at the day's limit
-   and the optimistic bubble is reconciled away — nothing was written server
-   side, correctly — so their sentence disappears from the conversation AND
-   from the composer, which was cleared on submit. `limit-reached-ltr.png`
-   shows the result: her line, and no sign of what they said. The right
-   behaviour is probably to put the text back in the composer, but "probably"
-   is why it is here: it could also be that the message should stand in the
-   conversation as unsent, the way a failed send does. Small either way.
-
 **Everything else here is a key, a device, or a person.**
 
 0. **A real Stripe account, on the phone.** Checkout, the webhook reaching a
@@ -792,6 +908,17 @@ it felt like.
     album.
 12. ~~**A refused message loses the person's text.**~~ DONE — it goes back in
     the composer, and the same rule holds for any refused write.
+13a. **Concurrency has never been measured.** `docs/PERFORMANCE.md` is every
+    measurement one request at a time, which is the honest thing it can say
+    from here. What happens at fifty simultaneous turns is a different
+    question with a different tool, and the ten-connection pool is where to
+    look first. Not a blocker; a known hole in the baseline.
+
+13b. **The provider half of "time to first token" is unmeasured.** No key.
+    The product's own half is 108ms p50, and the number a person actually
+    waits for is that plus the provider's. `npm run perf` is the tool to
+    re-run once a key exists — that section says so in the file itself.
+
 13. **An accessibility pass still needs a screen reader and a person.** The
     KEYBOARD half is done: every dialog traps focus, Escape closes, focus
     returns to what opened it, and the page behind is `inert` (LESSONS §24,
@@ -802,8 +929,9 @@ it felt like.
 
 ```sh
 npm run up                      # migrate, server, ticker
-npm run verify                  # typecheck, 15 gates, 685 tests
+npm run verify                  # typecheck, 16 gates, 762 tests
 #   export DATABASE_URL first, or 137 of them SKIP without saying so
+npm run perf                    # the baseline, remeasured into docs/PERFORMANCE.md
 npm run shots                   # 98 screenshots into docs/shots/, gaps listed
 npm run preflight               # the five live integrations, each diagnosed
 npm run session                 # sign up as a stranger, use it, keep the transcript
@@ -833,3 +961,9 @@ npm run report:economics        # the free tier, every assumption named
 | `tools/gates/wired.ts` | the two seams nothing else reads across (§20) |
 | `packages/db/src/repositories/usage.ts` | why an upsert's WHERE is not a check (§19) |
 | `packages/llm/src/pooled.ts` | LESSONS §12's rotation, finally connected |
+| `apps/server/src/resilience.test.ts` | every dependency broken on purpose |
+| `packages/llm/src/retry.ts` | the two rules that decide when a retry is safe |
+| `packages/db/src/client.ts` | why the rollback has its own catch (§29) |
+| `packages/jobs/src/tick.ts` | the three ways a scheduler lies (§30) |
+| `docs/PERFORMANCE.md` | the measured baseline, with the machine it came from |
+| `docs/LESSONS-AUDIT.md` | all thirty lessons against the code: gated, prose, or stale |

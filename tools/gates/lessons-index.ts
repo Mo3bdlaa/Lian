@@ -189,6 +189,7 @@ const COVERAGE: Record<string, Coverage[]> = {
   ],
   '28': [
     { where: 'apps/server/src/hardening.test.ts', marker: /A different client address per call AND per process/ },
+    { where: 'apps/server/src/test-support.ts', marker: /an approximation of uniqueness is not\s*\n?\/\/ uniqueness|approximation of uniqueness/ },
     { where: 'apps/server/src/http.test.ts', marker: /closed in `after` whether the test that/ },
   ],
   '29': [

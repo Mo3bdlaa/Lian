@@ -34,11 +34,13 @@ export type RetryOptions = {
    * ASSUMPTION, stated because the number is a judgement: 45 seconds between
    * deltas. Anthropic's own client defaults to a 10-minute whole-request
    * timeout, which is the right order for a batch job and far too long for
-   * somebody watching three dots. Time-to-first-token on this model family is
-   * under two seconds in the measured baseline (docs/PERFORMANCE.md), so 45s
-   * of silence is roughly twenty times the normal worst case — long enough
-   * that a slow provider is not cut off, short enough that a dead one becomes
-   * a sentence she says while the person is still looking at the screen.
+   * somebody watching three dots. The PROVIDER's own latency is deliberately
+   * not measured in docs/PERFORMANCE.md — there is no key in this environment
+   * — so this is a judgement against the published one-to-two-second
+   * time-to-first-token for this model family rather than against a number of
+   * ours: long enough that a slow provider is not cut off, short enough that
+   * a dead one becomes a sentence she says while the person is still looking
+   * at the screen. When a key exists, measure and revisit.
    */
   readonly silenceMs?: number;
   /**

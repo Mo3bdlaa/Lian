@@ -27,13 +27,8 @@ import { localDayKey, limitsFor } from '@lian/domain';
 import { t } from '@lian/i18n';
 import { createApplication } from './app.ts';
 import { loadConfig } from './config.ts';
+import { clientAddress } from './test-support.ts';
 
-/** Unique per call and per process — LESSONS §28. */
-let nextAddress = 0;
-const clientAddress = (): string => {
-  const n = (nextAddress += 1);
-  return `10.${process.pid % 256}.${(n >> 8) % 256}.${n % 256}`;
-};
 
 const HAS_DB = (process.env['DATABASE_URL'] ?? '') !== '';
 const NOW = new Date('2026-05-18T06:30:00.000Z');

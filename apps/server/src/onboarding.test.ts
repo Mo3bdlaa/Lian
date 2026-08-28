@@ -24,45 +24,8 @@ import { DEFAULT_MODEL, type CompletionRequest, type Provider } from '@lian/llm'
 import { generateVapidKeys } from '@lian/push';
 import { createApplication } from './app.ts';
 import { loadConfig } from './config.ts';
+import { clientAddress } from './test-support.ts';
 
-/**
- * A different client address on every run.
- *
- * These tests send an X-Forwarded-For to model distinct clients — and the
- * `auth:ip:` rate limit is a DATABASE row keyed on that address (LESSONS
- * §12), so a fixed one accumulates across runs and the suite starts failing
- * the second time somebody runs it locally. That is the worst kind of
- * flake: it passes in CI, where the database is new, and fails on the
- * machine of whoever is trying to work.
- *
- * The addresses stay inside 192.0.2.0/24 — TEST-NET-1, which is reserved for
- * documentation and which `isRoutable` refuses, so nothing here ever reaches
- * a geo lookup either.
- */
-/**
- * A client address that is unique per CALL and per PROCESS.
- *
- * These tests send an X-Forwarded-For to model distinct clients, and the
- * `auth:ip:` rate limit is a DATABASE row keyed on that address (LESSONS
- * §12). So an address that repeats — across runs, across files, or across
- * two calls in one file — means two sign-ups share a bucket and the second
- * is refused with a 429 that surfaces three lines later as an undefined
- * property.
- *
- * TEST-NET-1 was not big enough. A /24 is 250 addresses and the suite makes
- * hundreds of sign-ups, so collisions were near-certain by birthday alone —
- * which is why a random base per file fixed it for one file and not for the
- * run. This is a /8 keyed on the process id, so two files cannot collide and
- * a counter inside one cannot either.
- *
- * 10.0.0.0/8 is private, so `isRoutable` refuses it and nothing here reaches
- * a geo lookup — which is also the honest thing for a fake address to be.
- */
-let nextAddress = 0;
-const clientAddress = (): string => {
-  const n = (nextAddress += 1);
-  return `10.${process.pid % 256}.${(n >> 8) % 256}.${n % 256}`;
-};
 
 
 const HAS_DB = (process.env['DATABASE_URL'] ?? '') !== '';

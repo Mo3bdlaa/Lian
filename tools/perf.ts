@@ -166,8 +166,16 @@ async function main(): Promise<void> {
   // The daily message ceiling would stop this long before the sample size is
   // useful, so the account is paid and the counter is reset between rounds.
   await db().query(`UPDATE users SET plan = 'paid' WHERE id = $1`, [account.userId]);
-  const resetCounters = async (): Promise<void> => {
+  //
+  // AND THE RATE LIMIT WITH IT, which is the correction that made these
+  // numbers real. The first version cleared only usage_counters, so after
+  // twenty messages in a minute the per-user chat rate limit refused every
+  // request — and the tool cheerfully reported a 2.5ms "turn", which is what
+  // a 429 costs. A measuring helper that does not check the status measures
+  // the error path (LESSONS §28's third bullet, in a second dress).
+  const resetLimits = async (): Promise<void> => {
     await db().query(`DELETE FROM usage_counters WHERE user_id = $1`, [account.userId]);
+    await db().query(`DELETE FROM rate_limits WHERE bucket_key LIKE $1`, [`%${account.userId}%`]);
   };
 
   // ── 1. memory retrieval, 100 → 10,000 ───────────────────────────────────
@@ -236,14 +244,19 @@ async function main(): Promise<void> {
     const response = await call('POST', `/api/conversations/${conversationId}/messages`, {
       message: 'I paid the gym 400 today', clientId: `c-${Date.now()}-${Math.random()}`,
     });
-    await response.text();
+    const body = await response.text();
+    // The status is CHECKED. See resetLimits above for what happens when it
+    // is not: a refusal is the fastest possible response, so an unchecked
+    // helper reports the error path as an excellent number.
+    if (response.status !== 200) throw new Error(`turn ${response.status}: ${body.slice(0, 200)}`);
+    if (!body.includes('event: text')) throw new Error(`turn produced no text: ${body.slice(0, 300)}`);
   };
 
   let depth = 0;
   for (const target of [2, 20, 60, 120]) {
-    while (depth < target) { await resetCounters(); await sendOne(); depth += 2; }
-    await resetCounters();
-    const sample = await measure(10, async () => { await resetCounters(); await sendOne(); }, 2);
+    while (depth < target) { await resetLimits(); await sendOne(); depth += 2; }
+    await resetLimits();
+    const sample = await measure(10, async () => { await resetLimits(); await sendOne(); }, 2);
     turns.push(row(`a turn at ${target} messages of history`, sample));
     console.log(`  ${target}: p50 ${ms(sample.p50)}ms`);
   }
@@ -269,15 +282,16 @@ async function main(): Promise<void> {
 
   // ── 3. what has to happen before the first token can be asked for ───────
   console.log('measuring the pre-stream path…');
-  await resetCounters();
+  await resetLimits();
   const firstByte = await measure(15, async () => {
-    await resetCounters();
+    await resetLimits();
     const response = await call('POST', `/api/conversations/${conversationId}/messages`, {
       message: 'quick one', clientId: `c-${Date.now()}-${Math.random()}`,
     });
     // The FIRST chunk off the wire, not the whole body: with an instant
     // provider this is everything that must happen before a real provider
     // could have been asked.
+    if (response.status !== 200) throw new Error(`turn ${response.status}`);
     const reader = response.body!.getReader();
     await reader.read();
     await reader.cancel();
@@ -312,7 +326,9 @@ async function main(): Promise<void> {
       await browser.setCookie({ name: 'lian_session', value: account.sessionToken, url: base });
       const timings = await measure(7, async () => {
         await browser.goto(`${base}/chat`);
-        await browser.waitFor('document.querySelector(".chat") !== null');
+        // The composer, not the message list: an empty conversation renders
+        // no rows, so waiting for one would wait forever on a fresh account.
+        await browser.waitFor('!!document.querySelector(".composer__input")', 15_000);
       }, 2);
       // The browser's own numbers, which know about parse and paint in a way
       // a stopwatch around goto() does not.
@@ -368,6 +384,25 @@ async function main(): Promise<void> {
     'different machine.',
     '',
     ...sections.map((section) => `${section}\n`),
+    '## What these numbers say',
+    '',
+    'Three readings, so the next person does not have to derive them:',
+    '',
+    '1. **Retrieval is most of a turn.** The turn rows above were measured on the',
+    '   account that had just been seeded with ten thousand memories, so retrieval',
+    "   is inside them — and at that size it is roughly three quarters of the",
+    '   whole cost. Anything that wants a faster turn should start there and',
+    '   nowhere else. An ordinary account has tens of memories, not thousands, so',
+    '   this is a ceiling rather than a typical day.',
+    '2. **The turn does not grow with the conversation.** 20, 60 and 120 messages',
+    '   of history cost the same within noise, which is what the 40-message cap is',
+    '   for. That is the row to watch: if it starts climbing, something has begun',
+    '   reading the whole thread.',
+    '3. **Retrieval grows slightly worse than linearly** (×6.6 from 100 to 1,000,',
+    '   then ×9 to 10,000). Consistent with the scan leaving cache rather than',
+    '   with anything algorithmic. Still linear enough that the constant, not the',
+    '   curve, is the thing to argue about.',
+    '',
     '## What is deliberately not here',
     '',
     "- **The model's latency.** No API key in this environment. Every number above",

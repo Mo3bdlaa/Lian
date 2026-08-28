@@ -19,38 +19,15 @@ import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
 import { db, closeDb, migrate, accounts, outreach } from '@lian/db';
 import { deterministicEmbedder, EMBEDDING_DIMENSIONS, type AnalysisModel } from '@lian/analysis';
-import { DEFAULT_MODEL, type Provider } from '@lian/llm';
+import { DEFAULT_MODEL, ProviderError, type Provider } from '@lian/llm';
 import { generateVapidKeys } from '@lian/push';
-import { CONSENT_VERSION } from '@lian/i18n';
+import { CONSENT_VERSION, t } from '@lian/i18n';
 import { localDayKey, PLAN_LIMITS } from '@lian/domain';
 import { createApplication } from './app.ts';
 import { loadConfig } from './config.ts';
 import { Browser, chromiumPath } from '../../../tools/browser.ts';
+import { clientAddress } from './test-support.ts';
 
-/**
- * A client address that is unique per CALL and per PROCESS.
- *
- * These tests send an X-Forwarded-For to model distinct clients, and the
- * `auth:ip:` rate limit is a DATABASE row keyed on that address (LESSONS
- * §12). So an address that repeats — across runs, across files, or across
- * two calls in one file — means two sign-ups share a bucket and the second
- * is refused with a 429 that surfaces three lines later as an undefined
- * property.
- *
- * TEST-NET-1 was not big enough. A /24 is 250 addresses and the suite makes
- * hundreds of sign-ups, so collisions were near-certain by birthday alone —
- * which is why a random base per file fixed it for one file and not for the
- * run. This is a /8 keyed on the process id, so two files cannot collide and
- * a counter inside one cannot either.
- *
- * 10.0.0.0/8 is private, so `isRoutable` refuses it and nothing here reaches
- * a geo lookup — which is also the honest thing for a fake address to be.
- */
-let nextAddress = 0;
-const clientAddress = (): string => {
-  const n = (nextAddress += 1);
-  return `10.${process.pid % 256}.${(n >> 8) % 256}.${n % 256}`;
-};
 
 
 const HAS_DB = (process.env['DATABASE_URL'] ?? '') !== '';
@@ -85,11 +62,24 @@ function saidByUser(content: string): string {
   return afterContext.split('\n\n').filter((part) => part.trim() !== '')[0] ?? '';
 }
 
+/**
+ * Set by the outage test, cleared by it.
+ *
+ * A module-level switch rather than a second application, because what is
+ * under test is the CLIENT: the browser, the session and the conversation all
+ * have to be the same ones a person was already using when the provider went
+ * away. Booting a second server to make it fail would test a different app.
+ */
+let providerIsDown = false;
+
 function provider(): Provider {
   return {
     id: 'browser-test',
     capabilities: () => ({ streaming: true, toolCalling: false, vision: false, contextTokens: 200_000, maxOutputTokens: 4_000 }),
     async stream(request, onDelta) {
+      if (providerIsDown && request.model === DEFAULT_MODEL) {
+        throw new ProviderError('the provider is unreachable', 503, true);
+      }
       if (request.model === DEFAULT_MODEL) {
         const said = saidByUser(request.messages.at(-1)?.content ?? '');
         const reply = REPLIES.find(([pattern]) => pattern.test(said))?.[1] ?? 'Good to meet you. What should I call you?';
@@ -522,6 +512,60 @@ describe('the app, in a browser', { skip: SKIP }, () => {
     const last = await page.evaluate<string>('[...document.querySelectorAll(".bubble")].at(-1).textContent');
     assert.ok(last.trim().length > 0, 'she said nothing');
     assert.deepEqual(await page.errors(), []);
+  });
+
+  test('when the provider is down she says so, and what they typed comes back', async () => {
+    // THE HALF NO SERVER TEST CAN SEE. resilience.test.ts proves the server
+    // sends her line and charges nothing; this proves the person is not left
+    // watching three dots — which is the failure the whole exercise is about.
+    const page = await freshBrowser();
+    await signUp(page);
+    await say(page, 'Hello');
+
+    const settled = '.bubble:not(.bubble--thinking)';
+    const before_ = await page.evaluate<number>(`document.querySelectorAll('${settled}').length`);
+
+    providerIsDown = true;
+    try {
+      await page.type('.composer__input', 'I paid the gym 400 today');
+      await page.evaluate('document.querySelector(".composer__bar").requestSubmit()');
+
+      // 1. THE DOTS STOP. A spinner that never resolves is the outcome this
+      //    is here to rule out, so it is waited for explicitly rather than
+      //    inferred from something else having appeared.
+      await page.waitFor('!document.querySelector(".bubble--thinking") && !document.querySelector(".caret")', 20_000);
+
+      // 2. SHE SAYS SOMETHING. Her line, in the conversation, in her voice —
+      //    the same channel the daily limit uses, not a toast about a third
+      //    party the person has never heard of.
+      await page.waitFor('!!document.querySelector(".bubble--limit")', 10_000);
+      const line = await page.evaluate<string>('document.querySelector(".bubble--limit").textContent');
+      assert.equal(line.trim(), t('error.outage', 'en', 'female'), `she said: ${line}`);
+      assert.ok(!/503|provider|unreachable|error/i.test(line));
+
+      // 3. THEIR WORDS COME BACK. Nothing was written server-side, so the
+      //    bubble is reconciled away — and their sentence would go with it.
+      assert.equal(
+        await page.evaluate<string>('document.querySelector(".composer__input").value'),
+        'I paid the gym 400 today',
+      );
+
+      // 4. NOTHING WAS LEFT HALF-DRAWN. Their own message and her line, and
+      //    no orphan bubble for a reply that does not exist on the server.
+      //    Her line renders as a bubble, so the count grows by exactly the
+      //    two — one more would be the streaming ghost left behind.
+      assert.equal(await page.evaluate<number>(`document.querySelectorAll('${settled}').length`), before_ + 2);
+
+      // 5. AND IT IS NOT AN ERROR IN THE CONSOLE either — the old path threw
+      //    from the SSE handler and landed in the generic catch.
+      assert.deepEqual(await page.errors(), []);
+    } finally {
+      providerIsDown = false;
+    }
+
+    // 6. AND SHE COMES BACK. The composer still works once the provider does,
+    //    which is what makes the refusal a pause rather than a dead end.
+    await say(page, 'are you there now?');
   });
 
   // ── desktop (design.md §11, §17, §19) ──────────────────────────────────

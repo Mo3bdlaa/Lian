@@ -754,9 +754,17 @@ the machine of whoever is actually trying to work.**
 
 - **A bigger fixed range is not a fix.** A `/24` with a counter still repeats
   after 250 calls and still repeats across runs, and hundreds of sign-ups
-  across a suite collide by birthday long before that. The addresses are now
-  unique per call *and* per process (a `/8` keyed on the pid), which cannot
-  collide either way.
+  across a suite collide by birthday long before that.
+- **AND NEITHER IS AN APPROXIMATION OF UNIQUENESS.** The replacement was a
+  `/8` keyed on `process.pid % 256`, in six copies, one per test file. That is
+  unique per call and *almost* unique per process — eight bits of process
+  identity, so two files in one run collide whenever their pids are congruent
+  mod 256. It held for a fortnight and then a seventh file made it near
+  certain: the second file's first sign-up shared the first file's `auth:ip:`
+  bucket and died on a 429 three tests in, with a failure that moved depending
+  on what else ran. Addresses are now a unique-local IPv6 with 112 random
+  bits, from **one** helper rather than six copies of one (§22 in test
+  support), and there is no birthday problem left to reason about.
 - **The corollary cost more than the cause.** One failing assertion **hung the
   whole suite** for ten minutes, because a server was closed on the test's
   last line and the failure skipped it. A hang tells you nothing; even a red

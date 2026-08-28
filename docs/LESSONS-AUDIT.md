@@ -5,10 +5,14 @@ second. This is every entry checked against what is actually in the tree:
 whether it is still true, what enforces it, and — where nothing does — what a
 gate would cost and whether it is worth building.
 
-**None are stale.** That is the first finding and it surprised me: twenty-five
+Updated after the resilience pass, which added §29 and §30 and made §28
+recur.
+
+**None are stale.** That is the first finding and it surprised me: thirty
 entries written against a codebase that has been rewritten around them, and
 every rule still describes this build. Two have *widened* (§17 and §23 each
-found a second instance this fortnight), and none has been outgrown.
+found a second instance this fortnight), one has been *refined* by its own
+recurrence (§28 — see below), and none has been outgrown.
 
 ## The table
 
@@ -43,12 +47,19 @@ the checking machinery itself.
 | 22 | Two places that format will disagree | **GATE** `formatting` | yes |
 | 23 | A gate is only as wide as its spelling | half a **GATE** + a meta-test | **yes, and it recurred** |
 | 24 | A word in the markup is not the behaviour | tests (browser, real keys) | yes |
-| 25 | A setting read is not a setting connected | tests (`http`, behavioural) | yes |
+| 25 | A setting read is not a setting connected | **GATE** `settings-wired` | yes |
+| 26 | A check on its own subject matter finds itself | prose + one-line fixes | meta |
+| 27 | A fixture that disagrees produces findings about itself | tests + a loud harness warning | yes |
+| 28 | A test that leaves state makes the suite history-dependent | tests + one shared helper | **yes, and it recurred** |
+| 29 | The cleanup on the error path fails on the errors that matter | tests (`client`, `retry`, `turn`) | yes |
+| 30 | A scheduler lies in three directions | tests + a **claim** in the schema | yes |
 
-**Fourteen of twenty-five have a gate.** The eleven that do not are mostly
+**Fifteen of thirty have a gate.** The fifteen that do not are mostly
 behavioural rules about what the product *says* and *when*, which is the right
 shape for prose plus tests — a gate for "she does not escalate" would be a
-pattern match on intent.
+pattern match on intent. The five newest (§26–§30) are all in that half, and
+that is deliberate: three of them are about *how* something fails at runtime,
+which a grep over source cannot see at all.
 
 ## The two that recurred, and what that means
 
@@ -131,6 +142,29 @@ Its corollary cost more than the cause: **one failing assertion hung the whole
 suite** for ten minutes, because a server was closed on the test's last line
 and a failure skipped it. A hang tells you nothing; a red run at least tells
 you something. Servers are closed in `after` now.
+
+## §28, which recurred while this document was being written
+
+The rule said "unique per call AND per process". The implementation was
+`10.${process.pid % 256}.…` — **an approximation of the second half**, in six
+copies, one per test file. Eight bits of process identity means two files
+collide whenever their pids are congruent mod 256, which is a coin flip per
+pair. It held for a fortnight; a seventh file made it near certain, and the
+suite began failing on a 429 that moved depending on what else ran.
+
+Two lessons compounding, which is why it survived: §28 (state that outlives a
+test) and §22 (two places that do the same thing will disagree — here, six).
+The fix is one helper returning a unique-local IPv6 with 112 random bits.
+There is no birthday problem left to reason about, and as a side effect the
+v6 path is now exercised, which a v4-only scheme never did.
+
+**Would a gate have caught it?** A gate that forbids a second definition of a
+named test helper would have — and it is the same shape as the `formatting`
+gate, which exists precisely because two copies disagree. It is not built,
+because the population is one instance and the false-positive surface (every
+legitimately-duplicated small helper in a test file) is large. Recorded here
+so that a second instance makes the case rather than starting the argument
+over.
 
 ## Where a prose-only rule could become a gate
 
