@@ -10,16 +10,19 @@ import { db } from '../client.ts';
 import type { UserScope } from '../scope.ts';
 
 export type Device = {
-  id: string; fingerprint: string; label: string | null; userAgent: string | null;
+  id: string; fingerprint: string; userAgent: string | null;
   locationLabel: string | null; firstSeenAt: Date; lastSeenAt: Date; trustedAt: Date | null; revokedAt: Date | null;
 };
 type DeviceRow = {
-  id: string; fingerprint: string; label: string | null; user_agent: string | null;
+  id: string; fingerprint: string; user_agent: string | null;
   location_label: string | null; first_seen_at: Date; last_seen_at: Date; trusted_at: Date | null; revoked_at: Date | null;
 };
-const D_COLUMNS = 'id, fingerprint, label, user_agent, location_label, first_seen_at, last_seen_at, trusted_at, revoked_at';
+// No `label`. What the Security screen shows is DERIVED from user_agent at
+// read time (deviceLabel in the composition root), so a stored one would be a
+// second source of truth frozen at write time — see migration 0019.
+const D_COLUMNS = 'id, fingerprint, user_agent, location_label, first_seen_at, last_seen_at, trusted_at, revoked_at';
 const toDevice = (r: DeviceRow): Device => ({
-  id: r.id, fingerprint: r.fingerprint, label: r.label, userAgent: r.user_agent, locationLabel: r.location_label,
+  id: r.id, fingerprint: r.fingerprint, userAgent: r.user_agent, locationLabel: r.location_label,
   firstSeenAt: r.first_seen_at, lastSeenAt: r.last_seen_at, trustedAt: r.trusted_at, revokedAt: r.revoked_at,
 });
 
@@ -33,16 +36,16 @@ export async function findDevice(scope: UserScope, fingerprint: string, sql: Sql
 
 export async function upsertDevice(
   scope: UserScope,
-  input: { fingerprint: string; userAgent?: string | null; locationLabel?: string | null; label?: string | null },
+  input: { fingerprint: string; userAgent?: string | null; locationLabel?: string | null },
   sql: Sql = db(),
 ): Promise<Device> {
   const { rows } = await sql.query<DeviceRow>(
-    `INSERT INTO devices (user_id, fingerprint, user_agent, location_label, label)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO devices (user_id, fingerprint, user_agent, location_label)
+     VALUES ($1, $2, $3, $4)
      ON CONFLICT (user_id, fingerprint)
      DO UPDATE SET last_seen_at = now(), user_agent = coalesce(EXCLUDED.user_agent, devices.user_agent)
      RETURNING ${D_COLUMNS}`,
-    [scope.userId, input.fingerprint, input.userAgent ?? null, input.locationLabel ?? null, input.label ?? null],
+    [scope.userId, input.fingerprint, input.userAgent ?? null, input.locationLabel ?? null],
   );
   return toDevice(rows[0]!);
 }

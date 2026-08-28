@@ -9,7 +9,7 @@ import { dateLabel, time } from '../format.ts';
 import type { Snapshot } from '../state.ts';
 
 export type Security = {
-  devices: { id: string; label: string; lastSeen: string | null; current: boolean }[];
+  devices: { id: string; label: string; kind: 'phone' | 'computer'; lastSeen: string | null; current: boolean }[];
   attempts: { outcome: string; at: string; location: string | null }[];
 };
 
@@ -83,7 +83,7 @@ export function securityScreen(me: Snapshot, data: Security): Html {
 
     <div class="section">${t('security.trusted_devices', language, gender)}</div>
     ${data.devices.map((device) => html`<div class="row row--static">
-      ${icon(device.current ? 'i-device' : 'i-laptop', 'sm', 'icon--muted')}
+      ${icon(device.kind === 'phone' ? 'i-device' : 'i-laptop', 'sm', 'icon--muted')}
       <span class="row__label">
         ${device.label}
         <span class="row__sub">${device.current ? t('security.this_device', language, gender) : device.lastSeen === null ? '' : dateLabel(device.lastSeen.slice(0, 10), language, me.user.timeZone)}</span>

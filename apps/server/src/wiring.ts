@@ -1304,6 +1304,7 @@ export function readPorts(deps: Deps): ReadPorts {
       const devices = (await db.auth.listDevices({ userId })).map((device) => ({
         id: device.id,
         label: deviceLabel(device.userAgent),
+        kind: deviceKind(device.userAgent),
         lastSeen: device.lastSeenAt?.toISOString() ?? null,
         current: device.id === deviceId,
       }));
@@ -1492,6 +1493,16 @@ export function readPorts(deps: Deps): ReadPorts {
  * This is deliberately shallow: the platform and the browser, and nothing
  * that pretends to more precision than a UA string can carry.
  */
+/**
+ * Phone or computer, from the same string the label comes from.
+ *
+ * One derivation, one source: a device row whose icon and words disagree is a
+ * row that answers "was that me?" with two different answers.
+ */
+function deviceKind(userAgent: string | null): 'phone' | 'computer' {
+  return userAgent !== null && /iPhone|iPad|Android|Mobile/i.test(userAgent) ? 'phone' : 'computer';
+}
+
 function deviceLabel(userAgent: string | null): string {
   if (userAgent === null || userAgent.trim() === '') return 'Unknown device';
   const platform =

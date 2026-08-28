@@ -1,0 +1,19 @@
+-- `devices.label` is a second source of truth for something already derived.
+--
+-- The Security screen (UI-UX §17) shows "Mac · Chrome" so somebody can answer
+-- one question: WAS THAT ME? That string is derived from `user_agent` at read
+-- time, in `deviceLabel()`, for the same reason a capture chip re-derives from
+-- its row rather than storing what it once said — a stored label is frozen at
+-- the moment it was written and drifts away from the thing it describes.
+--
+-- The column was written by nothing. `upsertDevice` in packages/auth does not
+-- accept a label; the only writer was the screenshot seed, and the only reader
+-- was a SELECT that put it in a row type nobody read. So it was invisible: a
+-- column that could disagree with the screen and never would, because nothing
+-- ever looked at it.
+--
+-- It also made a screenshot lie, which is how it was noticed. The seed wrote
+-- label 'Chrome on macOS' and user_agent 'Mozilla/5.0' — and the screen, which
+-- reads the SECOND one, rendered "Device". A picture of a bug that was not
+-- there, produced by a fixture disagreeing with itself.
+ALTER TABLE devices DROP COLUMN label;

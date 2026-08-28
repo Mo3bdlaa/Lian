@@ -142,8 +142,13 @@ export async function seed(fullness: Fullness, options: {
   const { createHash } = await import('node:crypto');
   const hash = createHash('sha256').update(token).digest('base64url');
   const { rows: [device] } = await sql.query<{ id: string }>(
-    `INSERT INTO devices (user_id, fingerprint, label, user_agent, location_label, trusted_at)
-     VALUES ($1, $2, 'Chrome on macOS', 'Mozilla/5.0', 'Dubai', now()) RETURNING id`,
+    // A REAL user agent, because the screen derives its label from this and
+    // from nothing else. The seed used to write 'Mozilla/5.0' beside a
+    // `label` column that nothing read — so the Security screenshot rendered
+    // "Device", and HANDOFF carried it for two runs as a product gap. It was
+    // a fixture disagreeing with itself.
+    `INSERT INTO devices (user_id, fingerprint, user_agent, location_label, trusted_at)
+     VALUES ($1, $2, 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36', 'Dubai', now()) RETURNING id`,
     [userId, `fp-${Date.now()}`],
   );
   await sql.query(
@@ -153,8 +158,8 @@ export async function seed(fullness: Fullness, options: {
   );
   if (fullness === 'full') {
     await sql.query(
-      `INSERT INTO devices (user_id, fingerprint, label, user_agent, location_label, last_seen_at)
-       VALUES ($1, $2, 'Safari on iPhone', 'Mozilla/5.0 (iPhone)', 'Dubai', now() - interval '2 days')`,
+      `INSERT INTO devices (user_id, fingerprint, user_agent, location_label, last_seen_at)
+       VALUES ($1, $2, 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1', 'Dubai', now() - interval '2 days')`,
       [userId, `fp2-${Date.now()}`],
     );
     await sql.query(

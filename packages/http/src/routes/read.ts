@@ -185,7 +185,12 @@ export type StoryView = {
   timeline: { id: string; type: string; title: string; body: string | null; at: string; derived: boolean }[];
 };
 export type SecurityView = {
-  devices: { id: string; label: string; lastSeen: string | null; current: boolean }[];
+  /** `kind` is derived from the same user agent the label is, and is what the
+   *  icon renders. It used to render `current` instead — so the row reading
+   *  "Mac · Chrome" carried a phone, which is a picture disagreeing with the
+   *  words beside it. Which device you are on is already said in words
+   *  underneath; the icon's job is the other question. */
+  devices: { id: string; label: string; kind: 'phone' | 'computer'; lastSeen: string | null; current: boolean }[];
   attempts: { outcome: string; at: string; location: string | null }[];
 };
 

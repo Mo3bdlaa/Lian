@@ -81,6 +81,29 @@ describe('chat (UI-UX §3)', () => {
     );
   });
 
+  test('a device row\u2019s icon and its words answer the same question', () => {
+    // "Mac · Chrome" rendered with a phone beside it, because the icon was
+    // chosen by `current` rather than by the device. The screen exists to let
+    // somebody decide "was that me?" and it was giving two answers at once.
+    // Found by looking at a screenshot, once the seed stopped writing a fake
+    // user agent that made every row say "Device".
+    const rows = [
+      { id: 'd-1', label: 'Mac · Chrome', kind: 'computer' as const, lastSeen: null, current: true },
+      { id: 'd-2', label: 'iPhone · Safari', kind: 'phone' as const, lastSeen: '2026-08-26T09:00:00Z', current: false },
+    ];
+    const markup = render(securityScreen(me(), { devices: rows, attempts: [] }));
+    const iconOf = (label: string): string => {
+      const at = markup.indexOf(label);
+      assert.notEqual(at, -1, `${label} is not on the screen`);
+      // The icon is rendered just before the label, inside the same row.
+      const before = markup.slice(Math.max(0, at - 400), at);
+      return /i-(device|laptop)/.exec(before.split('<use').pop() ?? before)?.[0]
+        ?? /i-(device|laptop)/g.exec(before)?.[0] ?? '(none)';
+    };
+    assert.equal(iconOf('iPhone · Safari'), 'i-device', 'a phone was drawn as a computer');
+    assert.equal(iconOf('Mac · Chrome'), 'i-laptop', 'a Mac was drawn as a phone — the icon is tracking `current`, not the device');
+  });
+
   test('a control tag would render as text if one ever arrived', () => {
     // LESSONS §3 strips tags server-side; this is the second line of defence,
     // and it is here because "it cannot happen" is what the prototype said.

@@ -159,13 +159,21 @@ scheduler. Every test that moves time in this repository is subject to it.
 
 ## 5. Where it feels thin
 
-**The briefing has nothing of her in it.** On the morning it mattered, the
-briefing carried the task, the money figure, and `line: null`. The rule
-producing that is right — she has not written a line, and the screen refuses
-to invent her voice — but the result is that the product's second-biggest idea
-presents as a list with a number over it. ⚠ This may be entirely different
-with a real model, since the line is hers to write. It is the single thing I
-most want to see on the real-model run.
+**~~The briefing has nothing of her in it.~~ I got this wrong, from the same
+cause as §4.** I reported `line: null` and wrote it up as the product's
+second-biggest idea presenting as a list with a number over it. The line was
+there. The briefing is read from a window of midnight to midnight *where they
+are*, which in Dubai is `[yesterday 20:00Z, today 20:00Z]` — and I ran the
+session after 20:00 UTC, so every row Postgres stamped landed in the next
+Dubai day, outside the window my injected clock computed.
+
+Run again with the session's person in UTC, so the local day, the UTC day and
+the day every row is stamped with are the same day at every hour: the briefing
+carries her line, delivered by the outreach path at 03:00 and read back onto
+the screen. The tool now says loudly when a briefing message exists and the
+screen shows none, because **that is the harness and not the product**, and it
+has now cost me two false claims. ⚠ Whether the line is any *good* is still a
+model question.
 
 **One day in, the story is one row.** "We started talking." Which is honest,
 and is what a relationship one day old should look like, and is also a screen
@@ -284,6 +292,8 @@ command (`npm run preflight model`, then `npm run session`, ≈$0.25):
 1. ~~**Close the onboarding hole.**~~ Done — a separate lifetime budget for
    the introduction, falling through to the daily one. See HANDOFF §3.0 for
    why neither of the two options I first proposed was right.
-2. **Give the briefing something of her on day one.** Not invented — but
-   "nothing happened yet" said in her voice is better than a null.
-3. **Run the real-model session.** Half of this document is a ⚠.
+2. **Run the real-model session.** Half of this document is a ⚠.
+3. **Trust this document less than the transcript.** Two of its claims were
+   the harness rather than the product, and both looked exactly like real
+   findings. The tool now announces that class of slip itself; the habit that
+   catches the rest is checking the row before writing the sentence.

@@ -1,6 +1,6 @@
 
 ── MIDNIGHT — a stranger signs up. ───────────────────────────────
-   (it is Fri 28 Aug, 04:00 where she is)
+   (it is Fri 28 Aug, 00:00 where she is)
   sign-up → 201
   screen  onboarding, step "greet"
   mood    Meeting you, late
@@ -47,7 +47,7 @@
   messages left today 20 (ok)
 
 ── AN HOUR LATER — the things a person actually says ─────────────
-   (it is Fri 28 Aug, 04:00 where she is)
+   (it is Fri 28 Aug, 00:00 where she is)
   me    remind me to call the bank
   her   I'll remind you.
         [ call the bank · 2026-08-28 ]
@@ -65,16 +65,12 @@
   her observation: (none — not enough to notice)
 
 ── THE TICKER RUNS, every hour, as it would every five minutes ───
-   (it is Fri 28 Aug, 04:00 where she is)
-    [tick Fri 28 Aug, 05:00] proposed 2, held back 0, duplicate 0
-  outreach rows: 2
-    briefing   assistant_initiated waiting    for 2026-08-28T03:00:00.000Z
-    reminder   user_requested     waiting    for 2026-08-28T05:00:00.000Z
+   (it is Fri 28 Aug, 00:00 where she is)
+  outreach rows: 0
 
 ── PAST 05:00 — the hour outreach is proposed ────────────────────
-   (it is Fri 28 Aug, 05:00 where she is)
-    [tick Fri 28 Aug, 07:00] delivered 1
-  BRIEFING: "Go on."
+   (it is Fri 28 Aug, 01:00 where she is)
+  BRIEFING: "(no line)"
     today       call the bank
     carried     (nothing)
     money       {"outMinor":690000,"currency":"AED"}
@@ -86,24 +82,25 @@
   her   That is three late nights this week. Is it one project, or all of them at once?
 
 ── LATER THE SAME DAY — is "I'll remind you" true? ───────────────
-   (it is Fri 28 Aug, 07:00 where she is)
-    [tick Fri 28 Aug, 09:00] delivered 1
+   (it is Fri 28 Aug, 03:00 where she is)
+    [tick Fri 28 Aug, 05:00] proposed 2, held back 0, duplicate 0
   outreach rows now: 2
-    briefing   assistant_initiated SENT for 2026-08-28T03:00:00.000Z
-    reminder   user_requested     SENT for 2026-08-28T05:00:00.000Z
+    briefing   assistant_initiated waiting for 2026-08-28T07:00:00.000Z
+    reminder   user_requested     waiting for 2026-08-28T09:00:00.000Z
+    [tick Fri 28 Aug, 07:00] delivered 1
     after the 10:00 tick: briefing SENT, message written
-    after the 10:00 tick: reminder SENT, message written
+    after the 10:00 tick: reminder still waiting
   the task row: due 2026-08-28, open
   today, in her zone: 2026-08-28
-  the whole briefing: {"day":"2026-08-28","line":"Go on.","today":[{"id":"22695207-9ac0-4fa1-ba51-622ed7905f9b","title":"call the bank","done":false}],"carriedOver":[],"habits":[],"pattern":null,"money":{"outMinor":690000,"currency":"AED"}}
+  the whole briefing: {"day":"2026-08-28","line":"Go on.","today":[{"id":"f631e5cd-c728-4a64-8eab-594cf1f8a7b6","title":"call the bank","done":false}],"carriedOver":[],"habits":[],"pattern":null,"money":{"outMinor":690000,"currency":"AED"}}
   /api/tasks says: [{"title":"call the bank","dueOn":"2026-08-28"}]
   BRIEFING on the day: "Go on."
     today       call the bank
     carried     (nothing)
-  did she say anything unprompted? yes — "Go on."
+  did she say anything unprompted? NO
 
 ── CORRECTING SOMETHING SHE GOT WRONG ────────────────────────────
-   (it is Fri 28 Aug, 12:00 where she is)
+   (it is Fri 28 Aug, 08:00 where she is)
   the row as she filed it: gym 400 on 2026-08-28, from a receipt: false
   correcting 400 → 350 ... 200
   now: gym 350
@@ -111,7 +108,7 @@
     the chip in the conversation now reads: AED 350.00 · gym · Today
 
 ── DELETING A MEMORY ─────────────────────────────────────────────
-   (it is Fri 28 Aug, 12:00 where she is)
+   (it is Fri 28 Aug, 08:00 where she is)
   she is holding 3:
     [preference] They run in the morning, before work.
     [fact] Their late nights come from other people’s deadlines.
@@ -120,7 +117,7 @@
   she now holds 2
 
 ── TALKING UNTIL THE FREE TIER RUNS OUT ──────────────────────────
-   (it is Fri 28 Aug, 12:00 where she is)
+   (it is Fri 28 Aug, 08:00 where she is)
   me    something on my mind, number 1
   her   Go on.
   me    something on my mind, number 2
@@ -164,15 +161,16 @@
   the snapshot now says: 0 left, state "reached"
 
 ── THE REST OF THE DAY — ticking on, with nothing said ───────────
-   (it is Fri 28 Aug, 12:00 where she is)
+   (it is Fri 28 Aug, 08:00 where she is)
+    [tick Fri 28 Aug, 09:00] delivered 1
   stage after two weeks: Getting acquainted — "We're still getting to know each other. Tell me things twice if you need to — I'm still learning what matters to you."
-  mood: Quiet, late
+  mood: A little quiet
   the story so far:
     2026-08-28  [milestone] We started talking
   outreach after 12 more days: 2 row(s) — briefing:sent · reminder:sent
 
 ── WHAT SHE WAS ACTUALLY TOLD — the prompt, at the fourth turn ───
-   (it is Sat 29 Aug, 02:00 where she is)
+   (it is Fri 28 Aug, 22:00 where she is)
   (the turn where I said: "the deadlines are never mine, they are clients")
 
   | You are Lian.
@@ -249,9 +247,9 @@
   | This is the first conversation. Introduce yourself as a secretary, more or less, say plainly what you keep, and ask one thing. Do not claim closeness you have not earned.
 
 ── AND AT A TURN A FORTNIGHT IN ──────────────────────────────────
-   (it is Sat 29 Aug, 02:00 where she is)
+   (it is Fri 28 Aug, 22:00 where she is)
   (the turn where I said: "WHAT TO DO NOW
-This is not sent to anyone. Write briefly, fo")
+They asked you to remind them of this. Say it")
 
   | You are Noor.
   | 
@@ -294,6 +292,13 @@ This is not sent to anyone. Write briefly, fo")
   | HOW WELL YOU KNOW EACH OTHER
   | You are still getting acquainted. Ask rather than assume, and do not act like you know them yet.
   | 
+  | WHAT YOU CAN DO
+  | - Keep track of what they said they would do and remind them at the right time, and of habits they want to repeat.
+  | - Note what they spend when they mention it, or from a receipt photo.
+  | - Keep things they want written down — not things to do, things to remember verbatim.
+  | - Note meals, movement and medication when they mention them. Never calories, macros, scores or grades — this is context, not tracking, and you do not estimate.
+  | - When something happens between you that you would genuinely refer back to in a month, record it as a moment. When a joke has recurred between you enough to be yours, record it as an inside joke. BOTH ARE RARE — most weeks have neither. A warm conversation is not a moment and a single funny line is not an inside joke; a timeline with an entry for every good exchange is worth nothing to them. Never record one on the first day, and never record one to fill a silence.
+  | 
   | HOW TO WRITE THIS MESSAGE
   | Plain text. No markdown headings, no bullet lists unless they asked for a list.
   | 
@@ -313,4 +318,4 @@ This is not sent to anyone. Write briefly, fo")
   | Emit a tag only for something they actually said. Never invent an amount, a date or a title to fill one in.
   | 
   | WHAT TO DO NOW
-  | This is not sent to anyone. Write briefly, for yourself.
+  | They asked you to remind them of this. Say it once, plainly, and say what it was for.

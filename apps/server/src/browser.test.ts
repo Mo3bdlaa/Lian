@@ -364,6 +364,20 @@ describe('the app, in a browser', { skip: SKIP }, () => {
 
     await page.goto(`${base}/security`);
     await page.waitFor('!!document.querySelector(`[data-action="sign-out-everywhere"]`)', 10_000);
+
+    // THE SCREEN HAS TO ANSWER ITS OWN QUESTION, which is "was that me?".
+    // A row saying "Device" answers nothing, and that is what it said for two
+    // runs — not because the parse was missing, but because the SEED wrote a
+    // user_agent of 'Mozilla/5.0' beside a `label` column nothing read. This
+    // asserts against the real browser's own user agent, which is the only
+    // string that can prove the derivation works.
+    const label = await page.evaluate<string>('document.body.innerText');
+    assert.match(label, /Chrome|Chromium|Safari/, 'the device row does not name a browser');
+    assert.doesNotMatch(
+      label, /\bUnknown device\b/,
+      'a real browser was labelled "Unknown device" — the user agent is not reaching deviceLabel',
+    );
+
     await page.click('[data-action="sign-out-everywhere"]');
     await page.waitFor('location.pathname === "/welcome"', 10_000);
 

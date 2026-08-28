@@ -689,8 +689,8 @@ saying hello.
    storage credentials against a real bucket — the first real upload is also
    the first real SigV4 check.
 4. **Arabic needs a native pass.** The catalogue is ~470 strings now.
-5. **An accessibility pass**: no screen reader run, no keyboard-only pass.
-   The sheets and the full-screen photo viewer are focus traps by shape.
+5. **A screen reader, and somebody who uses one.** The keyboard-only pass is
+   done (§13 below); how it is announced is not something I can test.
 
 ### And these need doing, not unblocking
 
@@ -701,30 +701,46 @@ it felt like.
    dateless tasks now, so the promise is no longer false — but the right
    answer is one more question at capture time. That is a prompt change, and
    I would not tune a prompt against a scripted model.
-7. **The Security screen cannot answer its own question.** One device,
-   labelled `Device`, `location: null`. It exists to let somebody decide
-   *was that me?* and offers nothing to decide with. Needs a User-Agent parse
-   and an IP-to-city lookup — the second is a third-party service and a
-   privacy decision, not a patch.
+7. **The Security screen half-answers its own question.** HALF OF THIS WAS
+   NEVER TRUE: the User-Agent parse exists and always did (`deviceLabel`).
+   The screenshot said "Device" because the SEED wrote `user_agent
+   'Mozilla/5.0'` beside a `label` column that nothing read — a fixture
+   disagreeing with itself, carried in this file for two runs as a product
+   gap. The seed sends real user agents now, migration 0019 drops the dead
+   column (a stored label is frozen where a derived one is not — §22's shape),
+   and a browser test asserts a real Chromium is named rather than called
+   "Unknown device". WHAT REMAINS is `location: null`, which needs an
+   IP-to-city lookup: a third-party service and a privacy decision, not a
+   patch, and yours to make.
 8. ~~**"Message limit approaching" is not shown anywhere.**~~ DONE this run.
    A quiet line above the composer, from a server-computed state, in both
    languages: `limit-approaching-ltr.png`, `limit-approaching-rtl.png`.
 9. ~~**`transactions.receipt_id` is never written.**~~ DONE last run. Written
    through the turn, `fromReceipt` reads it, and a test asserts a row
    claiming a receipt has one.
-10. **The first briefing is a money figure and four empty lists.** The rule
-    producing it is right — she has written no line, and the screen refuses
-    to invent her voice. The screen is still somebody's first meeting with
-    the product's second-biggest idea.
-11. **Money has no "her observation"** (UI-UX §7). Not in the view at all, so
-    the screen is figures and a list with nothing of her on it. It is one of
-    three remaining screenshot gaps that are missing FEATURES rather than
-    missing pictures — with `story_events`' `moment`/`inside_joke` (a control
-    tag, because deciding something WAS a moment is a judgement only she can
-    make) and the album grid (which needs bytes in a real object store, not
-    rows in a seed).
-12. **A refused message loses the person's text** — see §3.0. Found by
-    photographing the reached state, which nothing had ever done.
+10. ~~**The first briefing is a money figure and four empty lists.**~~ NOT
+    TRUE, and it is the second false claim from the same cause as the
+    reminder alarm. `briefingOn` reads a window of midnight to midnight WHERE
+    THEY ARE — in Dubai, `[yesterday 20:00Z, today 20:00Z]` — and the session
+    ran after 20:00 UTC, so every row Postgres stamped fell into the next
+    Dubai day and the line read back null. With the session's person in UTC,
+    the briefing carries her line. `npm run session` now says loudly when a
+    briefing message exists and the screen shows none, because that is the
+    harness rather than the product.
+11. ~~**Money has no "her observation"**~~ (UI-UX §7). DONE — arithmetic over
+    the month's rows, never a model's opinion about somebody's spending, and
+    absent far more often than present. `story_events`' `moment` and
+    `inside_joke` are done too, as control tags. The only remaining
+    screenshot gaps are headless Chromium's limits: the OS notification, the
+    browser's install dialog, the microphone, and object bytes for a full
+    album.
+12. ~~**A refused message loses the person's text.**~~ DONE — it goes back in
+    the composer, and the same rule holds for any refused write.
+13. **An accessibility pass still needs a screen reader and a person.** The
+    KEYBOARD half is done: every dialog traps focus, Escape closes, focus
+    returns to what opened it, and the page behind is `inert` (LESSONS §24,
+    tested with real key events). What no test here can answer is how any of
+    it is ANNOUNCED.
 
 ## 4. Where to look
 

@@ -77,6 +77,24 @@ const OUT = new URL('../docs/', import.meta.url).pathname;
 // stops at the database boundary can only test what happens ABOVE that
 // boundary, and nothing that joins on a stored timestamp. That is most of
 // the scheduler.
+//
+// AND THE SAME CAUSE BIT A SECOND TIME, which is why the person below lives
+// in UTC rather than Dubai. The briefing line is read from a window of
+// `atLocalHour(localDay, 0, timeZone)` to the same hour tomorrow — midnight
+// to midnight WHERE THEY ARE. In Dubai that window is [yesterday 20:00Z,
+// today 20:00Z]. Run this tool after 20:00 UTC and every row it writes is
+// stamped into the NEXT Dubai day, outside the window the injected clock
+// computes, and the briefing reads back null.
+//
+// Which it did, and I wrote "the briefing has nothing of her in it" into
+// FIRST-IMPRESSIONS as a product observation. It was the harness again.
+//
+// So the session's person is in UTC: local day, UTC day and the day every row
+// is stamped with are then the same day, at every hour, and no window can
+// slip. Quiet hours and the 05:00 proposal still work — they are hours, and
+// the hour is the thing this tool is allowed to move. The transcript is less
+// pretty and it is true at 3am.
+const TIME_ZONE = 'UTC';
 const REAL_TODAY = new Date().toISOString().slice(0, 10);
 let clock = new Date(`${REAL_TODAY}T00:00:00Z`);
 const now = (): Date => clock;
@@ -133,7 +151,7 @@ const say = (line: string): void => { log.push(line); console.log(line); };
  *  happened. */
 const localNow = (): string => new Intl.DateTimeFormat('en-GB', {
   weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-  hourCycle: 'h23', timeZone: 'Asia/Dubai',
+  hourCycle: 'h23', timeZone: TIME_ZONE,
 }).format(clock);
 const heading = (line: string): void => {
   say('');
@@ -290,7 +308,7 @@ heading('MIDNIGHT — a stranger signs up.');
 
 const email = `session-${Date.now()}@example.test`;
 const signUp = await call('POST', '/api/auth/sign-up', {
-  email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai',
+  email, password: 'a-long-enough-password', timeZone: TIME_ZONE,
   isAdult: true, agreedToTerms: true, language: 'en',
 });
 say(`  sign-up → ${signUp.status}`);
@@ -419,12 +437,26 @@ const taskRow = await db().query<{ id: string; due_on: string; completed_at: Dat
   [(await call('GET', '/api/me')).json.user.id],
 );
 say(`  the task row: ${taskRow.rows.map((r) => `due ${r.due_on}, ${r.completed_at === null ? 'open' : 'done'}`).join(' · ') || '(NO TASK AT ALL)'}`);
-say(`  today, in her zone: ${new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dubai' }).format(clock)}`);
+say(`  today, in her zone: ${new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE }).format(clock)}`);
 const briefing3 = (await call('GET', '/api/briefing')).json;
 say(`  the whole briefing: ${JSON.stringify(briefing3)}`);
 const rawTasks = (await call('GET', '/api/tasks')).json;
 say(`  /api/tasks says: ${JSON.stringify((rawTasks.tasks ?? []).map((t: any) => ({ title: t.title, dueOn: t.dueOn })))}`);
 say(`  BRIEFING on the day: "${briefing3.line ?? '(no line)'}"`);
+// A DELIVERED BRIEFING THAT DOES NOT REACH THE SCREEN IS THIS TOOL'S FAULT,
+// not the product's, and saying so here is the difference between a finding
+// and a false alarm. It has already produced one: `line: null`, written into
+// FIRST-IMPRESSIONS as "the briefing has nothing of her in it", when the
+// message existed and the local-day window had slipped past it.
+const delivered = await db().query<{ n: number }>(
+  `SELECT count(*)::int AS n FROM messages WHERE surface = 'briefing' AND deleted_at IS NULL`,
+);
+if ((delivered.rows[0]?.n ?? 0) > 0 && briefing3.line === null) {
+  say('  !! A briefing message exists and the screen shows no line.');
+  say('  !! That is the HARNESS, not the product: the local-day window this');
+  say('  !! run computed does not contain the instant Postgres stamped the');
+  say('  !! row with. Do not write this up as a finding — see the clock note.');
+}
 say(`    today       ${(briefing3.today ?? []).map((item: any) => item.title).join(' · ') || '(nothing)'}`);
 say(`    carried     ${(briefing3.carriedOver ?? []).map((item: any) => item.title).join(' · ') || '(nothing)'}`);
 const day3Messages = (await call('GET', `/api/conversations/${conversationId}/messages`)).json;
