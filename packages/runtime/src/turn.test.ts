@@ -14,7 +14,11 @@ import {
   CACHE_WRITE_TURN_SHARE, CACHE_WRITE_MULTIPLIER, CACHE_READ_MULTIPLIER, TYPICAL_CACHED_SHARE, TYPICAL_TURN,
   type Provider, type CompletionRequest,
 } from '@lian/llm';
-import { limitsFor, monthlyMessageAllowance, type CaptureSummary } from '@lian/domain';
+import {
+  limitsFor, monthlyMessageAllowance, DAYS_PER_MONTH,
+  ONBOARDING_MESSAGE_ALLOWANCE, ONBOARDING_PERIOD,
+  type CaptureSummary,
+} from '@lian/domain';
 
 const NOW = new Date('2026-05-18T06:30:00.000Z');
 
@@ -196,6 +200,55 @@ describe('the turn', () => {
     assert.equal(store.messages.filter((m) => m.role === 'user').length, limit, 'the refused message was never stored');
   });
 
+  test('being introduced has its own budget, spent once, and then the daily one', async () => {
+    // THE HOLE, found by using the product rather than reading it. Only
+    // `surface === 'chat'` reserved anything, so an account that never
+    // finished onboarding had no message limit at all — and onboarding does
+    // not finish until the notification permission is answered, which only a
+    // browser can do. A person can sit in that state indefinitely.
+    const store = fakeTurnPorts();
+    const ports: TurnPorts = {
+      prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(), turn: store.turn,
+      provider: fakeProvider('hello', 7, { inputTokens: 0, outputTokens: 0 }), absorb: fakeAbsorb().fn,
+    };
+    const introducing = () => input({ surface: 'onboarding' });
+
+    // The introduction does not touch the daily allowance. Somebody should
+    // not burn half of their first day getting to the point where the
+    // product starts.
+    for (let turn = 0; turn < ONBOARDING_MESSAGE_ALLOWANCE; turn += 1) {
+      const result = await runTurn(introducing(), ports, collectingSink().sink);
+      assert.equal(result.status, 'done', `onboarding turn ${turn + 1} was refused`);
+    }
+    const chat = await runTurn(input(), ports, collectingSink().sink);
+    assert.equal(chat.status, 'done', 'the daily allowance was spent on the introduction');
+
+    // And then it FALLS THROUGH to the daily counter, which is the half that
+    // closes the hole. One chat turn is already spent above, so the rest of
+    // the day is the allowance minus one.
+    const daily = limitsFor('free').messagesPerDay;
+    for (let turn = 0; turn < daily - 1; turn += 1) {
+      const result = await runTurn(introducing(), ports, collectingSink().sink);
+      assert.equal(result.status, 'done', `fall-through turn ${turn + 1} was refused early`);
+    }
+    const refused = await runTurn(introducing(), ports, collectingSink().sink);
+    assert.equal(
+      refused.status, 'message_limit_reached',
+      'an account that never finishes onboarding still has no limit — the hole is open',
+    );
+
+    // LIFETIME, not daily: that is the anti-farming property. A new local day
+    // refills the daily counter and must NOT refill the introduction, or this
+    // is the same hole with a smaller number in it.
+    const tomorrow = await runTurn(
+      { ...introducing(), now: new Date(input().now.getTime() + 24 * 60 * 60 * 1000) },
+      ports, collectingSink().sink,
+    );
+    assert.equal(tomorrow.status, 'done', 'a new day should refill the DAILY counter');
+    const spent = await store.turn.reserve('u-1', 'onboarding', ONBOARDING_PERIOD, ONBOARDING_MESSAGE_ALLOWANCE, 1);
+    assert.equal(spent, false, 'the onboarding budget refilled — it is meant to be spent once, ever');
+  });
+
   test('her daily reach-out has its own budget — PRD §11: she is not gone', async () => {
     const store = fakeTurnPorts();
     const ports: TurnPorts = {
@@ -253,10 +306,31 @@ describe('the turn', () => {
     // against the cache-read figure alone would be optimistic in exactly the
     // way the last mistake was.
     const perTurn = blendedTurnMicros(DEFAULT_MODEL);
+
+    // THE FIRST MONTH, which is the expensive one and the one that has to
+    // fit: it carries the twenty onboarding turns on top of the daily
+    // allowance. Later months do not, because the introduction is budgeted
+    // once per account and never resets. A ceiling checked only against the
+    // cheap months is not a ceiling — and until onboarding had a budget at
+    // all, the first month was not bounded in any direction.
+    const firstMonth = perTurn * monthlyMessageAllowance('free', true);
+    assert.ok(
+      firstMonth <= limits.modelCostPerMonth,
+      `a free user's FIRST month — ${monthlyMessageAllowance('free', true)} turns, `
+      + `${DAYS_PER_MONTH} days of allowance plus ${ONBOARDING_MESSAGE_ALLOWANCE} of introduction `
+      + `— costs ${firstMonth} micros and must fit the ceiling (${limits.modelCostPerMonth})`,
+    );
     const monthly = perTurn * monthlyMessageAllowance('free');
     assert.ok(
       monthly <= limits.modelCostPerMonth,
       `a month of free messages (${monthly} micros) must fit the ceiling (${limits.modelCostPerMonth})`,
+    );
+    // The margin, printed rather than asserted, because it is the number that
+    // decides whether the onboarding allowance can grow. It is thin.
+    console.log(
+      `      first month: ${monthlyMessageAllowance('free', true)} turns = ${firstMonth} of `
+      + `${limits.modelCostPerMonth} — ${((firstMonth / limits.modelCostPerMonth) * 100).toFixed(1)}% used, `
+      + `${limits.modelCostPerMonth - firstMonth} micros spare`,
     );
     // Printed with the assumption attached, because this number has been
     // read as measured twice and it is not: the blend depends on how many

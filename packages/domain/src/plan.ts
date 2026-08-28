@@ -121,10 +121,57 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   },
 };
 
-/** Turns a plan's daily message allowance into the monthly one the ceiling
- *  has to fund.  Used by the test that keeps the two numbers in agreement. */
-export function monthlyMessageAllowance(plan: Plan): number {
-  return PLAN_LIMITS[plan].messagesPerDay * DAYS_PER_MONTH;
+/**
+ * Onboarding has its own budget, and it is spent ONCE per account.
+ *
+ * THE HOLE THIS CLOSES, found by using the product rather than reading it:
+ * onboarding is a different surface and only `surface === 'chat'` reserved
+ * against the daily counter, so an account that never finished onboarding had
+ * no daily limit at all. Onboarding does not finish until the notification
+ * permission has been answered, and only a browser can answer it — so "never
+ * finished" is a state a real person can sit in indefinitely.
+ *
+ * The fix is NOT to spend the daily allowance on it. The daily twenty exists
+ * to bound ONGOING cost; being introduced is not ongoing, and somebody should
+ * not burn half of their first day getting to the point where the product
+ * starts. So onboarding gets its own budget and the daily one starts when
+ * onboarding completes.
+ *
+ * LIFETIME, not daily, and that is the whole anti-farming property. A daily
+ * onboarding allowance would hand an account that never answers the
+ * permission card a fresh twenty every morning forever — the same hole with a
+ * smaller number in it. This is spent once and never resets; the counter's
+ * period key is a constant (`ONBOARDING_PERIOD`), the way storage's is.
+ *
+ * WHAT HAPPENS WHEN IT RUNS OUT is the second half of the fix: an onboarding
+ * turn that cannot reserve here falls through to the ordinary daily counter.
+ * So a person who is genuinely still answering gets a generous introduction,
+ * and an account that is not answering ends up on the same twenty a day as
+ * everybody else. Nothing is unbounded and nothing is refused abruptly.
+ *
+ * TWENTY, because onboarding asks for four things — a name, a language,
+ * something about them, and what to call her. Five turns each is generous for
+ * somebody who rambles, and the step is derived from facts rather than
+ * counted, so answering two in one sentence costs one turn rather than two.
+ */
+export const ONBOARDING_MESSAGE_ALLOWANCE = 20;
+
+/** The period key for a counter that never resets.  See the note above. */
+export const ONBOARDING_PERIOD = 'once';
+
+/**
+ * Turns a plan's daily message allowance into the monthly one the ceiling has
+ * to fund.  Used by the test that keeps the two numbers in agreement.
+ *
+ * `includeOnboarding` is the FIRST month, which is the expensive one: it
+ * carries the twenty introduction turns on top of the daily allowance, and it
+ * is the month the ceiling has to survive. Later months do not, because the
+ * onboarding budget is spent once. The ceiling test checks the first month,
+ * because a ceiling that only fits the cheap months is not a ceiling.
+ */
+export function monthlyMessageAllowance(plan: Plan, includeOnboarding = false): number {
+  return PLAN_LIMITS[plan].messagesPerDay * DAYS_PER_MONTH
+    + (includeOnboarding ? ONBOARDING_MESSAGE_ALLOWANCE : 0);
 }
 
 export function limitsFor(plan: Plan): PlanLimits {

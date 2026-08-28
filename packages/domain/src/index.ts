@@ -2,6 +2,7 @@ export { localHour, localDayKey, atLocalHour, isValidTimeZone, type Hour } from 
 export { deriveMood, isMood, MOODS, MOOD_THRESHOLDS, type Mood, type MoodSignals } from './mood.ts';
 export {
   PLAN_LIMITS, DAYS_PER_MONTH, DEFAULT_CURRENCY, limitsFor, monthlyMessageAllowance, messageBudget, APPROACHING_THRESHOLD,
+  ONBOARDING_MESSAGE_ALLOWANCE, ONBOARDING_PERIOD,
   type Plan, type PlanLimits, type Micros, type MessageBudget,
 } from './plan.ts';
 export {

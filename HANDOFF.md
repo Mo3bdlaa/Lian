@@ -639,25 +639,32 @@ saying hello.
 
 **One thing left that is a decision rather than a key.**
 
-0. **An account that never answers the notification card has no daily limit.**
-   Found by using the product (`npm run session`), not by reading it.
-   `nextStep` will not return `done` until `notification_prompted_at` is set,
-   and only the browser's permission card sets it. Meanwhile the free counter
-   is reserved only on `surface === 'chat'`, and an unfinished onboarding is
-   the `onboarding` surface — so the two correct rules meet in a hole. My
-   session sat at `ask_notification_permission` through sixteen messages with
-   `messagesRemaining` never moving off 20.
+0. ~~**An account that never answers the notification card has no daily
+   limit.**~~ **RESOLVED, and not by either option this section offered** —
+   both accepted a premise that was wrong.
 
-   Nobody should hit a wall while being asked their name, so the fix is not
-   "count onboarding". Two ways, and it is your call:
-   (a) **Complete onboarding without the card** and ask for the permission
-       separately, on its own terms. Cleanest, and it unpicks the PRD §8
-       ordering that puts the ask after the first remembered thing.
-   (b) **Cap the onboarding surface** — after six turns it is not onboarding
-       any more, whatever the card says. One number, and it leaves §8 alone.
+   Reaching the notification card is not a nice-to-have at the end of
+   onboarding; it is the feature the whole product rests on. Proactive
+   messaging without permission is not degraded, it is absent. So "complete
+   onboarding without the card" was not a lesser option, it was shipping
+   without the product. And capping the surface at six turns fixed the
+   arithmetic by making the first conversation worse — the one conversation
+   that decides whether anybody comes back.
 
-   I did not pick because (a) changes a product ordering that was decided
-   deliberately and (b) puts a magic number where a derived state used to be.
+   **Onboarding should not have been spending the daily allowance at all.**
+   The daily twenty exists to bound ONGOING cost; being introduced is not
+   ongoing. It now has its own budget — `ONBOARDING_MESSAGE_ALLOWANCE`, twenty
+   turns, **lifetime rather than daily**, which is the anti-farming property:
+   a daily onboarding budget would be the same hole with a smaller number in
+   it. When it runs out the turn falls through to the daily counter, so a
+   genuine newcomer gets a generous introduction and an account that never
+   answers ends up on the same twenty a day as everybody else.
+
+   The cost model carries it: a free user's FIRST month is 620 turns, and
+   `npm run report:economics` prints **97.2% of the $3.00 ceiling, $0.084
+   spare**, with a warning when that margin is inside 5%. It is. The
+   allowance cannot grow without moving `modelCostPerMonth`, and that moves
+   how many free users a subscription funds.
 
 0a. **A refused message loses what the person typed.** Send at the day's limit
    and the optimistic bubble is reconciled away — nothing was written server

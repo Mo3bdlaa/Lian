@@ -13,7 +13,7 @@ import {
   CACHE_READ_MULTIPLIER, TYPICAL_CACHED_SHARE, MIN_CACHEABLE_TOKENS,
   blendedTurnMicros, typicalTurnMicros, modelEntry,
 } from '@lian/llm';
-import { limitsFor, monthlyMessageAllowance } from '@lian/domain';
+import { limitsFor, monthlyMessageAllowance, ONBOARDING_MESSAGE_ALLOWANCE } from '@lian/domain';
 import { economics, closeDb, databaseUrl } from '@lian/db';
 
 const money = (micros: number): string => `$${(micros / 1_000_000).toFixed(4)}`;
@@ -66,10 +66,23 @@ async function main(): Promise<void> {
   const turns = monthlyMessageAllowance('free');
   const monthly = perTurn * turns;
   const ceiling = limitsFor('free').modelCostPerMonth;
+  // The FIRST month carries the introduction as well, once. Later months do
+  // not, because the onboarding budget is a lifetime one. Both are printed
+  // because the ceiling has to survive the first and the funding arithmetic
+  // below is about the steady state.
+  const firstTurns = monthlyMessageAllowance('free', true);
+  const firstMonth = perTurn * firstTurns;
   console.log('');
   console.log(`free tier`);
-  console.log(`  ${turns} turns/month × ${money(perTurn)} blended = ${money(monthly)}`);
-  console.log(`  ceiling ${money(ceiling)} — ${((monthly / ceiling) * 100).toFixed(0)}% used`);
+  console.log(`  first month  ${firstTurns} turns × ${money(perTurn)} blended = ${money(firstMonth)}`);
+  console.log(`               (${turns} of allowance + ${ONBOARDING_MESSAGE_ALLOWANCE} of onboarding, spent once per account)`);
+  console.log(`               ceiling ${money(ceiling)} — ${((firstMonth / ceiling) * 100).toFixed(1)}% used, ${money(ceiling - firstMonth)} spare`);
+  console.log(`  after that   ${turns} turns/month = ${money(monthly)}`);
+  console.log(`               ceiling ${money(ceiling)} — ${((monthly / ceiling) * 100).toFixed(0)}% used`);
+  if (firstMonth > ceiling * 0.95) {
+    console.log(`  ⚠ the first month is within 5% of the ceiling. ONBOARDING_MESSAGE_ALLOWANCE`);
+    console.log(`    cannot grow without moving modelCostPerMonth, and that moves the line below.`);
+  }
   // NET of payment fees, not gross. Stripe takes 2.9% + 30¢ for the card AND
   // 0.7% for Billing, which is what a subscription is — read 2026-08-27. That
   // is $0.62 on $9, and this line was 7% optimistic while it used the gross

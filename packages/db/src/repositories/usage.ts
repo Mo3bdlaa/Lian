@@ -10,6 +10,10 @@ import type { UserScope } from '../scope.ts';
 
 export type CounterKind =
   | 'messages' | 'proactive' | 'model_cost_micros' | 'tts_chars' | 'stt_seconds'
+  /** The introduction, budgeted once per account rather than per day — see
+   *  ONBOARDING_MESSAGE_ALLOWANCE and migration 0018. Its period key is the
+   *  constant 'once', so it never resets and cannot be farmed. */
+  | 'onboarding'
   /** Bytes HELD, not bytes uploaded — it moves in both directions and has no
    *  period. See migration 0009. */
   | 'storage_bytes';

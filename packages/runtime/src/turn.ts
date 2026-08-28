@@ -19,7 +19,11 @@
 import { assemblePrompt, type PromptPorts, type Surface } from '@lian/prompt';
 import { TagStream, type Provider, type TagSpec, turnCostMicros, modelEntry, budgetFor } from '@lian/llm';
 import { ownerOfTag, tagSpecs, type CapabilityPorts } from '@lian/capabilities';
-import { limitsFor, localDayKey, stripOurMarkers, SUBSTANTIVE_MESSAGES_PER_QUALIFYING_DAY, type CaptureSummary, type Plan } from '@lian/domain';
+import {
+  limitsFor, localDayKey, stripOurMarkers, SUBSTANTIVE_MESSAGES_PER_QUALIFYING_DAY,
+  ONBOARDING_MESSAGE_ALLOWANCE, ONBOARDING_PERIOD,
+  type CaptureSummary, type Plan,
+} from '@lian/domain';
 import { t } from '@lian/i18n';
 
 export type AbsorbFn = (input: {
@@ -52,7 +56,10 @@ export type TurnPorts = {
      *  the repository, so a stolen id belongs to nobody. */
     linkReceipt(userId: string, transactionId: string, attachmentId: string): Promise<void>;
     voidCaptures(userId: string, messageId: string): Promise<{ entityTable: string; entityId: string }[]>;
-    reserve(userId: string, kind: 'messages' | 'proactive', periodKey: string, ceiling: number, by: number): Promise<boolean>;
+    /** `onboarding` is a LIFETIME counter — its period key is the constant
+     *  ONBOARDING_PERIOD rather than a day, so it is spent once per account.
+     *  The other two reset. See ONBOARDING_MESSAGE_ALLOWANCE. */
+    reserve(userId: string, kind: 'messages' | 'proactive' | 'onboarding', periodKey: string, ceiling: number, by: number): Promise<boolean>;
     /** Distinct from reserve() on purpose: "is there room left?" and "take
      *  one" are different questions, and an overloaded by=0 argument is how
      *  two implementations of a port quietly disagree. */
@@ -143,8 +150,34 @@ export async function runTurn(input: TurnInput, ports: TurnPorts, sink: TurnSink
   const month = localDay.slice(0, 7);
 
   // ── 1. budget ───────────────────────────────────────────────────────────
-  // Both ceilings are reserved atomically in the database.  In-process
+  // Every ceiling is reserved atomically in the database.  In-process
   // counting is not a limit (LESSONS §12), and a refusal must not increment.
+  //
+  // ONBOARDING IS BUDGETED SEPARATELY, and this is where the hole was: only
+  // `surface === 'chat'` reserved anything, so an account that never finished
+  // onboarding had no message limit at all — and onboarding does not finish
+  // until the notification permission is answered, which only a browser can
+  // do. A person can sit in that state indefinitely.
+  //
+  // The daily allowance is not the right instrument for it: it exists to
+  // bound ONGOING cost, and being introduced is not ongoing. Spending half of
+  // somebody's first day on it makes the one conversation that decides
+  // whether they come back worse.
+  //
+  // So: a lifetime budget of twenty for the introduction, and WHEN IT RUNS
+  // OUT the turn falls through to the ordinary daily counter. That is the
+  // half that actually closes the hole — a genuine newcomer gets a generous
+  // introduction, and an account that never answers ends up on the same
+  // twenty a day as everybody else. Nothing is unbounded.
+  if (input.surface === 'onboarding') {
+    const introduction = await ports.turn.reserve(
+      input.userId, 'onboarding', ONBOARDING_PERIOD, ONBOARDING_MESSAGE_ALLOWANCE, 1,
+    );
+    if (!introduction) {
+      const daily = await ports.turn.reserve(input.userId, 'messages', localDay, limits.messagesPerDay, 1);
+      if (!daily) return { status: 'message_limit_reached', line: t('limit.reached', input.language, input.assistantGender) };
+    }
+  }
   if (input.surface === 'chat') {
     const granted = await ports.turn.reserve(input.userId, 'messages', localDay, limits.messagesPerDay, 1);
     if (!granted) return { status: 'message_limit_reached', line: t('limit.reached', input.language, input.assistantGender) };

@@ -86,12 +86,13 @@ worth knowing:
 - **A person who never answers the card never finishes onboarding.** They are
   not stuck in a visible way — the app works — but the last onboarding
   question (naming her) sits in front of everything, forever.
-- **The free message limit is not enforced during onboarding.** Onboarding is
-  a different surface, and only `surface === 'chat'` reserves against the
-  daily counter. That is *right* — nobody should hit a wall while being asked
-  their name — but combined with the point above it means **an account that
-  never answers the permission card has no daily limit at all.** I do not
-  think that is intended. It is small and it is a real hole.
+- **The free message limit was not enforced during onboarding.** Onboarding is
+  a different surface, and only `surface === 'chat'` reserved against the
+  daily counter — so **an account that never answered the permission card had
+  no daily limit at all.** FIXED: onboarding has its own twenty-turn budget,
+  spent once per account and never reset, and a turn that cannot reserve
+  against it falls through to the daily counter. Nobody hits a wall while
+  being asked their name, and nobody talks forever by declining to answer.
 
 ## 3. The middle of it works, and one part of it is quietly excellent
 
@@ -280,10 +281,9 @@ command (`npm run preflight model`, then `npm run session`, ≈$0.25):
 
 ## The three things I would do next, in order
 
-1. **Close the onboarding hole.** An account that never answers the
-   notification card should still get a daily limit. Either the free counter
-   applies to the onboarding surface after the first N turns, or onboarding
-   completes without the card and the card is asked separately.
+1. ~~**Close the onboarding hole.**~~ Done — a separate lifetime budget for
+   the introduction, falling through to the daily one. See HANDOFF §3.0 for
+   why neither of the two options I first proposed was right.
 2. **Give the briefing something of her on day one.** Not invented — but
    "nothing happened yet" said in her voice is better than a null.
 3. **Run the real-model session.** Half of this document is a ⚠.

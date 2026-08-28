@@ -35,6 +35,10 @@
   after five exchanges: still onboarding, step "ask_notification_permission"
 
   >> She is waiting on the notification permission, which only the BROWSER can answer.
+  >> This is the state that had no message limit at all. It now spends a
+  >> separate lifetime budget, and falls through to the daily one after:
+     onboarding counter: 5 of 20 spent, period 'once' (never resets)
+     daily counter untouched: 20 messages left today
   >> Answering it the way somebody who taps "Not now" does:
      POST /api/push/prompted {dismissed} → 200
      now: onboarding is DONE
@@ -91,7 +95,7 @@
     after the 10:00 tick: reminder SENT, message written
   the task row: due 2026-08-28, open
   today, in her zone: 2026-08-28
-  the whole briefing: {"day":"2026-08-28","line":"Go on.","today":[{"id":"ec4c820f-818f-48bc-9937-ce61cfc175b9","title":"call the bank","done":false}],"carriedOver":[],"habits":[],"pattern":null,"money":{"outMinor":690000,"currency":"AED"}}
+  the whole briefing: {"day":"2026-08-28","line":"Go on.","today":[{"id":"22695207-9ac0-4fa1-ba51-622ed7905f9b","title":"call the bank","done":false}],"carriedOver":[],"habits":[],"pattern":null,"money":{"outMinor":690000,"currency":"AED"}}
   /api/tasks says: [{"title":"call the bank","dueOn":"2026-08-28"}]
   BRIEFING on the day: "Go on."
     today       call the bank

@@ -320,6 +320,16 @@ say(`  after five exchanges: ${me2.onboarding === null ? 'onboarding is DONE' : 
 if (me2.onboarding !== null && me2.onboarding.step === 'ask_notification_permission') {
   say('');
   say('  >> She is waiting on the notification permission, which only the BROWSER can answer.');
+  say('  >> This is the state that had no message limit at all. It now spends a');
+  say('  >> separate lifetime budget, and falls through to the daily one after:');
+  const onboardingSpent = await db().query<{ value: number; period_key: string }>(
+    `SELECT value, period_key FROM usage_counters WHERE user_id = $1 AND kind = 'onboarding'`,
+    [me2.user.id],
+  );
+  for (const row of onboardingSpent.rows) {
+    say(`     onboarding counter: ${row.value} of 20 spent, period '${row.period_key}' (never resets)`);
+  }
+  say(`     daily counter untouched: ${me2.limits.messagesRemaining} messages left today`);
   say('  >> Answering it the way somebody who taps "Not now" does:');
   const answered = await call('POST', '/api/push/prompted', { outcome: 'dismissed' });
   say(`     POST /api/push/prompted {dismissed} → ${answered.status}`);

@@ -37,6 +37,7 @@ re-derive rather than trusting the answer.
 | **ASSUMED** | 100 sign-ups in the first month | the tier answers change at roughly 10× this |
 | **ASSUMED** | 10 of them paying | the free/paid split decides voice and storage cost entirely |
 | **ENFORCED** | free: 20 messages/day, 200 MB, no voice | `PLAN_LIMITS` in `packages/domain/src/plan.ts` |
+| **ENFORCED** | + 20 onboarding turns, **once per account, never resets** | `ONBOARDING_MESSAGE_ALLOWANCE`, same file |
 | **ENFORCED** | paid: 400 messages/day, 5 GB, 200k TTS chars/mo, 1,800 STT sec/mo | same file |
 | **ENFORCED** | free model spend: $3.00/user/month, hard | a database counter, checked before the call |
 
@@ -107,7 +108,11 @@ mark is `error.details.error_code = "enforced_spend_limit_reached"`.
 [Read 2026-08-27.]
 
 **That cap is the number to look at, and it is close.** The enforced worst
-case here is 100 free users × $3.00 = **$300/month** against a $500 cap. It is
+case here is 100 free users × $3.00 = **$300/month** against a $500 cap. The
+$3.00 already covers a first month, which is the expensive one: it carries the
+twenty onboarding turns on top of the daily allowance and comes to 97.2% of
+the ceiling. `npm run report:economics` prints that margin and warns when it
+is inside 5%, which it currently is. It is
 a ceiling and not a forecast — nobody spends their whole allowance — but the
 margin is under 2×, so the cap is the thing that bites first if the assumed
 scale is wrong in the obvious direction.
