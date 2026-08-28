@@ -1,0 +1,61 @@
+-- The vector index existed, cost 237 MB, slowed every memory write by 8%, and
+-- was used by NOTHING. Not because no query wanted it — because the one query
+-- that wants it could not use it.
+--
+-- `findSimilar` is the near-duplicate check, and it orders by pure cosine
+-- distance, which is exactly what an ivfflat index answers:
+--
+--     WHERE assistant_id = $1 AND deleted_at IS NULL AND embedding_v IS NOT NULL
+--       AND 1 - (embedding_v <=> $2) >= $3
+--     ORDER BY embedding_v <=> $2 LIMIT 1
+--
+-- The index was PARTIAL on `status = 'active' AND deleted_at IS NULL`, and a
+-- partial index is only usable when the planner can prove the query's
+-- predicate implies the index's. `findSimilar` never mentions `status`, so it
+-- could not, and Postgres fell back to a sequential scan — silently, because
+-- a slow correct answer looks exactly like a fast one from the outside.
+--
+-- MEASURED, at ten thousand memories in a table of forty thousand:
+--
+--     as written, seq scan .................. 33.1 ms
+--     the same query with status='active' ....  2.9 ms   (index scan)
+--
+-- Eleven times, on a query that runs ONCE PER EXTRACTED CANDIDATE on every
+-- single turn — so it was costing more per turn than retrieval itself.
+--
+-- TWO WAYS TO CLOSE IT, AND THE CHOICE MATTERS.
+--
+--   (a) Add `status = 'active'` to findSimilar. One line, and WRONG: it
+--       changes behaviour. Memories waiting in the pending queue would stop
+--       being seen by the duplicate check, so an account at capacity would
+--       quietly accumulate duplicates in the queue — a real bug, traded for
+--       a fast query.
+--
+--   (b) Widen the INDEX to match the query. No behaviour changes at all, and
+--       the index grows only by the pending rows — which are capped at
+--       PENDING_QUEUE_CAP = 20 per assistant, so the growth is nothing.
+--
+-- (b), obviously, and it is worth writing down that (a) is the tempting one:
+-- it is the smaller diff, it is in the file you are already looking at, and
+-- its cost is invisible until somebody is at capacity.
+--
+-- `embedding_v IS NOT NULL` joins the predicate as well. Rows without an
+-- embedding cannot be ordered by distance and are excluded by both queries;
+-- keeping them out of the index makes it smaller and makes the implication
+-- the planner has to prove more direct.
+DROP INDEX memories_embedding_idx;
+
+CREATE INDEX memories_embedding_idx ON memories
+  USING ivfflat (embedding_v vector_cosine_ops) WITH (lists = 100)
+  WHERE deleted_at IS NULL AND embedding_v IS NOT NULL;
+
+-- A NOTE FOR WHOEVER OPERATES THIS, because it is not fixable from a
+-- migration: an ivfflat index computes its list centroids FROM THE DATA IT IS
+-- BUILT ON, and a migration runs against an empty table. Built empty and then
+-- filled with ten thousand vectors, this index returns **2** of the 60 nearest
+-- when asked. Rebuilt after the data exists it returns 60 of 60, in 2ms.
+--
+-- So `REINDEX INDEX CONCURRENTLY memories_embedding_idx` belongs in the
+-- operational runbook, once there is a corpus — see docs/RETRIEVAL-CEILING.md.
+-- Nothing here can do it, and nothing in the product will notice if it is not
+-- done, because the failure is a duplicate memory rather than an error.

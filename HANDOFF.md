@@ -593,13 +593,18 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
     monthly meter as a turn** — a hundred photographs cannot go around the
     limit a hundred messages cannot go around.
 
-17a. **Onboarding messages do not count against the daily limit.** Nine turns
-    on a "20 a day" plan while the app still said 20. The monthly cost
-    ceiling is the real bound so the business is safe, but the number on
-    screen is wrong for the first nine messages of somebody's life with the
-    product. Left as it is — burning a quarter of your first day on the setup
-    conversation is worse — and recorded because it is a decision, not an
-    oversight.
+17a. ~~**Onboarding messages do not count against the daily limit.**~~
+    **SUPERSEDED — and the complaint in it was the right one.** This entry
+    used to say nine onboarding turns were spent on a "20 a day" plan while
+    the screen still said 20, that the monthly cost ceiling made it safe, and
+    that it was being left alone. Two things came out of that: the leak was
+    real (an account that never answers the notification card had **no daily
+    limit at all**, because only `surface === 'chat'` reserved anything), and
+    the screen was not wrong so much as describing a budget nobody was
+    spending. Onboarding now has its **own lifetime budget** of twenty
+    (`ONBOARDING_MESSAGE_ALLOWANCE`), and the daily twenty is untouched until
+    it runs out — so the number on screen is now true, and being introduced no
+    longer costs somebody a quarter of their first day. See §3.0 above.
 
 17b. **Moments and inside jokes are NOT built, deliberately.** UI-UX §8 lists
     three timeline types; milestones are derived from facts the product has,
@@ -792,17 +797,19 @@ npm run session -- --real   # the same session, her voice instead of mine
 
 `--real` is opt-in rather than "use a key if one is set" — a tool that spends
 money because an environment variable was exported is one nobody runs twice.
-It refuses with a useful message if there is no key, prints the estimate
-before spending anything (≈$0.19 for forty turns, from the catalogue rather
-than a guess), and the free plan's own $3.00 ceiling bounds it whatever
-happens. The transcript's first line says which model answered, so a scripted
-run can never be mistaken for a real one later.
+It refuses with a useful message if there is no key, and it **prints the
+estimate before spending anything** — **≈ $0.26**: $0.19 of chat turns plus
+$0.07 of the extraction calls that run beside them, from the catalogue rather
+than a guess. The free plan's own $3.00 ceiling bounds it whatever happens,
+and the transcript's first line says which model answered, so a scripted run
+can never be mistaken for a real one later.
+
 `npm run preflight model` first — four output tokens, a fraction of a cent,
 and it separates the four failures that all look like "she did not answer".
-Then the session: **≈ $0.25**, computed from the catalogue rather than
-guessed, and bounded at $3.00 by the free plan's own ceiling whatever
-happens. `docs/FIRST-RUN.md` has the arithmetic and its assumptions. This is
-the one thing in the repository that has never happened, and it is the half of
+`docs/FIRST-RUN.md` carries the same breakdown for reading, and says the tool
+is the source: the two were computed separately and disagreed ($0.19 against
+$0.25) because the tool's version left the extraction calls out. This is the
+one thing in the repository that has never happened, and it is the half of
 FIRST-IMPRESSIONS that is not first-hand.
 
 **DECIDED, and it was neither of the two options this section offered.** She

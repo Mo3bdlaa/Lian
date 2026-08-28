@@ -280,6 +280,28 @@ psql "$DATABASE_URL" -c "select * from pg_available_extensions where name = 'vec
 npm run migrate
 ```
 
+**RECURRING, AND NOTHING WILL REMIND YOU: rebuild the vector index once there
+are real memories.**
+
+An ivfflat index computes its list centroids **from the data it is built on**,
+and a migration necessarily runs against an empty table. Measured: built empty
+and then filled with ten thousand vectors, `memories_embedding_idx` returns
+**2** of the 60 nearest when asked. Rebuilt after the data exists it returns
+**60 of 60, in 2 ms**.
+
+```sh
+psql "$DATABASE_URL" -c "REINDEX INDEX CONCURRENTLY memories_embedding_idx"
+```
+
+**Once, after the first few hundred accounts have a history**, and again after
+any bulk import or re-embed. `CONCURRENTLY` so it does not lock writes.
+
+**Nothing in the product will notice if this is never done**, which is the
+reason it is written here rather than left to be discovered: the index serves
+the near-duplicate check, so the failure mode is *a memory she already had,
+stored a second time* — no error, no alert, just her repeating herself
+slightly more often than she should. See `docs/RETRIEVAL-CEILING.md`.
+
 ---
 
 ## 6. Transactional email — needs step 1's DNS

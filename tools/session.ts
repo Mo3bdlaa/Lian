@@ -42,7 +42,8 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { loadConfig } from '../apps/server/src/config.ts';
 import { createApplication } from '../apps/server/src/app.ts';
 import { deterministicEmbedder, EMBEDDING_DIMENSIONS, type AnalysisModel } from '@lian/analysis';
-import { DEFAULT_MODEL, blendedTurnMicros, type Provider } from '@lian/llm';
+import { DEFAULT_MODEL, blendedTurnMicros, costMicros, type Provider } from '@lian/llm';
+import { ANALYSIS_MODEL } from '../apps/server/src/analysis.ts';
 import { generateVapidKeys } from '@lian/push';
 import { migrate, closeDb, db } from '@lian/db';
 import type { AddressInfo } from 'node:net';
@@ -266,10 +267,24 @@ if (REAL && config.modelApiKeys.length === 0) {
 }
 if (REAL) {
   // The estimate, before anything is spent, from the catalogue rather than a
-  // guess. `blendedTurnMicros` is the same function the ceiling rests on.
+  // guess. `blendedTurnMicros` is the same function the free tier's ceiling
+  // rests on, so if this is wrong that is wrong by the same factor.
+  //
+  // THE EXTRACTION CALLS ARE IN IT. The first version counted chat turns only
+  // and quoted $0.19, while docs/FIRST-RUN.md's hand-built table said $0.25 —
+  // two numbers for the same run, in two places, disagreeing (LESSONS §22).
+  // The table was right: every exchange also runs memory extraction and canon
+  // extraction on the cheap model, and an estimate somebody reads before
+  // spending money should not omit forty per cent of the spend.
   const turns = 40;
-  const estimate = (blendedTurnMicros(DEFAULT_MODEL) * turns) / 1_000_000;
-  console.log(`\nREAL MODEL. About ${turns} turns, roughly $${estimate.toFixed(2)} at catalogue prices.`);
+  const chat = blendedTurnMicros(DEFAULT_MODEL) * turns;
+  // ASSUMPTION, the same one FIRST-RUN.md states: two extraction calls per
+  // exchange at roughly 600 in / 60 out, on the analysis tier.
+  const extraction = costMicros(ANALYSIS_MODEL, { inputTokens: 600, outputTokens: 60 }) * turns * 2;
+  const estimate = (chat + extraction) / 1_000_000;
+  console.log(`\nREAL MODEL. About ${turns} turns, roughly $${estimate.toFixed(2)} at catalogue prices`);
+  console.log(`  ${turns} chat turns on ${DEFAULT_MODEL}      $${(chat / 1_000_000).toFixed(2)}`);
+  console.log(`  ${turns * 2} extraction calls on ${ANALYSIS_MODEL}  $${(extraction / 1_000_000).toFixed(2)}`);
   console.log('The free plan\'s own $3.00 monthly ceiling bounds it whatever happens.\n');
 }
 const app = createApplication(config, {

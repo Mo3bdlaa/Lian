@@ -489,10 +489,18 @@ $2/$10 per million tokens, not estimated:
 
 | | |
 |---|---|
-| ~30 chat turns (9 onboarding + 20 to the free limit + 1) | **$0.14** |
-| ~60 extraction calls beside them (memory + canon per exchange) | **$0.11** |
-| **total** | **≈ $0.25** |
+| ~40 chat turns (onboarding, a day of talking, and 20 to the free limit) | **$0.19** |
+| ~80 extraction calls beside them (memory + canon per exchange) | **$0.07** |
+| **total** | **≈ $0.26** |
 | if every turn runs long and nothing caches | **≈ $0.75** |
+
+**`npm run session -- --real` prints this same breakdown before it spends
+anything**, computed by the same catalogue functions — so the table above is a
+copy for reading, and the tool is the source. An earlier version of each was
+built separately and they disagreed ($0.19 against $0.25), because the tool's
+counted only chat turns and left out the extraction calls that run beside every
+one. Two places that compute the same number will disagree (LESSONS §22); this
+one is settled by the tool printing it.
 
 ASSUMPTIONS: a turn is 3,000 in / 200 out (`TYPICAL_TURN`), blended at
 one cache write in ten — which is the same arithmetic the free tier's $3.00

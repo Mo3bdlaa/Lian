@@ -584,3 +584,76 @@ describe('LESSONS §30 — the claim, against real concurrency', { skip: HAS_DB 
     assert.equal(due.filter((d) => d.id === row!.id).length, 1, 'the deferred row stayed hidden');
   });
 });
+
+describe('the vector index is one a real query can actually use', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, () => {
+  before(async () => { await ready(); });
+  after(async () => { await done(); });
+
+  /**
+   * AN INDEX THAT CANNOT BE USED LOOKS EXACTLY LIKE ONE THAT IS NOT NEEDED.
+   *
+   * `memories_embedding_idx` was partial on `status = 'active'`, and
+   * `findSimilar` — the only query in the product that orders by pure cosine
+   * distance — never mentions `status`. A partial index is usable only when
+   * the planner can prove the query's predicate implies the index's, so it
+   * could not, and Postgres fell back to a sequential scan. Silently: a slow
+   * correct answer is indistinguishable from a fast one from the outside.
+   *
+   * MEASURED at ten thousand memories: 33.1ms sequential against 2.9ms
+   * indexed, on a query that runs once per extracted candidate on EVERY turn.
+   *
+   * WHY THIS IS A STRUCTURAL ASSERTION AND NOT AN `EXPLAIN` ONE. The obvious
+   * test is to run EXPLAIN and look for an index scan. That was written first
+   * and thrown away: with one row in the table the planner picks the btree on
+   * `assistant_id` instead — correctly, because at that size it is cheaper —
+   * so the test failed while the schema was right. `enable_seqscan = off`
+   * does not help, because the competing path is also an index. Making it
+   * pass would mean seeding thousands of rows in a unit test to bribe the
+   * planner, and the result would still depend on which other indexes exist.
+   *
+   * The DEFECT was structural — a predicate that excluded its only caller —
+   * so the test is structural. It asserts the shape that made the index
+   * unusable cannot come back.
+   */
+  test('the vector index does not exclude its only caller', async () => {
+    const { rows } = await db().query<{ indexdef: string }>(
+      `SELECT indexdef FROM pg_indexes WHERE tablename = 'memories' AND indexname = 'memories_embedding_idx'`,
+    );
+    assert.equal(rows.length, 1, 'the vector index is gone');
+    const definition = rows[0]!.indexdef;
+
+    // THE BUG, precisely. findSimilar does not filter on status, so a partial
+    // index that requires one can never serve it.
+    assert.ok(
+      !/status/.test(definition),
+      `the vector index is partial on a column findSimilar does not filter, so it cannot be used:\n${definition}`,
+    );
+
+    // And what it must still narrow to, or it indexes rows that can never be
+    // an answer: deleted memories, and rows with no vector at all.
+    assert.match(definition, /deleted_at IS NULL/);
+    assert.match(definition, /embedding_v IS NOT NULL/);
+    assert.match(definition, /ivfflat/);
+  });
+
+  test('and the duplicate check still sees a memory waiting in the pending queue', async () => {
+    // The behaviour the cheaper fix would have broken. Adding `status =
+    // \'active\'` to findSimilar would have made the index usable too — and
+    // would have stopped the duplicate check seeing anything queued, so an
+    // account at capacity would quietly accumulate duplicates. The index was
+    // widened instead; this is the test that says why.
+    const user = await freshUser();
+    const scope = await freshAssistant(user);
+    const statement = 'They renewed the gym membership in March.';
+
+    // Capacity zero: the memory is written, and it is written as PENDING.
+    const queued = await memoriesRepo.remember(
+      scope, { type: 'fact', statement, embedding: vec(statement), embeddingModel: 't' }, 0,
+    );
+    assert.equal(queued.outcome, 'queued');
+
+    const found = await memoriesRepo.findSimilar(scope, vec(statement), 0.94);
+    assert.ok(found !== null, 'a queued memory is invisible to the duplicate check — the queue will fill with copies');
+    assert.equal(found.statement, statement);
+  });
+});
