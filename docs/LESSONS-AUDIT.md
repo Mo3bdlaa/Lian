@@ -137,24 +137,55 @@ you something. Servers are closed in `after` now.
 Only two are worth building. The rest are cheaper as prose, and saying why is
 the point of the exercise.
 
-### Worth it: §17, a scope-pairing gate — **BUILDING**
+### NOT worth it as first proposed: §17 as a SQL gate — **MEASURED, THEN ABANDONED**
 
-**The rule a gate can check:** a repository function that takes a scope *and*
-an entity id must constrain both in its SQL. `WHERE user_id = $1 AND id = $2`
-passes; `WHERE id = $2` with `$1` unused, or a second id checked against
-nothing, fails.
+I estimated this as "medium cost" and the estimate was wrong. Measuring
+before building is what killed it, and the measurement is the useful part.
 
-**Cost:** medium. It needs to find the SQL in a function, extract the
-parameters, and check that the scope parameter appears in a `WHERE`. That is a
-regex over template literals, not a SQL parser, and it will need an allowlist
-for genuinely unscoped batch queries — which already exists as the
-`db-scoping:allow-unscoped` marker.
+**The proposal:** a repository function taking a scope *and* an entity id must
+constrain both in its SQL — flag an `INSERT` carrying a foreign id with no
+ownership check.
 
-**Worth it because the rule has produced two real holes in two months**, and
-because the failure mode is invisible: the code reads correctly, every test
-passes, and the hole is only found by attacking it with a second account.
+**What the tree actually contains:** 40 `INSERT` statements in `@lian/db`, of
+which **16 carry a foreign `*_id` and have no `WHERE`, `SELECT` or `EXISTS`
+guard.** Every one of the sixteen is *correct*, because the id is derived by
+the server rather than supplied by the client: `origin_message_id` comes from
+the turn, `device_id` from the request fingerprint, `stripe_customer_id` from
+a signature-verified webhook, `voice_id` from a constant.
 
-### Worth it: §25, a dead-setting gate — **BUILDING**
+**The discriminator that matters — client-supplied versus server-derived — is
+invisible at the SQL layer.** A gate there would need a sixteen-entry
+allowlist on day one, which is a gate that has been switched off in advance.
+Moving it up to the routes would need dataflow analysis to follow an id from a
+URL parameter into the query that uses it, which is far past what a grep can
+do and past what this rule is worth.
+
+### Worth it instead: §17 as an ENUMERATED ATTACK — **BUILT**
+
+The mechanical half of §17 is not "is this id checked" — it is **"has anybody
+looked at this route at all"**. That is checkable, cheap, and precise.
+
+`apps/server/src/hardening.test.ts` now reads the real route table, takes
+every pattern containing a `:`, and requires each to appear in a map of
+attacks — with a second account, a real session, and somebody else's id. A
+route added tomorrow fails the test until somebody has decided what "not
+yours" means for it. A stale entry for a route that no longer exists fails
+too.
+
+**It found three things immediately**, which the hand-written list of six
+could not:
+
+- the list was **six of fourteen**;
+- `POST /api/messages/:id/voice` was **never actually attacked** — it
+  short-circuits on "no speech key" and answered 503 to everyone, so the
+  refusal had nothing to do with ownership;
+- `DELETE /api/:kind/:id` answered **200 to a stranger** (§18 — nothing was
+  deleted, and they were congratulated for it).
+
+Cost: an afternoon, no allowlist, and it runs the attack rather than
+describing it.
+
+### Worth it: §25, a dead-setting gate — **BUILT**
 
 **The rule:** every field on `Config` is read somewhere other than
 `config.ts`. `trustedProxies` had an env var, a parser, a test, documentation

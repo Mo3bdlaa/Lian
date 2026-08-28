@@ -238,6 +238,26 @@ describe('every gate objects to a deliberate violation (LESSONS §15)', () => {
     });
   });
 
+  test('settings:wired: a config field nothing outside config.ts reads (§25)', () => {
+    // The gate that would have caught `trustedProxies`: an env var, a
+    // parser, a validation test, docs and a ServerOptions field, and app.ts
+    // never passed it. Everything about the feature was true except that it
+    // did anything.
+    proves('settings-wired', {
+      clean: {
+        'apps/server/src/config.ts':
+          'export type Config = {\n  readonly nodeEnv: string;\n  readonly wired: number;\n};\n',
+        'apps/server/src/app.ts': 'export const x = config.wired;\n',
+      },
+      dirty: {
+        'apps/server/src/config.ts':
+          'export type Config = {\n  readonly nodeEnv: string;\n  readonly orphan: number;\n};\n',
+        'apps/server/src/app.ts': 'export const x = 1;\n',
+      },
+      says: /`orphan` is on Config and nothing outside/,
+    });
+  });
+
   test('the gates can see the product screens at all', () => {
     // Not a violation case — a BLINDNESS case, which is the failure the
     // §15 meta-tests exist for and the one they cannot express as a fixture.

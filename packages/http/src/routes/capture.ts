@@ -55,10 +55,21 @@ export function correctionRoutes(ports: CorrectionPorts): { method: 'PATCH' | 'D
 
         const result = await withIdempotency({ context, userId: session.userId, route: `delete:${kind}` }, ports, async () => {
           const removed = await ports.remove({ userId: session.userId, kind, id: context.params['id']! });
-          // Deleting something already deleted is a success: the client's
-          // intent is satisfied, and a 404 on retry is how a flaky connection
-          // turns into an error message about nothing.
-          return { status: 200, json: { deleted: removed } };
+          // 404 when nothing was removed, and the SAME 404 for "not yours"
+          // and "no such id" — §17's rule that two answers are an existence
+          // oracle, and §18's that a confirmation nobody earned is worse than
+          // an error. A stranger deleting somebody else's task used to be
+          // told `200 {deleted: false}`: nothing was removed, because the
+          // repository is scoped, and they were congratulated anyway.
+          //
+          // The retry this used to protect is already protected, one layer
+          // up: `withIdempotency` replays the stored response for a repeated
+          // key, and the client sends a key on every non-GET (apps/web/src/
+          // api.ts). So a flaky connection retrying gets the original 200 —
+          // and a first-time delete of something that is not theirs gets the
+          // truth.
+          if (!removed) throw new HttpError(404, 'not_found', 'I cannot find that');
+          return { status: 200, json: { deleted: true } };
         });
         return { status: result.status, json: result.json };
       },

@@ -26,8 +26,10 @@ import { signTick, SIGNATURE_WINDOW_SECONDS } from '@lian/jobs';
 import { memoryStore } from '@lian/storage';
 import { MAX_SCENARIO_LENGTH } from '@lian/domain';
 import { createApplication } from './app.ts';
+import { routesFor, type Deps } from './wiring.ts';
 import { loadConfig } from './config.ts';
 
+let deps: Deps;
 const HAS_DB = (process.env['DATABASE_URL'] ?? '') !== '';
 const NOW = new Date('2026-05-18T06:30:00.000Z');
 const VAPID = generateVapidKeys();
@@ -76,11 +78,24 @@ describe('attacked', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, () => {
       LIAN_VAPID_PUBLIC_KEY: VAPID.publicKey, LIAN_VAPID_PRIVATE_KEY: VAPID.privateKey,
       LIAN_PUBLIC_URL: 'http://lian.test',
     }).config;
-    const { server } = createApplication(config, {
+    const application = createApplication(config, {
       provider, analysisModel: analysis,
       embedder: deterministicEmbedder(EMBEDDING_DIMENSIONS),
       now: () => new Date(), log: () => {}, store,
+      // Speech configured, so /api/messages/:id/voice actually reaches its
+      // OWNERSHIP check. Without it the route short-circuits on "no speech
+      // key" and answers 503 to everybody — an attack that gets refused for
+      // a reason that has nothing to do with the attack proves nothing, and
+      // that is what the enumerated pass caught.
+      speech: {
+        id: 'test-speech',
+        async synthesise() { return { audio: new Uint8Array([1, 2, 3]), contentType: 'audio/mpeg' }; },
+        async transcribe() { return { text: 'transcribed', language: 'en' }; },
+      },
     });
+    const { server } = application;
+    // The real route table, so the attack list below cannot fall behind it.
+    deps = application.deps;
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     close = () => new Promise<void>((resolve) => { server.closeAllConnections(); server.close(() => resolve()); });
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -148,7 +163,108 @@ describe('attacked', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, () => {
 
   // ── 1. authorisation ────────────────────────────────────────────────────
   describe('one account reaching another', () => {
-    test('every id-bearing route refuses a stranger', async () => {
+    test('EVERY id-bearing route is attacked, and the list cannot fall behind the table', async () => {
+      // LESSONS §17 is a judgement call on every route that takes an id, and
+      // §20 is what happens to a hand-written list of them: the list below
+      // used to name six of the fourteen routes that take one, and nothing
+      // said so. A route added tomorrow inherits neither the judgement nor
+      // the test.
+      //
+      // So the ROUTE TABLE is the source, not this file. Every pattern with a
+      // `:` in it must appear here with an attack; a new one fails this test
+      // until somebody has decided what "not yours" means for it. That is the
+      // same trick as tools/gates/wired.ts, and it is the only mechanical
+      // half of §17 — the other half, whether the check is CORRECT, is the
+      // attack itself.
+      const victim = await account();
+      const attacker = await account();
+      await say(victim, 'The rent is due on the fifth.');
+
+      const id = async (table: string, where: string, value: string): Promise<string | null> => {
+        const { rows } = await db().query<{ id: string }>(
+          `SELECT id FROM ${table} WHERE ${where} = $1 AND deleted_at IS NULL LIMIT 1`, [value],
+        );
+        return rows[0]?.id ?? null;
+      };
+      const messageId = (await id('messages', 'assistant_id', victim.assistantId))!;
+      const memoryId = await id('memories', 'assistant_id', victim.assistantId);
+      const { rows: [story] } = await db().query<{ id: string }>(
+        `INSERT INTO story_events (assistant_id, type, title, occurred_at)
+         VALUES ($1, 'moment', 'theirs', now()) RETURNING id`, [victim.assistantId],
+      );
+      const begun = await call(victim.token, 'POST', '/api/attachments', { body: { kind: 'image', contentType: 'image/jpeg' } });
+      const attachmentId = ((await begun.json()) as { id: string }).id;
+      const { rows: [task] } = await db().query<{ id: string }>(
+        `INSERT INTO tasks (user_id, kind, title) VALUES ($1, 'task', 'theirs') RETURNING id`, [victim.userId],
+      );
+
+      /** Every id-bearing pattern, with the attack a stranger would make. */
+      const attacked: Record<string, () => Promise<Response>> = {
+        'GET /api/conversations/:id/messages': () => call(attacker.token, 'GET', `/api/conversations/${victim.conversationId}/messages`),
+        'POST /api/conversations/:id/messages': () => call(attacker.token, 'POST', `/api/conversations/${victim.conversationId}/messages`, { body: { message: 'hello', clientId: `x-${Date.now()}` } }),
+        'PATCH /api/conversations/:id': () => call(attacker.token, 'PATCH', `/api/conversations/${victim.conversationId}`, { body: { scenarioText: 'mine now' } }),
+        'DELETE /api/conversations/:id': () => call(attacker.token, 'DELETE', `/api/conversations/${victim.conversationId}`),
+        'POST /api/security/devices/:id/revoke': () => call(attacker.token, 'POST', `/api/security/devices/${victim.userId}/revoke`),
+        // The attacker is PAID for this one: the plan gate is checked before
+        // ownership, so a free account is refused for the wrong reason and
+        // the ownership check is never reached.
+        'POST /api/messages/:id/voice': async () => {
+          await db().query(`UPDATE users SET plan = 'paid' WHERE id = $1`, [attacker.userId]);
+          const response = await call(attacker.token, 'POST', `/api/messages/${messageId}/voice`);
+          await db().query(`UPDATE users SET plan = 'free' WHERE id = $1`, [attacker.userId]);
+          return response;
+        },
+        'POST /api/messages/:id/reactions': () => call(attacker.token, 'POST', `/api/messages/${messageId}/reactions`, { body: { kind: 'heart' } }),
+        'DELETE /api/messages/:id': () => call(attacker.token, 'DELETE', `/api/messages/${messageId}`),
+        'DELETE /api/story/:id': () => call(attacker.token, 'DELETE', `/api/story/${story!.id}`),
+        'POST /api/attachments/:id/complete': () => call(attacker.token, 'POST', `/api/attachments/${attachmentId}/complete`),
+        'GET /api/attachments/:id': () => call(attacker.token, 'GET', `/api/attachments/${attachmentId}`, { headers: { 'x-no-redirect': '1' } }),
+        'DELETE /api/attachments/:id': () => call(attacker.token, 'DELETE', `/api/attachments/${attachmentId}`),
+        // The correction routes are one pattern serving five tables, so the
+        // attack has to cover the shape rather than one path.
+        'PATCH /api/:kind/:id': () => call(attacker.token, 'PATCH', `/api/tasks/${task!.id}`, { body: { title: 'mine now' } }),
+        'DELETE /api/:kind/:id': () => call(attacker.token, 'DELETE', `/api/tasks/${task!.id}`),
+      };
+
+      // 1. THE LIST IS COMPLETE. The table decides, not this file.
+      const table = routesFor(deps).filter((route) => route.pattern.includes(':'));
+      const missing = table
+        .map((route) => `${route.method} ${route.pattern}`)
+        .filter((key) => !(key in attacked));
+      assert.deepEqual(
+        missing, [],
+        'these routes take an id from the client and nobody has decided what a stranger gets — §17 is a '
+        + 'judgement per route, and an untested one is an undecided one',
+      );
+      const stale = Object.keys(attacked)
+        .filter((key) => !table.some((route) => `${route.method} ${route.pattern}` === key));
+      assert.deepEqual(stale, [], 'these are attacked and no longer exist — a stale case is a test of nothing');
+
+      // 2. AND EVERY ONE OF THEM REFUSES.
+      for (const [what, attempt] of Object.entries(attacked)) {
+        const response = await attempt();
+        assert.ok(
+          response.status !== 200 && response.status !== 201 && response.status !== 204,
+          `a stranger got ${response.status} from ${what}`,
+        );
+        // "Not yours" and "does not exist" get the same answer (§17): two
+        // answers is an existence oracle.
+        assert.ok(
+          response.status === 404 || response.status === 403 || response.status === 422,
+          `${what} answered ${response.status} — a stranger should get the same answer a missing id gets`,
+        );
+      }
+
+      // 3. And nothing they did changed anything.
+      const { rows: after } = await db().query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM story_events WHERE id = $1 AND deleted_at IS NULL`, [story!.id],
+      );
+      assert.equal(after[0]!.n, 1, 'the attacker removed something after all');
+      const { rows: stillTheirs } = await db().query<{ title: string }>(`SELECT title FROM tasks WHERE id = $1`, [task!.id]);
+      assert.equal(stillTheirs[0]!.title, 'theirs');
+    });
+
+    test('the deeper checks on the same routes: nothing changed, and the answers do not leak', async () => {
       const victim = await account();
       const attacker = await account();
       await say(victim, 'The rent is due on the fifth.');

@@ -682,3 +682,85 @@ a setting looks like plumbing — so nothing in review pauses on it.
   them — twice — before reading them as a finding. Both fixes were real
   improvements and neither was the bug. **When a test starts failing after a
   change, the change is the suspect, not the test.**
+
+## 26. A check that matches on its own subject matter will find itself
+
+**And the failure looks like the thing working, which is why it survives.**
+
+- `until ! pgrep -f "ci-test.ts"; do sleep 10; done` **can never terminate.**
+  The waiting shell's own command line contains the string it greps for, so
+  `pgrep` matches the waiter. Four of these spun for the rest of a session,
+  each one looking exactly like a test suite that had not finished yet.
+- **The boundaries gate read its own marker as SQL.** `tools/gates/promises.ts`
+  requires every commitment to name a pattern proving its mechanism still
+  exists, and for a delete the strongest such pattern is the delete itself:
+  `/UPDATE memories SET deleted_at = now\(\)/`. The gate that forbids SQL
+  outside `@lian/db` found that regex — in a file that runs no queries and
+  imports no database — and objected. **Three times.** Twice the fix was to
+  weaken the marker, trading a real guarantee for a green gate.
+- `pgrep -c -f "node --test"` returns 1 when nothing is running.
+
+**The fix is always the same: exclude the checker from the checked set,
+explicitly.** `pgrep -f "[c]i-test.ts"` — the bracket makes the pattern not
+match its own text — and the boundaries gate strips regex literals before
+searching for SQL. One line each, and neither is discoverable from the
+failure, because the failure is silence rather than an error.
+
+**The general form, worth more than the three instances:** a check whose
+pattern is drawn from the same vocabulary as the thing it checks is a check
+that can match itself. Grep over source for a code shape; a process matcher
+over its own command line; a linter that reads its own rules file. Ask what
+the check sees when it is pointed at itself, and if the answer is "itself",
+say so in the pattern.
+
+## 27. A fixture that disagrees with the product produces findings about the fixture
+
+**Three times in a fortnight the harness misreported the product, and every
+one looked exactly like a real defect — one of them like the worst defect this
+project could have.**
+
+- **The clock stops at the database.** `createApplication` takes an injectable
+  `now`; Postgres does not. A session that travelled to September wrote rows
+  stamped with the real date, so `assistantsActiveOn` — which joins on
+  `messages.created_at` — found nobody active and proposed outreach for zero
+  assistants, every tick, for two simulated weeks. That reads as "I'll remind
+  you" being false (§21). It was the harness.
+- **A window that moves with the reader.** The briefing is read midnight to
+  midnight *where they are*; in Dubai that is `[yesterday 20:00Z, today
+  20:00Z]`. Running the session after 20:00 UTC put every row it wrote outside
+  the window, and "the briefing has nothing of her in it" went into
+  FIRST-IMPRESSIONS as a product observation.
+- **A seed that disagreed with itself.** The screenshot seed wrote
+  `user_agent 'Mozilla/5.0'` beside a `label` column nothing read, so the
+  Security screen — which derives from the first — rendered "Device". Carried
+  in HANDOFF for two runs as a missing feature. The parse had always worked.
+
+- **When a harness reports something alarming, check the harness first.** The
+  cost of being wrong in that direction is a day; the cost of the reverse is
+  believing the product is broken and "fixing" something that was right.
+- **An injectable clock that stops at a boundary can only test what happens
+  above it.** Nothing that joins on a stored timestamp is reachable that way,
+  and that is most of a scheduler.
+- **Where the harness can detect its own confusion, make it say so.**
+  `tools/session.ts` now prints, in the transcript, that a delivered briefing
+  with no line on screen is ITS fault and not a finding.
+
+## 28. A test that leaves state makes the suite history-dependent
+
+**The `auth:ip:` rate limit is a database row keyed on the client address —
+which is §12 done right. Tests then used fixed addresses, so the buckets
+accumulated across runs: green in CI, where the database is new, and red on
+the machine of whoever is actually trying to work.**
+
+- **A bigger fixed range is not a fix.** A `/24` with a counter still repeats
+  after 250 calls and still repeats across runs, and hundreds of sign-ups
+  across a suite collide by birthday long before that. The addresses are now
+  unique per call *and* per process (a `/8` keyed on the pid), which cannot
+  collide either way.
+- **The corollary cost more than the cause.** One failing assertion **hung the
+  whole suite** for ten minutes, because a server was closed on the test's
+  last line and the failure skipped it. A hang tells you nothing; even a red
+  run tells you something. Every server a test starts is closed in `after`.
+- **A helper that unwraps a response must throw on the status.** A 429 read as
+  `.userId` surfaced three lines later as `Cannot read properties of undefined
+  (reading 'id')`, which sent me to the wrong file twice.

@@ -132,7 +132,7 @@ const COVERAGE: Record<string, Coverage[]> = {
   ],
   '17': [
     { where: 'packages/db/src/repositories/conversations.ts', marker: /SCOPED BY ASSISTANT, not only by user/ },
-    { where: 'apps/server/src/hardening.test.ts', marker: /every id-bearing route refuses a stranger/ },
+    { where: 'apps/server/src/hardening.test.ts', marker: /EVERY id-bearing route is attacked, and the list cannot fall behind the table/ },
   ],
   '16': [
     { where: 'packages/db/src/repositories/outreach.ts', marker: /ORDER BY is not decoration/ },
@@ -171,10 +171,25 @@ const COVERAGE: Record<string, Coverage[]> = {
     { where: 'apps/server/src/browser.test.ts', marker: /a sheet takes the keyboard, keeps it, and gives it back/ },
   ],
   '25': [
+    { where: 'tools/gates/settings-wired.ts', marker: /every field on Config is read somewhere other than/i },
     { where: 'apps/server/src/app.ts', marker: /Without this line the option is/ },
     { where: 'apps/server/src/config.test.ts', marker: /the trusted-proxy count is a number of hops/ },
     { where: 'packages/http/src/clientip.test.ts', marker: /A FORGED HEADER CANNOT MOVE THE ANSWER/ },
     { where: 'apps/server/src/attachments.test.ts', marker: /A sign-up that was refused must say so HERE/ },
+  ],
+  '26': [
+    { where: 'tools/gates/boundaries.ts', marker: /A REGEX LITERAL IS NOT A QUERY/ },
+    { where: 'tools/gates/gates.test.ts', marker: /a regex literal is not a query/ },
+    { where: 'docs/LESSONS-AUDIT.md', marker: /will find itself/ },
+  ],
+  '27': [
+    { where: 'tools/session.ts', marker: /THE DATABASE'S CLOCK IS NOT INJECTABLE/ },
+    { where: 'tools/session.ts', marker: /That is the HARNESS, not the product/ },
+    { where: 'tools/shots/seed.ts', marker: /A REAL address as well as a real user agent/ },
+  ],
+  '28': [
+    { where: 'apps/server/src/hardening.test.ts', marker: /A different client address per call AND per process/ },
+    { where: 'apps/server/src/http.test.ts', marker: /closed in `after` whether the test that/ },
   ],
 };
 
