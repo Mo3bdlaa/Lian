@@ -1581,7 +1581,20 @@ export function attachmentPorts(deps: Deps): AttachmentPorts {
 
       // Incognito writes nothing that outlives it (Q12), so its attachments
       // are marked as not persisting and go when the conversation does.
+      //
+      // AND THE CONVERSATION HAS TO BE THEIRS. `conversationId` arrives in
+      // the request body, and the earlier version looked it up scoped —
+      // correctly — and then wrote the CLIENT'S value onto the row whatever
+      // the lookup said. That is LESSONS §17 exactly: the scope column proved
+      // who was asking and nothing proved what they were asking about, so an
+      // attachment could be filed against a stranger's conversation.
+      //
+      // Nothing read it cross-account, because every read is `user_id = $1
+      // AND conversation_id = $2`. Which is the reason to close it rather
+      // than to shrug: the row is wrong, and the next query that joins on
+      // conversation_id alone inherits a hole nobody put there deliberately.
       const conversation = conversationId === null ? null : await conversationFor(userId, conversationId);
+      if (conversationId !== null && conversation === null) return { status: 'no_conversation' as const };
       const persist = conversation === null || conversation.retention === 'persist';
 
       const attachment = await db.attachments.reserve(

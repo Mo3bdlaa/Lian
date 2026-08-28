@@ -22,6 +22,10 @@ export type AttachmentPorts = MiddlewarePorts & {
     | { status: 'unsupported_type' }
     | { status: 'ceiling_reached'; heldBytes: number; ceiling: number }
     | { status: 'no_storage' }
+    /** The conversation named in the body is not theirs, or is not there.
+     *  Same answer for both: whether an id exists is not something a
+     *  stranger gets to learn from a status code. */
+    | { status: 'no_conversation' }
   >;
   completeUpload(input: { userId: string; attachmentId: string }): Promise<
     | { status: 'ready'; id: string; bytes: number; kind: string }
@@ -57,6 +61,9 @@ export function attachmentRoutes(ports: AttachmentPorts): { method: 'GET' | 'POS
           });
           if (begun.status === 'unsupported_type') {
             throw new HttpError(415, 'unsupported_type', 'I cannot read that kind of file');
+          }
+          if (begun.status === 'no_conversation') {
+            throw new HttpError(404, 'no_conversation', 'I cannot find that conversation');
           }
           if (begun.status === 'no_storage') {
             // Honest rather than empty: a deployment with no bucket cannot

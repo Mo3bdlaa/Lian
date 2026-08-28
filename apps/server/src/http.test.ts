@@ -709,6 +709,45 @@ describe('the HTTP layer', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, ()
     assert.equal(rows[0]!.consent_version, CONSENT_VERSION);
   });
 
+  test('§21 a reset token is spent once, and is not a key to another account', async () => {
+    // A reset token is a bearer credential that arrives by email — the one
+    // thing in the product that grants access without a password. Two
+    // properties, and neither is implied by the other: it works ONCE, and it
+    // identifies the account rather than being a key that opens whichever
+    // account the request names.
+    const mine = await signUp(app.base);
+    const theirs = await signUp(app.base);
+
+    mail.length = 0;
+    await post(app.base, '/api/auth/forgot', { email: mine.email });
+    const token = lastResetTokenFor(mine.email);
+    assert.notEqual(token, null);
+
+    // Spent once.
+    const first = await post(app.base, '/api/auth/reset', { token, password: 'a-brand-new-long-password' });
+    assert.equal(first.status, 200, JSON.stringify(first.json));
+    const second = await post(app.base, '/api/auth/reset', { token, password: 'another-long-password-here' });
+    assert.notEqual(second.status, 200, 'a reset token worked twice — it is a password that never expires');
+
+    // And it never belonged to anybody else: the account it resets is the
+    // one the token was issued for, not one supplied alongside it.
+    mail.length = 0;
+    await post(app.base, '/api/auth/forgot', { email: mine.email });
+    const fresh = lastResetTokenFor(mine.email);
+    const crossed = await post(app.base, '/api/auth/reset', {
+      token: fresh, password: 'yet-another-long-password', email: theirs.email, userId: theirs.userId,
+    });
+    // Whatever it answers, THEIR password must be untouched.
+    void crossed;
+    const stillTheirs = await post(app.base, '/api/auth/sign-in', {
+      email: theirs.email, password: 'a-long-enough-password',
+    });
+    assert.equal(
+      stillTheirs.status, 200,
+      'a reset for one account changed another — the token is being read as a capability plus a target',
+    );
+  });
+
   test('§21 recovery: forgot, reset, and every other session ending', async () => {
     const account = await signUp(app.base);
     // A second session on the same account, standing in for the intruder.

@@ -92,9 +92,17 @@ describe('attacked', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, () => {
     await closeDb();
   });
 
-  /** A different client address per call: the limiter is not the thing under
-   *  test here, and two accounts sharing one would make it so. */
-  const address = (): string => `198.51.100.${(counter % 250) + 1}`;
+  /**
+   * A different client address per call AND per process.
+   *
+   * The limiter is not the thing under test here and two accounts sharing an
+   * address would make it so — but a /24 with a counter repeats after 250
+   * calls and repeats across runs, and the `auth:ip:` bucket is a database
+   * row (LESSONS §12). 10.0.0.0/8 keyed on the pid cannot collide either way,
+   * and it is private, so `isRoutable` refuses it and nothing reaches a geo
+   * lookup.
+   */
+  const address = (): string => `10.${process.pid % 256}.${(counter >> 8) % 256}.${counter % 256}`;
 
   async function call(
     token: string | null, method: string, path: string,
@@ -611,6 +619,98 @@ describe('attacked', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, () => {
       // And the picture itself never travelled on the voice path.
       assert.equal(turns[turns.length - 1]!.attachments, undefined, 'the image was sent to the model that speaks in her voice');
       receiptReply = JSON.stringify({ total: 40, currency: 'AED' });
+    });
+
+    test('an attachment cannot be filed against somebody else\u2019s conversation', async () => {
+      // THE §17 CLASS, on the newest surface. `beginUpload` takes a
+      // conversationId FROM THE CLIENT and writes it onto the row. The scope
+      // column proves who is asking; nothing proved what they were asking
+      // about, so a foreign key belonging to somebody else could be stored.
+      //
+      // Nothing reads it cross-account today — every read is `user_id = $1
+      // AND conversation_id = $2` — which is exactly why this is worth
+      // closing now: the row is wrong, and the next query that joins on
+      // conversation_id alone inherits a hole nobody put there.
+      const victim = await account();
+      const attacker = await account();
+      const begun = await call(attacker.token, 'POST', '/api/attachments', {
+        body: { kind: 'image', contentType: 'image/jpeg', conversationId: victim.conversationId },
+      });
+      // 404, and the same 404 a conversation that does not exist gets:
+      // whether an id is real is not something a stranger learns from a
+      // status code.
+      assert.equal(begun.status, 404, 'a stranger was handed an upload URL for somebody else\u2019s conversation');
+      const invented = await call(attacker.token, 'POST', '/api/attachments', {
+        body: { kind: 'image', contentType: 'image/jpeg', conversationId: '00000000-0000-4000-8000-000000000000' },
+      });
+      assert.equal(invented.status, 404, 'a real id and an invented one must answer the same');
+
+      // And nothing was written on the way to refusing.
+      const { rows } = await db().query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM attachments WHERE conversation_id = $1`, [victim.conversationId],
+      );
+      assert.equal(rows[0]!.n, 0, 'the row was created before the refusal');
+
+      // Their OWN conversation still works — a fix that refuses everything
+      // is not a fix.
+      const mine = await call(attacker.token, 'POST', '/api/attachments', {
+        body: { kind: 'image', contentType: 'image/jpeg', conversationId: attacker.conversationId },
+      });
+      assert.equal(mine.status, 201);
+    });
+
+    test('a presigned URL stops serving once the attachment is deleted', async () => {
+      // A signed URL is a CAPABILITY: it works without a session, for as long
+      // as it is valid, for whoever holds it. So "deleted" has to mean the
+      // bytes are gone, not that the route stopped pointing at them.
+      const who = await account();
+      const begun = await call(who.token, 'POST', '/api/attachments', { body: { kind: 'image', contentType: 'image/jpeg' } });
+      const { id } = (await begun.json()) as { id: string };
+      const row = await attachmentRows.get({ userId: who.userId }, id);
+      await store.put({ key: row!.storageKey, bytes: new Uint8Array(64), contentType: 'image/jpeg' });
+      await call(who.token, 'POST', `/api/attachments/${id}/complete`);
+      assert.notEqual(await store.get(row!.storageKey), null);
+
+      await call(who.token, 'DELETE', `/api/attachments/${id}`);
+      assert.equal(
+        await store.get(row!.storageKey), null,
+        'the row went and the bytes stayed — a URL signed before the delete still serves the photograph',
+      );
+    });
+
+    test('deleting the account takes the bytes, not just the rows', async () => {
+      // LESSONS §11: deletion is real. The keys come from the DATABASE rather
+      // than a prefix listing, so this is also the test that the index and
+      // the bucket agree — a row deleted without its object is a photograph
+      // that outlives the account it belonged to.
+      const who = await account();
+      const begun = await call(who.token, 'POST', '/api/attachments', { body: { kind: 'image', contentType: 'image/jpeg' } });
+      const { id } = (await begun.json()) as { id: string };
+      const row = await attachmentRows.get({ userId: who.userId }, id);
+      await store.put({ key: row!.storageKey, bytes: new Uint8Array(64), contentType: 'image/jpeg' });
+      await call(who.token, 'POST', `/api/attachments/${id}/complete`);
+
+      const gone = await call(who.token, 'POST', '/api/data/delete', { body: { confirm: 'DELETE' } });
+      assert.ok(gone.status === 200 || gone.status === 204, `deletion answered ${gone.status}`);
+      assert.equal(await store.get(row!.storageKey), null, 'the account went and the photograph stayed');
+      // And the token dies with it, so a URL signed a moment earlier cannot
+      // be renewed.
+      const after = await call(who.token, 'GET', '/api/me');
+      assert.equal(after.status, 401);
+    });
+
+    test('a story event cannot be taken off somebody else\u2019s timeline', async () => {
+      const victim = await account();
+      const attacker = await account();
+      const { rows } = await db().query<{ id: string }>(
+        `INSERT INTO story_events (assistant_id, type, title, occurred_at)
+         VALUES ($1, 'moment', 'theirs', now()) RETURNING id`,
+        [victim.assistantId],
+      );
+      const stolen = await call(attacker.token, 'DELETE', `/api/story/${rows[0]!.id}`);
+      assert.equal(stolen.status, 404, 'a stranger removed an event from somebody else\u2019s story');
+      const { rows: left } = await db().query(`SELECT 1 FROM story_events WHERE id = $1 AND deleted_at IS NULL`, [rows[0]!.id]);
+      assert.equal(left.length, 1);
     });
 
     test('the turn markers cannot be typed into a conversation', async () => {
