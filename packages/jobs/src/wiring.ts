@@ -61,6 +61,9 @@ export function tickPorts(deps: JobDeps): TickPorts {
     async quietHours(userId) {
       return db.outreach.quietHoursFor(userId);
     },
+    async claim(outreachId) {
+      return db.outreach.claimOutreach(outreachId, deps.now());
+    },
     async unansweredStreak(assistantId) {
       const owner = await db.outreach.ownerOf(assistantId);
       if (owner === null) return 0;

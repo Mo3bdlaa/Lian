@@ -495,3 +495,92 @@ describe('memory retrieval and canon, against the database', { skip: HAS_DB ? fa
     assert.equal(await memoriesRepo.findSimilar(scope, vec('They renewed the gym membership.'), 0.94), null);
   });
 });
+
+describe('LESSONS §30 — the claim, against real concurrency', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, () => {
+  before(async () => { await ready(); });
+  after(async () => { await done(); });
+
+  /**
+   * An assistant WITH a main conversation.
+   *
+   * `dueAcrossAssistants` selects the conversation to deliver into and drops
+   * any row that has none, so an assistant without one is invisible to the
+   * scheduler — and a test that asserted "the row is not offered" against
+   * such an assistant would pass for the wrong reason, every time, forever.
+   */
+  async function reachable() {
+    const user = await freshUser();
+    const scope = await freshAssistant(user);
+    await conversations.createConversation(scope, { kind: 'main' });
+    return scope;
+  }
+
+  test('two ticks racing for the same row: exactly one wins', async () => {
+    // THIS IS THE ONE ASSERTION THAT NEEDS A DATABASE. The unit test in
+    // tick.test.ts proves the tick SKIPS a row it did not claim; only
+    // Postgres can prove that of two simultaneous claimers exactly one gets
+    // it. A read-then-write would pass the unit test and fail here, which is
+    // the whole shape of LESSONS §19.
+    const scope = await reachable();
+    const now = new Date();
+    const row = await outreach.schedule(scope, {
+      kind: 'follow_up', source: 'assistant_initiated', scheduledFor: now, dedupeKey: `race:${scope.assistantId}`,
+    });
+    assert.ok(row !== null);
+
+    // Fired together rather than in sequence: sequenced calls would pass
+    // against a read-then-write too.
+    const verdicts = await Promise.all(
+      Array.from({ length: 8 }, () => outreach.claimOutreach(row.id, now)),
+    );
+
+    assert.equal(verdicts.filter(Boolean).length, 1, `${verdicts.filter(Boolean).length} runs would have delivered it`);
+  });
+
+  test('a claim expires, so a run that died mid-delivery does not take the row with it', async () => {
+    const scope = await reachable();
+    const now = new Date();
+    const row = await outreach.schedule(scope, {
+      kind: 'follow_up', source: 'assistant_initiated', scheduledFor: now, dedupeKey: `lease:${scope.assistantId}`,
+    });
+
+    assert.equal(await outreach.claimOutreach(row!.id, now), true);
+    // A second run, one second later: still held.
+    assert.equal(await outreach.claimOutreach(row!.id, new Date(now.getTime() + 1_000)), false);
+    // And past the lease, after the run that held it never came back.
+    const after = new Date(now.getTime() + (outreach.CLAIM_LEASE_SECONDS + 1) * 1_000);
+    assert.equal(await outreach.claimOutreach(row!.id, after), true, 'a crashed run took the row to the grave');
+  });
+
+  test('a row that was already sent cannot be claimed again', async () => {
+    const scope = await reachable();
+    const now = new Date();
+    const row = await outreach.schedule(scope, {
+      kind: 'follow_up', source: 'assistant_initiated', scheduledFor: now, dedupeKey: `sent:${scope.assistantId}`,
+    });
+    await outreach.markSent(scope, row!.id, null);
+
+    assert.equal(await outreach.claimOutreach(row!.id, now), false);
+    // And it is not offered by the selection either — belt and braces, since
+    // the two conditions are written in two places.
+    const due = await outreach.dueAcrossAssistants(new Date(now.getTime() + 1_000), 100);
+    assert.equal(due.filter((d) => d.id === row!.id).length, 0);
+  });
+
+  test('rescheduling releases the claim, so the row is not hidden until the lease expires', async () => {
+    const scope = await reachable();
+    const now = new Date();
+    const row = await outreach.schedule(scope, {
+      kind: 'reminder', source: 'user_requested', scheduledFor: now, dedupeKey: `defer:${scope.assistantId}`,
+    });
+
+    await outreach.claimOutreach(row!.id, now);
+    // Quiet hours: put back for an hour. Without clearing claimed_at the row
+    // would come due and still be invisible for the rest of the lease.
+    const later = new Date(now.getTime() + 60 * 60 * 1_000);
+    await outreach.reschedule(row!.id, later);
+
+    const due = await outreach.dueAcrossAssistants(new Date(later.getTime() + 1_000), 100);
+    assert.equal(due.filter((d) => d.id === row!.id).length, 1, 'the deferred row stayed hidden');
+  });
+});

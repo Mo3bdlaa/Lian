@@ -3,7 +3,7 @@
 // Separate from main.ts so a test can build the same application against the
 // same database with a provider that does not call an API — the routes a test
 // drives are the routes that ship, not a second table built for testing.
-import { anthropicProvider, pooledProvider, KeyPool, type Provider } from '@lian/llm';
+import { anthropicProvider, retrying, pooledProvider, KeyPool, type Provider } from '@lian/llm';
 import { resolveEmbedder, type AnalysisModel, type Embedder } from '@lian/analysis';
 import { createLianServer, manifestJson, SERVICE_WORKER, PUSH_CLIENT } from '@lian/http';
 import { resolveTheme } from '@lian/design';
@@ -115,13 +115,26 @@ export function createApplication(config: Config, overrides: Overrides = {}): Ap
   const primed = pool.prime(config.modelKeyRefs).catch((error: unknown) => {
     log(`key pool could not be primed: ${(error as Error).message}`);
   });
-  const provider = overrides.provider ?? pooledProvider({
+  // RETRY WRAPS WHATEVER PROVIDER THIS APPLICATION HAS, including one a test
+  // substitutes — because "the product retries" is a property of the product,
+  // not of Anthropic, and a wrapper applied only to the real adapter is a
+  // wrapper no integration test can see (LESSONS §25: a thing that is built
+  // is not a thing that is connected).
+  //
+  // OUTSIDE the pool rather than inside it. The pool answers "this KEY is
+  // unusable" by reaching for another; retrying answers "this REQUEST failed"
+  // by asking again. Outside, a 500 is retried after the pool has already
+  // declined to rotate on it (500 is not a cooldown status, so the same warm
+  // key is taken again), and a 429 only reaches the retry after every key has
+  // been tried — where a short backoff before declaring an outage is exactly
+  // what is wanted.
+  const provider = retrying(overrides.provider ?? pooledProvider({
     // Priming is awaited on the first take rather than at construction:
     // createApplication is synchronous, and a pool with nothing registered
     // would refuse the first call rather than the first key.
     take: async (at) => { await primed; return pool.take(at); },
     report: (ref, status, at) => pool.report(ref, status, at),
-  }, anthropicProvider, now);
+  }, anthropicProvider, now));
   const analysisModel = overrides.analysisModel ?? analysisModelFrom(provider);
   const embedder = overrides.embedder !== undefined
     ? overrides.embedder

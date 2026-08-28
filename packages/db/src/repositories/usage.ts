@@ -98,3 +98,24 @@ export async function reserve(
   if (rows[0] !== undefined) return { granted: true, value: rows[0].value };
   return { granted: false, value: await current(scope, kind, periodKey, sql) };
 }
+
+/**
+ * Give a reservation back when what it paid for did not happen.
+ *
+ * A separate name rather than `increment(..., -1)` at the call site, because
+ * "spend one" and "the spend was void" are different events and a log that
+ * cannot tell them apart cannot answer "did the outage cost anybody a day?".
+ *
+ * It is `increment` underneath, which already clamps at zero on both branches
+ * — so a refund that arrives twice, or for a counter that reset overnight
+ * between the reservation and the failure, cannot mint allowance.
+ */
+export async function release(
+  scope: UserScope,
+  kind: CounterKind,
+  periodKey: string,
+  by = 1,
+  sql: Sql = db(),
+): Promise<number> {
+  return increment(scope, kind, periodKey, -Math.abs(by), sql);
+}

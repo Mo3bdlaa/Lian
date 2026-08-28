@@ -779,6 +779,20 @@ async function send(text: string, attachment: { id: string; kind: string; conten
           // typed still in it, for the same reason as above.
           set({ error: String(event.data['line'] ?? '') });
           restoreComposer(text);
+        } else if (event.event === 'outage') {
+          // The model provider is unreachable. Her sentence, in the
+          // conversation — the same place the limit lands — rather than a red
+          // toast about a third party the person has never heard of.
+          //
+          // The half-sentence she may already have streamed goes with it: the
+          // server did not keep it, so leaving it on screen would show a
+          // thought that exists nowhere and vanishes on the next reload.
+          hers.body = '';
+          set({
+            limitLine: String(event.data['line'] ?? ''),
+            messages: current().messages.filter((message) => message.id !== hers.id),
+          });
+          restoreComposer(text);
         } else if (event.event === 'error') {
           throw new Error(String(event.data['message'] ?? 'error'));
         }

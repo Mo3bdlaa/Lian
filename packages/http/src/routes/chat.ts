@@ -79,7 +79,15 @@ export function chatRoutes(ports: ChatRoutePorts): { method: 'POST'; pattern: st
                   onCaptureFailed: (reason) => write('capture_failed', { reason }),
                   onMemoryQueueFull: () => write('memory_queue_full', {}),
                 });
-                return { status: 200, json: { ...result, text: collected.join('') } };
+                return {
+                  status: 200,
+                  json: { ...result, text: collected.join('') },
+                  // An outage is not an answer. Recording it would mean a
+                  // client that retries the same message gets the same "I am
+                  // a little away" back for as long as the key lives, long
+                  // after the provider came home.
+                  record: result.status !== 'provider_unavailable',
+                };
               },
             );
 
@@ -96,6 +104,14 @@ export function chatRoutes(ports: ChatRoutePorts): { method: 'POST'; pattern: st
             // message was written, so the client re-enables the composer.
             if (result.status === 'attachment_failed' && typeof result.line === 'string') {
               write('attachment_failed', { line: result.line });
+            }
+            // The provider is down. Her sentence, in the conversation, the
+            // same way the limit arrives — because from the person's side
+            // this is her being unreachable, not an HTTP status. Nothing was
+            // charged (the turn refunded it) and no reply was written, so the
+            // client puts their words back in the composer and lets them try.
+            if (result.status === 'provider_unavailable' && typeof result.line === 'string') {
+              write('outage', { line: result.line });
             }
             if (result.status === 'message_limit_reached' || result.status === 'cost_ceiling_reached') {
               // PRD §11: her line, not a modal. It travels as an event so the

@@ -269,6 +269,9 @@ export function turnPorts(userId: string): import('./turn.ts').TurnPorts['turn']
     async reserve(forUserId, kind, periodKey, ceiling, by) {
       return (await db.usage.reserve({ userId: forUserId }, kind, periodKey, ceiling, by)).granted;
     },
+    async release(forUserId, kind, periodKey, by) {
+      await db.usage.release({ userId: forUserId }, kind, periodKey, by);
+    },
     async hasHeadroom(forUserId, kind, periodKey, ceiling) {
       return (await db.usage.current({ userId: forUserId }, kind, periodKey)) < ceiling;
     },

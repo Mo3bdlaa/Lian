@@ -764,3 +764,65 @@ the machine of whoever is actually trying to work.**
 - **A helper that unwraps a response must throw on the status.** A 429 read as
   `.userId` surfaced three lines later as `Cannot read properties of undefined
   (reading 'id')`, which sent me to the wrong file twice.
+
+## 29. The cleanup on the error path fails on exactly the errors that matter
+
+**Every `catch` block does something before it rethrows — roll back, refund,
+release, close. That cleanup runs in the one state where it is least likely to
+work, and unguarded it replaces the cause with its own failure.**
+
+```ts
+} catch (error) {
+  await client.query('ROLLBACK');   // on a connection that just died
+  throw error;                      // never reached
+}
+```
+
+The interesting failure is a connection that died mid-transaction. On a dead
+connection `ROLLBACK` is precisely the statement that also fails, so it
+rejects, and the caller is told the rollback failed instead of what actually
+went wrong — in the one case where the cause is hardest to reconstruct from
+anywhere else. Postgres rolls back an abandoned session by itself; the
+rollback was never the point. **Wrap the cleanup in its own `catch` and let
+the original error out.**
+
+- **The same shape wherever a failure has to undo something.** A turn that
+  refunds its message reservation when the provider dies is undoing work
+  *because* something already failed; a refund that throws must not turn a
+  degraded turn into a crashed one, which is the thing the whole branch exists
+  to prevent.
+- **An 'error' event is not an error you can catch.** `EventEmitter` throws an
+  `'error'` with no listener, from a socket callback, outside every `try` in
+  the process. A pool listens for its *idle* clients; a client checked out for
+  a transaction is not idle, and while it is held the transaction is the only
+  thing positioned to listen. Both listeners are one line, and the symptom of
+  either missing one is the whole server exiting because a connection nobody
+  was using went away.
+- **A retry that is only safe sometimes must know when.** Retrying a stream is
+  correct until the first token has been delivered and wrong immediately
+  after — a second attempt appends a whole answer to half of one. The
+  condition is not "was it retryable" but "has anything been said yet".
+
+## 30. A scheduler is a dependency too, and it lies in three directions
+
+**The tick carried a comment saying "a scheduler that fires twice costs
+nothing", and it was true sequentially and false concurrently — which is the
+only way it could ever matter.** `sent_at` is written *after* delivery, so two
+overlapping runs both saw `NULL` and both pushed. Two identical notifications
+from someone who is meant to sound like a person.
+
+Three failures, and the middle one is the one nobody writes down:
+
+- **Twice at once.** Selecting work and marking it done are not the same
+  statement, and everything between them is a window. A claim is a conditional
+  `UPDATE ... RETURNING` that exactly one writer wins; a *lease* rather than a
+  flag, so a run that is killed mid-delivery does not take its rows with it.
+- **Not for six hours, then all at once.** Late work is not the same as stale
+  work. "Shall we start the day" delivered at two in the afternoon is not a
+  late message, it is a wrong one, and it is what makes somebody turn
+  notifications off. Only *her* messages go stale — a reminder the user asked
+  for is theirs, and late beats never (the §4 distinction, at a second layer).
+- **One failure, or a hundred.** A batch loop with no per-item guard abandons
+  everything behind the first row that throws, and the next run starts on the
+  same broken row and does it again. The ninety-nine people after it are not
+  party to that failure and should not hear about it by hearing nothing.

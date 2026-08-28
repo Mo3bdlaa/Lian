@@ -191,6 +191,18 @@ const COVERAGE: Record<string, Coverage[]> = {
     { where: 'apps/server/src/hardening.test.ts', marker: /A different client address per call AND per process/ },
     { where: 'apps/server/src/http.test.ts', marker: /closed in `after` whether the test that/ },
   ],
+  '29': [
+    { where: 'packages/db/src/client.ts', marker: /THE ROLLBACK GETS ITS OWN CATCH/ },
+    { where: 'packages/db/src/client.test.ts', marker: /reports the CAUSE, not the rollback/ },
+    { where: 'packages/llm/src/retry.test.ts', marker: /is never retried/ },
+    { where: 'packages/runtime/src/turn.ts', marker: /Refund first, and separately from everything else/ },
+  ],
+  '30': [
+    { where: 'packages/db/migrations/0021_outreach_claim.sql', marker: /true SEQUENTIALLY and false CONCURRENTLY/ },
+    { where: 'packages/jobs/src/tick.ts', marker: /ONE FAILURE, NOT A HUNDRED/ },
+    { where: 'packages/jobs/src/tick.test.ts', marker: /is skipped, not delivered twice/ },
+    { where: 'packages/jobs/src/tick.test.ts', marker: /stale message is dropped rather than delivered late/ },
+  ],
 };
 
 const lessons = read(`${ROOT}/LESSONS.md`);

@@ -12,10 +12,10 @@ import { fakePorts as fakeCapabilityPorts } from '@lian/capabilities/test-fakes'
 import {
   turnCostMicros, typicalTurnMicros, blendedTurnMicros, modelEntry, DEFAULT_MODEL,
   CACHE_WRITE_TURN_SHARE, CACHE_WRITE_MULTIPLIER, CACHE_READ_MULTIPLIER, TYPICAL_CACHED_SHARE, TYPICAL_TURN,
-  type Provider, type CompletionRequest,
+  ProviderError, type Provider, type CompletionRequest,
 } from '@lian/llm';
 import {
-  limitsFor, monthlyMessageAllowance, DAYS_PER_MONTH,
+  limitsFor, monthlyMessageAllowance, DAYS_PER_MONTH, localDayKey,
   ONBOARDING_MESSAGE_ALLOWANCE, ONBOARDING_PERIOD,
   type CaptureSummary,
 } from '@lian/domain';
@@ -56,6 +56,7 @@ function fakeTurnPorts() {
   let answered = 0;
   let voided = 0;
   let n = 0;
+  const released: { kind: string; periodKey: string; by: number }[] = [];
 
   const turn: TurnPorts['turn'] = {
     async appendMessage(input) {
@@ -79,6 +80,12 @@ function fakeTurnPorts() {
       counters.set(key, value + by);
       return true;
     },
+    async release(_userId, kind, periodKey, by) {
+      const key = `${kind}:${periodKey}`;
+      // Clamped, like the repository: a refund cannot mint allowance.
+      counters.set(key, Math.max(0, (counters.get(key) ?? 0) - by));
+      released.push({ kind, periodKey, by });
+    },
     async hasHeadroom(_userId, kind, periodKey, ceiling) {
       return (counters.get(`${kind}:${periodKey}`) ?? 0) < ceiling;
     },
@@ -89,7 +96,7 @@ function fakeTurnPorts() {
     async userMessagesOnDay() { return 3; },
     async recordEvent(input) { events.push(input.name); },
   };
-  return { turn, messages, counters, events, credited, claimedKeys: claimed, get answered() { return answered; }, get voided() { return voided; } };
+  return { turn, messages, counters, events, credited, released, claimedKeys: claimed, get answered() { return answered; }, get voided() { return voided; } };
 }
 
 function fakeAbsorb(result = { kept: 1, queued: 0, refused: 0 }) {
@@ -529,5 +536,110 @@ describe('the free limit is hers to explain, in both languages', () => {
       collectingSink().sink,
     );
     assert.equal(reach.status, 'done', 'PRD §11 says she is not gone — a shared budget would make that false');
+  });
+  // ── when the provider is down ───────────────────────────────────────────
+  //
+  // The whole point of these four: a third party having a bad minute must
+  // arrive as a sentence she says, and must not cost the person anything.
+
+  /** A provider that fails, optionally after saying part of a sentence. */
+  function failingProvider(after: string | null = null): Provider {
+    return {
+      id: 'failing',
+      capabilities: () => ({ streaming: true, toolCalling: false, vision: false, contextTokens: 200_000, maxOutputTokens: 4_000 }),
+      async stream(_request, onDelta) {
+        if (after !== null) onDelta(after);
+        throw new ProviderError('upstream is down', 503, true);
+      },
+    };
+  }
+
+  test('a provider failure is a sentence she says, not a thrown error', async () => {
+    const store = fakeTurnPorts();
+    const ports: TurnPorts = {
+      prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(),
+      provider: failingProvider(), turn: store.turn, absorb: fakeAbsorb().fn,
+    };
+
+    const result = await runTurn(input(), ports, collectingSink().sink);
+
+    assert.equal(result.status, 'provider_unavailable');
+    // Her copy, in her voice, in the language asked for — not a status code.
+    assert.equal(result.line, t('error.outage', 'en', 'female'));
+    // The cause is carried for a log, and is NOT the line.
+    assert.match(result.reason, /upstream is down/);
+    assert.notEqual(result.line, result.reason);
+  });
+
+  test('a provider failure gives the message back — an outage must not also cost a day', async () => {
+    const store = fakeTurnPorts();
+    const ports: TurnPorts = {
+      prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(),
+      provider: failingProvider(), turn: store.turn, absorb: fakeAbsorb().fn,
+    };
+
+    await runTurn(input(), ports, collectingSink().sink);
+
+    const day = localDayKey(NOW, 'Asia/Dubai');
+    assert.deepEqual(store.released, [{ kind: 'messages', periodKey: day, by: 1 }]);
+    assert.equal(store.counters.get(`messages:${day}`), 0, 'the reservation was taken and never given back');
+  });
+
+  test('a provider failure keeps what they typed and writes no reply', async () => {
+    const store = fakeTurnPorts();
+    const ports: TurnPorts = {
+      prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(),
+      // She got a third of a sentence out before the socket closed.
+      provider: failingProvider('I was just thinking about'), turn: store.turn, absorb: fakeAbsorb().fn,
+    };
+
+    const collected = collectingSink();
+    await runTurn(input(), ports, collected.sink);
+
+    // Their words survive. That is step 2 of the order at the top of turn.ts,
+    // and it is the reason the user message is persisted BEFORE the stream.
+    assert.deepEqual(
+      store.messages.map((m) => m.role),
+      ['user'],
+      'either their message was lost or half of hers was kept',
+    );
+    assert.equal(store.messages[0]!.body, input().userMessage);
+    // And nothing she half-said is stored as something she said.
+    assert.equal(store.messages.filter((m) => m.role === 'assistant').length, 0);
+  });
+
+  test("a proactive turn that fails does not spend her one reach-out for the day", async () => {
+    const store = fakeTurnPorts();
+    const failing: TurnPorts = {
+      prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(),
+      provider: failingProvider(), turn: store.turn, absorb: fakeAbsorb().fn,
+    };
+
+    const down = await runTurn(input({ surface: 'proactive', userMessage: null }), failing, collectingSink().sink);
+    assert.equal(down.status, 'provider_unavailable');
+
+    // The tick comes round again with the provider back. She must still be
+    // able to reach out — otherwise one blip means silence until tomorrow,
+    // which is the failure mode LESSONS §4 is entirely about.
+    const working: TurnPorts = { ...failing, provider: fakeProvider('are you around?') };
+    const later = await runTurn(input({ surface: 'proactive', userMessage: null }), working, collectingSink().sink);
+    assert.equal(later.status, 'done');
+  });
+
+  test('an onboarding turn that fails refunds the ONBOARDING counter, not the daily one', async () => {
+    const store = fakeTurnPorts();
+    const ports: TurnPorts = {
+      prompt: fakePromptPorts(), capabilities: fakeCapabilityPorts(),
+      provider: failingProvider(), turn: store.turn, absorb: fakeAbsorb().fn,
+    };
+
+    await runTurn(input({ surface: 'onboarding' }), ports, collectingSink().sink);
+
+    // Refunding the wrong counter would be invisible — both are "a message" —
+    // and would quietly hand out free daily allowance to anyone who could make
+    // the provider fail during onboarding.
+    assert.deepEqual(store.released, [{ kind: 'onboarding', periodKey: ONBOARDING_PERIOD, by: 1 }]);
+    assert.equal(store.counters.get(`onboarding:${ONBOARDING_PERIOD}`), 0);
+    assert.equal(store.counters.get(`messages:${localDayKey(NOW, 'Asia/Dubai')}`), undefined);
   });
 });

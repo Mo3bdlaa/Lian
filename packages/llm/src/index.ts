@@ -6,3 +6,4 @@ export { budgetFor, fitHistory, estimateTokens, type Budget, type BudgetInput } 
 export { ProviderError, type Provider, type CompletionRequest, type CompletionResult, type Usage } from './provider.ts';
 export { anthropicProvider } from './providers/anthropic.ts';
 export { pooledProvider } from './pooled.ts';
+export { retrying, ProviderSilenceError, type RetryOptions } from './retry.ts';

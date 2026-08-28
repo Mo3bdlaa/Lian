@@ -58,6 +58,7 @@ function turnPorts() {
     async claimCapture() { return true; },
     async voidCaptures() { return []; },
     async reserve() { return true; },
+    async release() {},
     async hasHeadroom() { return true; },
     async charge() {},
     async markOutreachAnswered() {},

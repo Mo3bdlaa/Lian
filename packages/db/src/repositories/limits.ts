@@ -113,6 +113,23 @@ export async function completeIdempotency(key: string, status: number, body: unk
   );
 }
 
+/**
+ * Release a claim for work that did NOT happen.
+ *
+ * Distinct from `complete`: completing records an answer and replays it
+ * forever, which is right for "she said this" and wrong for "the provider was
+ * down". A degraded turn writes nothing, charges nothing and refunds its
+ * reservation, so the same key must be free to mean a real attempt next time
+ * rather than replaying an outage that is over.
+ *
+ * Deleting rather than marking: the key was never used to produce an answer,
+ * so there is nothing about it worth keeping, and a row that exists is a row
+ * a conflict check has to reason about.
+ */
+export async function releaseIdempotency(key: string, sql: Sql = db()): Promise<void> {
+  await sql.query(`DELETE FROM idempotency_keys WHERE key = $1 AND completed_at IS NULL`, [key]);
+}
+
 /** A request that died mid-flight leaves a claimed key. Released by age, so a
  *  crash does not lock a client out of retrying forever. */
 export async function releaseStaleIdempotency(before: Date, sql: Sql = db()): Promise<number> {

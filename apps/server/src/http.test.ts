@@ -609,7 +609,10 @@ describe('the HTTP layer', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, ()
     assert.equal(report.status, 200);
 
     const outreachReport = report.json['outreach'] as Json;
-    assert.ok((outreachReport['sent'] as number) >= 1, 'nothing was delivered');
+    assert.ok(
+      (outreachReport['sent'] as number) >= 1,
+      `nothing was delivered: ${JSON.stringify(outreachReport)}`,
+    );
     assert.ok((report.json['swept'] as Json)['rateLimits'] as number >= 1, 'the sweep did not run');
 
     // The message exists in the conversation, written by the same turn

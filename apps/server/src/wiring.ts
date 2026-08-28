@@ -156,6 +156,7 @@ export function middlewarePorts(deps: Deps): MiddlewarePorts {
     },
     claimIdempotency: (input) => db.limits.claimIdempotency(input),
     completeIdempotency: (key, status, body) => db.limits.completeIdempotency(key, status, body),
+    releaseIdempotency: (key) => db.limits.releaseIdempotency(key),
   };
 }
 
@@ -1608,7 +1609,23 @@ export function attachmentPorts(deps: Deps): AttachmentPorts {
         extension: EXTENSIONS[contentType] ?? 'bin',
       });
       await db.attachments.setKey({ userId }, attachment.id, key);
-      const signed = await deps.store.presignPut({ key, contentType, expiresIn: UPLOAD_URL_SECONDS });
+      // A STORE THAT IS UNREACHABLE IS A DEPLOYMENT WITH NO STORE, for the
+      // ninety seconds it lasts. Signing is a network call to the bucket's
+      // API, and letting it throw here turns a third party's bad minute into
+      // a 500 on a screen where somebody was trying to send a photograph.
+      // `no_storage` already exists, already has her copy, and is already
+      // tested — the honest degradation is the one the product can already
+      // say.
+      let signed;
+      try {
+        signed = await deps.store.presignPut({ key, contentType, expiresIn: UPLOAD_URL_SECONDS });
+      } catch (error) {
+        deps.log(`storage unreachable while signing an upload: ${String(error)}`);
+        // The reserved row goes with it. Leaving it would count against the
+        // ceiling forever for an object that was never written.
+        await db.attachments.remove({ userId }, attachment.id);
+        return { status: 'no_storage' as const };
+      }
       return {
         status: 'ready' as const,
         id: attachment.id, url: signed.url, method: signed.method,
@@ -1622,7 +1639,16 @@ export function attachmentPorts(deps: Deps): AttachmentPorts {
       if (attachment === null || attachment.storageKey === '') return { status: 'missing' as const };
       // What the STORE says, not what the client claims: a ceiling checked
       // against a number the uploader supplies is not a ceiling.
-      const object = await deps.store.head(attachment.storageKey);
+      // Same reasoning as the signing call above: `missing` is what the
+      // client already handles for "the bytes are not there", and a store
+      // that cannot be asked is indistinguishable from that at this layer.
+      let object;
+      try {
+        object = await deps.store.head(attachment.storageKey);
+      } catch (error) {
+        deps.log(`storage unreachable while confirming an upload: ${String(error)}`);
+        return { status: 'missing' as const };
+      }
       if (object === null) return { status: 'missing' as const };
 
       const limit = MAX_ATTACHMENT_BYTES[attachment.kind];
@@ -1651,12 +1677,22 @@ export function attachmentPorts(deps: Deps): AttachmentPorts {
       if (deps.store === null) return null;
       const attachment = await db.attachments.get({ userId }, attachmentId);
       if (attachment === null || attachment.status !== 'ready') return null;
-      return {
-        url: await deps.store.presignGet({
-          key: attachment.storageKey, expiresIn: DOWNLOAD_URL_SECONDS, contentType: attachment.contentType,
-        }),
-        contentType: attachment.contentType,
-      };
+      // Null is what a caller already gets for an attachment that is not
+      // theirs or not ready, so a store that cannot sign right now takes the
+      // same path: the picture does not load, and nothing else breaks around
+      // it. A photograph missing from a conversation is a much smaller
+      // failure than a conversation that will not render.
+      try {
+        return {
+          url: await deps.store.presignGet({
+            key: attachment.storageKey, expiresIn: DOWNLOAD_URL_SECONDS, contentType: attachment.contentType,
+          }),
+          contentType: attachment.contentType,
+        };
+      } catch (error) {
+        deps.log(`storage unreachable while signing a download: ${String(error)}`);
+        return null;
+      }
     },
 
     async removeAttachment({ userId, attachmentId }) {

@@ -108,7 +108,22 @@ export async function due(scope: AssistantScope, now: Date, sql: Sql = db()): Pr
 export type DueRow = {
   id: string; userId: string; assistantId: string; conversationId: string;
   kind: OutreachKind; source: OutreachSource; timeZone: string;
+  /** When it was MEANT to go. The tick needs it to tell "due now" from "six
+   *  hours overdue because nothing ran", which are different messages. */
+  scheduledFor: Date;
 };
+
+/**
+ * How long a claim is good for.
+ *
+ * ASSUMPTION, stated because it is a judgement: five minutes. A delivery is a
+ * model turn plus a push round trip — under ten seconds in the measured
+ * baseline — so this is thirty times the worst normal case. It is a LEASE
+ * rather than a permanent mark for exactly one reason: a scheduler that is
+ * killed mid-delivery must not take its rows to the grave. Too short and a
+ * slow turn is delivered twice; too long and a crashed run's work waits.
+ */
+export const CLAIM_LEASE_SECONDS = 300;
 
 /** Work that is due, across all users.  The scheduler's entry point. */
 export async function dueAcrossAssistants(now: Date, limit: number, sql: Sql = db()): Promise<DueRow[]> {
@@ -118,9 +133,9 @@ export async function dueAcrossAssistants(now: Date, limit: number, sql: Sql = d
   // HMAC-signed endpoint.
   const { rows } = await sql.query<{
     id: string; user_id: string; assistant_id: string; conversation_id: string;
-    kind: OutreachKind; source: OutreachSource; time_zone: string;
+    kind: OutreachKind; source: OutreachSource; time_zone: string; scheduled_for: Date;
   }>(
-    `SELECT o.id, o.user_id, o.assistant_id, o.kind, o.source, u.time_zone,
+    `SELECT o.id, o.user_id, o.assistant_id, o.kind, o.source, o.scheduled_for, u.time_zone,
             (SELECT c.id FROM conversations c
               WHERE c.assistant_id = o.assistant_id AND c.kind = 'main' AND c.deleted_at IS NULL
               ORDER BY c.created_at LIMIT 1) AS conversation_id
@@ -128,15 +143,50 @@ export async function dueAcrossAssistants(now: Date, limit: number, sql: Sql = d
      JOIN users u ON u.id = o.user_id
      WHERE o.scheduled_for <= $1 AND o.sent_at IS NULL AND o.cancelled_at IS NULL
        AND u.deleted_at IS NULL
+       -- Rows another tick is holding are not offered. This is only a
+       -- narrowing, not the guarantee: two ticks can still SELECT the same
+       -- row in the same instant. claimOutreach() below is what decides.
+       AND (o.claimed_at IS NULL OR o.claimed_at < $1::timestamptz - make_interval(secs => $3))
      ORDER BY o.scheduled_for ASC LIMIT $2`,
-    [now, limit],
+    [now, limit, CLAIM_LEASE_SECONDS],
   );
   return rows
     .filter((row) => row.conversation_id !== null)
     .map((row) => ({
       id: row.id, userId: row.user_id, assistantId: row.assistant_id,
-      conversationId: row.conversation_id, kind: row.kind, source: row.source, timeZone: row.time_zone,
+      conversationId: row.conversation_id, kind: row.kind, source: row.source,
+      timeZone: row.time_zone, scheduledFor: row.scheduled_for,
     }));
+}
+
+/**
+ * Take a piece of outreach, or find that somebody else already has.
+ *
+ * THE WHOLE GUARANTEE IS THE `RETURNING` ON A CONDITIONAL UPDATE. Postgres
+ * serialises the two writers on the row, so of two ticks that selected it in
+ * the same millisecond exactly one sees a row come back — the other's WHERE
+ * no longer matches by the time it runs. Reading `claimed_at` and then
+ * writing it would be the check-then-act version of this, and would deliver
+ * twice under precisely the load that makes it matter (LESSONS §19).
+ */
+export async function claimOutreach(outreachId: string, now: Date, sql: Sql = db()): Promise<boolean> {
+  // db-scoping:allow-unscoped — the row came from dueAcrossAssistants, which
+  // is where the scoping decision was made; this writes back to that primary
+  // key and nothing else.
+  const { rows } = await sql.query<{ id: string }>(
+    `UPDATE outreach SET claimed_at = $2
+     WHERE id = $1 AND sent_at IS NULL AND cancelled_at IS NULL
+       -- THE CAST IS LOAD-BEARING. Without it Postgres resolves the type of
+       -- the subtraction against make_interval and decides it is an interval,
+       -- so the statement fails with: operator does not exist, timestamp with
+       -- time zone < interval. At runtime, on the claim, where the tick's own
+       -- per-row guard turns it into one undelivered message rather than a
+       -- crash. Which is how it was found, and also why it was quiet.
+       AND (claimed_at IS NULL OR claimed_at < $2::timestamptz - make_interval(secs => $3))
+     RETURNING id`,
+    [outreachId, now, CLAIM_LEASE_SECONDS],
+  );
+  return rows.length === 1;
 }
 
 /** Who an assistant belongs to.  Used to build a scope before any other read. */
@@ -199,7 +249,14 @@ export async function reschedule(outreachId: string, to: Date, sql: Sql = db()):
   // db-scoping:allow-unscoped — the row was selected by dueAcrossAssistants,
   // which is the scoping decision; re-deriving a scope here to write back to
   // the same primary key would be theatre.
-  await sql.query(`UPDATE outreach SET scheduled_for = $2 WHERE id = $1 AND sent_at IS NULL`, [outreachId, to]);
+  //
+  // The claim is DROPPED at the same time. A row put back for later is not a
+  // row somebody is working on, and leaving the lease behind would hide it
+  // from the next tick for five minutes after it became due again.
+  await sql.query(
+    `UPDATE outreach SET scheduled_for = $2, claimed_at = NULL WHERE id = $1 AND sent_at IS NULL`,
+    [outreachId, to],
+  );
 }
 
 export async function cancel(outreachId: string, reason: string, sql: Sql = db()): Promise<void> {

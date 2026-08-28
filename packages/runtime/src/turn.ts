@@ -60,6 +60,16 @@ export type TurnPorts = {
      *  ONBOARDING_PERIOD rather than a day, so it is spent once per account.
      *  The other two reset. See ONBOARDING_MESSAGE_ALLOWANCE. */
     reserve(userId: string, kind: 'messages' | 'proactive' | 'onboarding', periodKey: string, ceiling: number, by: number): Promise<boolean>;
+    /**
+     * Give a reservation back, when the thing it was reserved FOR did not
+     * happen.
+     *
+     * Deliberately not `reserve(..., -1)`: reserve refuses to cross a ceiling
+     * and a refund must never be refused, so they are different questions and
+     * different functions (the same reasoning as hasHeadroom above). Floors at
+     * zero in the repository, so a double refund cannot mint allowance.
+     */
+    release(userId: string, kind: 'messages' | 'proactive' | 'onboarding', periodKey: string, by: number): Promise<void>;
     /** Distinct from reserve() on purpose: "is there room left?" and "take
      *  one" are different questions, and an overloaded by=0 argument is how
      *  two implementations of a port quietly disagree. */
@@ -138,6 +148,25 @@ export type TurnResult =
    * both true and none of their business.
    */
   | { readonly status: 'cost_ceiling_reached'; readonly line: string }
+  /**
+   * The model provider failed: a timeout, a 429 with every key cooling down,
+   * a socket that closed between the first token and the last.
+   *
+   * This is a REFUSAL, not a crash, and three things follow from that.
+   *
+   *   - The reservation is given back. They asked and got nothing; charging a
+   *     message for that would mean an outage eats somebody's day as well as
+   *     their answer.
+   *   - Whatever half-sentence arrived is DISCARDED rather than persisted.
+   *     A truncated reply stored as her words is a lie about what she said,
+   *     and the next turn would read it back as history and continue from a
+   *     thought she never finished.
+   *   - Their own message stays. It was persisted before the stream, which is
+   *     step 2 of the order at the top of this file, and losing what somebody
+   *     typed because a third party had a bad minute is the one outcome worth
+   *     writing extra code to avoid.
+   */
+  | { readonly status: 'provider_unavailable'; readonly line: string; readonly reason: string }
   | { readonly status: 'quiet'; readonly reason: string };
 
 /** Reserved for her reply; the rest of the window is prompt plus history. */
@@ -169,22 +198,32 @@ export async function runTurn(input: TurnInput, ports: TurnPorts, sink: TurnSink
   // half that actually closes the hole — a genuine newcomer gets a generous
   // introduction, and an account that never answers ends up on the same
   // twenty a day as everybody else. Nothing is unbounded.
+  //
+  // WHAT WAS SPENT IS REMEMBERED, because it may have to be given back. A
+  // provider outage below returns the reservation: they asked and got
+  // nothing, and an outage that also eats somebody's daily allowance charges
+  // them twice for one failure of ours.
+  let spentOn: { kind: 'messages' | 'proactive' | 'onboarding'; periodKey: string } | null = null;
   if (input.surface === 'onboarding') {
     const introduction = await ports.turn.reserve(
       input.userId, 'onboarding', ONBOARDING_PERIOD, ONBOARDING_MESSAGE_ALLOWANCE, 1,
     );
-    if (!introduction) {
+    if (introduction) spentOn = { kind: 'onboarding', periodKey: ONBOARDING_PERIOD };
+    else {
       const daily = await ports.turn.reserve(input.userId, 'messages', localDay, limits.messagesPerDay, 1);
       if (!daily) return { status: 'message_limit_reached', line: t('limit.reached', input.language, input.assistantGender) };
+      spentOn = { kind: 'messages', periodKey: localDay };
     }
   }
   if (input.surface === 'chat') {
     const granted = await ports.turn.reserve(input.userId, 'messages', localDay, limits.messagesPerDay, 1);
     if (!granted) return { status: 'message_limit_reached', line: t('limit.reached', input.language, input.assistantGender) };
+    spentOn = { kind: 'messages', periodKey: localDay };
   }
   if (input.surface === 'proactive') {
     const granted = await ports.turn.reserve(input.userId, 'proactive', localDay, limits.proactivePerDay, 1);
     if (!granted) return { status: 'quiet', reason: 'daily reach-out already sent' };
+    spentOn = { kind: 'proactive', periodKey: localDay };
   }
   const costHeadroom = await ports.turn.hasHeadroom(input.userId, 'model_cost_micros', month, limits.modelCostPerMonth);
   if (!costHeadroom) return { status: 'cost_ceiling_reached', line: t('limit.reached', input.language, input.assistantGender) };
@@ -273,15 +312,36 @@ export async function runTurn(input: TurnInput, ports: TurnPorts, sink: TurnSink
     }
   };
 
-  const usage = await ports.provider.stream(
-    {
-      model: input.model, system: assembled.system, messages,
-      maxOutputTokens: budget.maxOutputTokens, effort: 'low',
-      // Only worth a breakpoint when there is history to cache.
-      cacheHistory: priorHistory.length >= 2,
-    },
-    (delta) => consume(stream.push(delta)),
-  );
+  // THE ONE CALL THAT LEAVES THIS PROCESS, and the only place a third party
+  // can take the turn down. @lian/llm has already retried what is safe to
+  // retry and given up on a stream that went silent; by the time something
+  // arrives here it is final, and the job is to turn it into a sentence.
+  let usage;
+  try {
+    usage = await ports.provider.stream(
+      {
+        model: input.model, system: assembled.system, messages,
+        maxOutputTokens: budget.maxOutputTokens, effort: 'low',
+        // Only worth a breakpoint when there is history to cache.
+        cacheHistory: priorHistory.length >= 2,
+      },
+      (delta) => consume(stream.push(delta)),
+    );
+  } catch (error) {
+    // Refund first, and separately from everything else: a refund that fails
+    // must not turn a degraded turn into a crashed one, because the crash is
+    // the thing this whole branch exists to prevent.
+    if (spentOn !== null) {
+      await ports.turn.release(input.userId, spentOn.kind, spentOn.periodKey, 1).catch(() => {});
+    }
+    // `text` is dropped on the floor here. See TurnResult above for why a
+    // half-sentence is worse than no sentence.
+    return {
+      status: 'provider_unavailable',
+      line: t('error.outage', input.language, input.assistantGender),
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
   consume(stream.flush());
 
   // ── 5. persist, then dispatch ───────────────────────────────────────────

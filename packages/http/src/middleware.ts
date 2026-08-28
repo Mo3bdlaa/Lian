@@ -13,6 +13,8 @@ export type MiddlewarePorts = {
   takeToken(bucketKey: string, windowSeconds: number, limit: number, now: Date): Promise<{ allowed: boolean; resetAt: Date }>;
   claimIdempotency(input: { key: string; userId: string | null; route: string; requestHash: string }): Promise<{ state: 'fresh' | 'in_flight' | 'conflict' } | { state: 'replay'; status: number; body: unknown }>;
   completeIdempotency(key: string, status: number, body: unknown): Promise<void>;
+  /** For work that did not happen: free the key instead of recording it. */
+  releaseIdempotency(key: string): Promise<void>;
 };
 
 export type RateRule = { readonly limit: number; readonly windowSeconds: number };
@@ -102,7 +104,14 @@ export const IDEMPOTENCY_HEADER = 'idempotency-key';
 export async function withIdempotency(
   input: { context: RequestContext; userId: string | null; route: string },
   ports: MiddlewarePorts,
-  run: () => Promise<{ status: number; json: unknown }>,
+  /**
+   * `record: false` means "this did not happen" — the claim is released and
+   * the key is free again. Anything that failed for a reason that will not
+   * repeat (a provider outage, a store that was unreachable) says so, because
+   * recording it would replay somebody else's bad minute back at the person
+   * every time they retried.
+   */
+  run: () => Promise<{ status: number; json: unknown; record?: boolean }>,
 ): Promise<{ status: number; json: unknown; replayed: boolean }> {
   const key = input.context.headers[IDEMPOTENCY_HEADER];
   if (key === undefined || key.trim() === '') {
@@ -126,6 +135,7 @@ export async function withIdempotency(
   }
 
   const result = await run();
-  await ports.completeIdempotency(scoped, result.status, result.json);
+  if (result.record === false) await ports.releaseIdempotency(scoped);
+  else await ports.completeIdempotency(scoped, result.status, result.json);
   return { ...result, replayed: false };
 }
