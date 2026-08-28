@@ -6,9 +6,16 @@ follow-up: **what is actually slow, when it becomes urgent, what each proposed
 fix costs, and which one to reach for.** Written before it is urgent, which is
 the only time this is cheap.
 
-Every number here was measured on the machine in `docs/PERFORMANCE.md`, by
-`tools/perf.ts`'s sibling probe, against real Postgres with real rows. Where a
-number depends on an assumption, the assumption is next to it.
+Every number here was measured on the machine in `docs/PERFORMANCE.md`,
+against real Postgres with real rows, by a throwaway probe rather than a
+committed tool — deliberately: it seeds ten thousand memories, rebuilds
+indexes and adds columns, none of which belongs in a repository. **The probe
+is not kept; the numbers and the reasoning are.** What it did is described
+precisely enough at each measurement below to be rebuilt in an afternoon if a
+number ever needs re-checking, and `npm run perf` covers the parts worth
+having permanently.
+
+Where a number depends on an assumption, the assumption is next to it.
 
 ---
 

@@ -95,9 +95,21 @@ describe('the schedule', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, () =
 
     const pending = await outreach.due(scope, new Date(`${DAY}T23:59:00Z`));
     const kinds = pending.map((row) => row.kind).sort();
+    // EVERY row for this assistant, sent and cancelled included, so a failure
+    // says WHY rather than just "nothing pending". This test failed once in a
+    // full-suite run and passed in every subset, and the empty `kinds` above
+    // was all there was to go on — which is the difference between a minute
+    // and an afternoon.
+    const everything = await db().query<{ kind: string; source: string; scheduled_for: Date; sent_at: Date | null; cancelled_at: Date | null }>(
+      `SELECT kind, source, scheduled_for, sent_at, cancelled_at FROM outreach WHERE assistant_id = $1 ORDER BY scheduled_for`,
+      [scope.assistantId],
+    );
+    const dump = everything.rows.length === 0
+      ? 'NO OUTREACH ROWS AT ALL for this assistant — the proposal never wrote one'
+      : everything.rows.map((r) => `${r.kind}/${r.source} for ${r.scheduled_for.toISOString()}${r.sent_at ? ' SENT' : ''}${r.cancelled_at ? ' CANCELLED' : ''}`).join('; ');
     // The task they asked to be reminded of, the habit due today, and the
     // briefing — the briefing being the one she initiated.
-    assert.ok(kinds.includes('reminder'), `expected a reminder, got ${kinds.join(', ')}`);
+    assert.ok(kinds.includes('reminder'), `expected a reminder, got [${kinds.join(', ')}] — all rows: ${dump}; report: ${JSON.stringify(report.proposed)}`);
     assert.ok(kinds.includes('briefing'), `expected a briefing, got ${kinds.join(', ')}`);
 
     const reminder = pending.find((row) => row.kind === 'reminder')!;

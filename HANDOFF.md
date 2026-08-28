@@ -59,7 +59,68 @@ that too.
 
 ---
 
-## 0. What the twelfth run did
+## 0. What the thirteenth run did
+
+### The retrieval ceiling, measured — and a 237 MB index that excluded its caller
+
+`docs/RETRIEVAL-CEILING.md` follows up `PERFORMANCE.md`'s "retrieval is three
+quarters of a turn": what is actually slow, when it becomes urgent, and what
+each fix costs. The first draft concluded that `memories_embedding_idx` was
+read by nothing and should be dropped. **Checking before acting is the only
+reason that did not ship.**
+
+`findSimilar` — the near-duplicate check — orders by pure cosine distance,
+exactly what ivfflat answers. The index was partial on `status = 'active'`;
+`findSimilar` never mentions status, so the planner could not prove the
+implication and fell back to a sequential scan. **33.1 ms against 2.9 ms**, on
+a query that runs once per extracted candidate on every turn — costing more
+per turn than retrieval itself, silently, because a slow correct answer looks
+exactly like a fast one.
+
+Migration 0022 widens the **index** rather than narrowing the **query**. The
+one-line alternative is the tempting one and is wrong: pending memories would
+stop being seen by the duplicate check, so an account at capacity would
+quietly accumulate duplicates.
+
+The rest is written down rather than built: **256 dimensions is a 6× win**
+(1 KB fits inline, 4 KB does not, so the TOAST fetch disappears) and is a
+decision for whoever picks the embedder; **two-stage retrieval was measured
+and rejected** — 8/12 of the right answer at 8.1 ms, no faster than the exact
+answer at 256 dims; **capping paid memories** is a product decision about what
+"she remembers everything" means.
+
+And one thing no migration can do: an ivfflat index computes its centroids
+from the data it is built on, and a migration runs on an empty table. Built
+empty it returns **2 of 60**; rebuilt, **60 of 60**. `REINDEX` is now an
+operational step in ACCOUNTS.md, because nothing in the product will notice if
+it is never done — the failure mode is a memory she already had, stored twice.
+
+### Using the product, third pass — four harness fixes and one product change
+
+`docs/FIRST-IMPRESSIONS.md` §0 is new and is the useful part. Three findings
+in this run were **the harness**, before it could see anything: the transcript
+reported 499 waiting reach-outs for a one-day-old account (unscoped SQL
+picking up the test suite's leftovers), reported the whole database's tick
+numbers as if they were this person's, and reported **"did she reach out on
+her own? NO"** while she had — the check tested for `surface === 'scheduled'`
+and a briefing carries `'briefing'`. A harness that under-reports the defining
+feature is worse than one that says nothing. Six of the last seven alarming
+findings from this tool have been the tool.
+
+A fifth, found by causing it: **`npm run session` drives the real scheduler
+over every account in the database**, so running it beside `npm test` on the
+same `DATABASE_URL` delivers the suite's freshly-proposed outreach and fails
+its scheduler tests — in one full run, never in a subset, never on retry. The
+tool says so loudly now, and the assertion that failed dumps every row for its
+scope so the next one names its own cause. LESSONS §28 gained the bullet.
+
+The one product change: **"Nothing has come in this month yet" is no longer
+gated by the three-transaction floor.** Day one is two transactions, AED 6,900
+out and nothing in, and the screen rendered a bare negative number with the
+one line whose job is to explain it suppressed alongside the pattern claims.
+The floor belongs on the inferences. See decision 18u.
+
+## 0z. What the twelfth run did
 
 ### Every dependency failure is now something she says
 
@@ -643,6 +704,15 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
 18w. **A claim on outreach is a five-minute lease.** Too short and a slow
    turn is delivered twice; too long and a crashed run's work waits. Five
    minutes is thirty times the worst measured delivery. `CLAIM_LEASE_SECONDS`.
+
+18u. **"Nothing has come in this month yet" is not gated by the
+   three-transaction floor; every other observation is.** Found by using the
+   product: day one is two transactions, AED 6,900 out and nothing in, and
+   the screen rendered a bare negative number with the one line whose job is
+   to explain it suppressed alongside the pattern claims. The floor exists
+   because two points are not a pattern — right for "most of what went out
+   was rent", wrong for a statement that a column is empty, which is true
+   with one transaction. One condition moved; tests on both sides of it.
 
 18v. **The provider gets three attempts and 45 seconds of silence.** The
    silence budget is a judgement against the published one-to-two-second

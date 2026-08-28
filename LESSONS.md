@@ -772,6 +772,16 @@ the machine of whoever is actually trying to work.**
 - **A helper that unwraps a response must throw on the status.** A 429 read as
   `.userId` surfaced three lines later as `Cannot read properties of undefined
   (reading 'id')`, which sent me to the wrong file twice.
+- **The state can live in another PROCESS, not just another run.** `npm run
+  session` drives the real scheduler over *every* account in the database. Run
+  beside `npm test` on the same `DATABASE_URL` it delivers the suite's
+  freshly-proposed outreach, and a scheduler test fails with "expected a
+  reminder, got []" — in one full run, never in a subset, never again on
+  retry. Twenty minutes went into looking for a defect that was not there.
+  Two fixes, and the second is the one that generalises: the tool now says
+  loudly what it drives, and **the assertion dumps every row for its scope,
+  sent and cancelled included**, so the next failure of its kind names its own
+  cause instead of printing an empty list.
 
 ## 29. The cleanup on the error path fails on exactly the errors that matter
 

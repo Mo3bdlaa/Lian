@@ -44,6 +44,7 @@ import { createApplication } from '../apps/server/src/app.ts';
 import { deterministicEmbedder, EMBEDDING_DIMENSIONS, type AnalysisModel } from '@lian/analysis';
 import { DEFAULT_MODEL, blendedTurnMicros, costMicros, type Provider } from '@lian/llm';
 import { ANALYSIS_MODEL } from '../apps/server/src/analysis.ts';
+import { limitsFor } from '@lian/domain';
 import { generateVapidKeys } from '@lian/push';
 import { migrate, closeDb, db } from '@lian/db';
 import type { AddressInfo } from 'node:net';
@@ -133,11 +134,17 @@ async function hoursPass(count: number): Promise<void> {
       say(`    [DEBUG ${localNow()}] ${JSON.stringify(report)}`);
     }
     const p = report.proposed;
+    // LABELLED "every account", because it is. The scheduler is a batch job
+    // over the whole database and its report is the whole database's — on a
+    // developer's machine that includes every account the test suite and the
+    // perf tool have left behind. Unlabelled, "proposed 62" reads as sixty-two
+    // messages queued for the one person this session is about, and the honest
+    // number for them is on the scoped rows below.
     if (p !== undefined && (p.scheduled > 0 || p.heldBack > 0)) {
-      say(`    [tick ${localNow()}] proposed ${p.scheduled}, held back ${p.heldBack}, duplicate ${p.duplicate}`);
+      say(`    [tick ${localNow()}] across every account in this database: proposed ${p.scheduled}, held back ${p.heldBack}, duplicate ${p.duplicate}`);
     }
     const sent = report.outreach?.sent ?? 0;
-    if (sent > 0) say(`    [tick ${localNow()}] delivered ${sent}`);
+    if (sent > 0) say(`    [tick ${localNow()}] delivered ${sent} (all accounts)`);
   }
 }
 
@@ -287,6 +294,22 @@ if (REAL) {
   console.log(`  ${turns * 2} extraction calls on ${ANALYSIS_MODEL}  $${(extraction / 1_000_000).toFixed(2)}`);
   console.log('The free plan\'s own $3.00 monthly ceiling bounds it whatever happens.\n');
 }
+// A LOUD WARNING, BECAUSE THIS TOOL IS NOT INERT.
+//
+// It runs the REAL scheduler, hour by hour, and the scheduler is a batch job
+// over EVERY account in the database — not just the one this session creates.
+// So running it beside `npm test` against the same DATABASE_URL delivers the
+// suite's freshly-proposed outreach out from under it, and a scheduler test
+// fails with "expected a reminder, got []" — in one full run, never in a
+// subset, and never again on the next attempt.
+//
+// That happened, cost twenty minutes of looking for a defect that was not
+// there, and the fix was knowing. LESSONS §28's shape with the state living
+// in another PROCESS rather than in another run.
+console.log('\n  NOTE: this drives the real scheduler over EVERY account in this database.');
+console.log('  Do not run it beside `npm test` on the same DATABASE_URL — it will');
+console.log('  deliver the suite\'s outreach and fail its scheduler tests.\n');
+
 const app = createApplication(config, {
   ...(REAL ? {} : { provider, analysisModel }),
   embedder: deterministicEmbedder(EMBEDDING_DIMENSIONS), log: () => {}, now,
@@ -363,6 +386,21 @@ say(`  sign-up → ${signUp.status}`);
 
 const me1 = (await call('GET', '/api/me')).json;
 conversationId = me1.conversation.id;
+
+// THIS ACCOUNT'S OWN ROWS, AND NOTHING ELSE'S.
+//
+// The direct-SQL reads below used to be unscoped — `SELECT … FROM outreach`,
+// full stop — which is fine against a database this tool has to itself and a
+// lie against a developer's, where the test suite and the perf tool have left
+// tens of thousands of rows behind. The first run of this after those tools
+// existed printed "outreach rows: 499", every one of them scheduled for a
+// date three months in the past, and read as if this person had been ignored
+// four hundred times before they signed up.
+//
+// LESSONS §27, exactly: a harness that disagrees with the product produces
+// findings about the harness. The scope is taken once, here, and every raw
+// read below carries it.
+const MINE = { userId: me1.user.id, assistantId: me1.assistant.id };
 say(`  screen  ${me1.onboarding === null ? 'chat' : `onboarding, step "${me1.onboarding.step}"`}`);
 say(`  mood    ${me1.assistant.moodPhrase}`);
 say(`  stage   ${me1.relationship.stageName} — "${me1.relationship.prose}"`);
@@ -427,7 +465,8 @@ await hoursPass(1); // 02:00 UTC — 06:00 in Dubai, past the proposal hour
 // opened, answered, cancelled), so "what happened to it" is a fact about
 // when rather than a word somebody has to keep in step.
 const outreach1 = await db().query<{ kind: string; source: string; scheduled_for: Date; sent_at: Date | null; cancelled_at: Date | null }>(
-  `SELECT kind, source, scheduled_for, sent_at, cancelled_at FROM outreach ORDER BY scheduled_for`,
+  `SELECT kind, source, scheduled_for, sent_at, cancelled_at FROM outreach
+   WHERE assistant_id = $1 ORDER BY scheduled_for`, [MINE.assistantId],
 );
 say(`  outreach rows: ${outreach1.rows.length}`);
 for (const row of outreach1.rows) {
@@ -447,7 +486,15 @@ say(`    money       ${briefing.money === null || briefing.money === undefined ?
 
 const messagesNow = (await call('GET', `/api/conversations/${conversationId}/messages`)).json;
 const hers = (messagesNow.messages ?? []).filter((m: any) => m.role === 'assistant');
-say(`  did she reach out on her own? ${hers.some((m: any) => m.surface === 'scheduled') ? 'YES' : 'no'}`);
+// EVERY surface she can speak on unprompted, not just one. A proactive
+// message carries the surface its OUTREACH KIND maps to — 'briefing',
+// 'scheduled', 'security' or 'proactive' (packages/jobs/wiring.ts) — and this
+// used to test for 'scheduled' alone. So a delivered briefing, which is the
+// product's second-biggest idea, was reported as "she never reached out".
+// A harness that under-reports the defining feature is worse than one that
+// says nothing (LESSONS §27).
+const UNPROMPTED = new Set(['briefing', 'scheduled', 'security', 'proactive']);
+say(`  did she reach out on her own? ${hers.some((m: any) => UNPROMPTED.has(m.surface)) ? 'YES' : 'no'}`);
 
 await turn('I ran this morning before the studio');
 await turn('I am exhausted');
@@ -461,7 +508,8 @@ await turn('I am exhausted');
 heading('LATER THE SAME DAY — is "I\'ll remind you" true?');
 await hoursPass(2);
 const dueDay = await db().query<{ kind: string; source: string; scheduled_for: Date; sent_at: Date | null }>(
-  `SELECT kind, source, scheduled_for, sent_at FROM outreach ORDER BY scheduled_for`,
+  `SELECT kind, source, scheduled_for, sent_at FROM outreach
+   WHERE assistant_id = $1 ORDER BY scheduled_for`, [MINE.assistantId],
 );
 say(`  outreach rows now: ${dueDay.rows.length}`);
 for (const row of dueDay.rows) {
@@ -469,7 +517,8 @@ for (const row of dueDay.rows) {
 }
 await hoursPass(3);
 const afterMorning = await db().query<{ kind: string; sent_at: Date | null; message_id: string | null }>(
-  `SELECT kind, sent_at, message_id FROM outreach ORDER BY scheduled_for`,
+  `SELECT kind, sent_at, message_id FROM outreach
+   WHERE assistant_id = $1 ORDER BY scheduled_for`, [MINE.assistantId],
 );
 for (const row of afterMorning.rows) {
   say(`    after the 10:00 tick: ${row.kind} ${row.sent_at === null ? 'still waiting' : `SENT, message ${row.message_id === null ? 'none' : 'written'}`}`);
@@ -482,7 +531,7 @@ const taskRow = await db().query<{ id: string; due_on: string; completed_at: Dat
   // follows them to a second assistant; what she remembers about them does
   // not. That split is deliberate and it is easy to get backwards.
   `SELECT id, due_on::text AS due_on, completed_at FROM tasks WHERE user_id = $1`,
-  [(await call('GET', '/api/me')).json.user.id],
+  [MINE.userId],
 );
 say(`  the task row: ${taskRow.rows.map((r) => `due ${r.due_on}, ${r.completed_at === null ? 'open' : 'done'}`).join(' · ') || '(NO TASK AT ALL)'}`);
 say(`  today, in her zone: ${new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE }).format(clock)}`);
@@ -497,7 +546,8 @@ say(`  BRIEFING on the day: "${briefing3.line ?? '(no line)'}"`);
 // FIRST-IMPRESSIONS as "the briefing has nothing of her in it", when the
 // message existed and the local-day window had slipped past it.
 const delivered = await db().query<{ n: number }>(
-  `SELECT count(*)::int AS n FROM messages WHERE surface = 'briefing' AND deleted_at IS NULL`,
+  `SELECT count(*)::int AS n FROM messages
+   WHERE assistant_id = $1 AND surface = 'briefing' AND deleted_at IS NULL`, [MINE.assistantId],
 );
 if ((delivered.rows[0]?.n ?? 0) > 0 && briefing3.line === null) {
   say('  !! A briefing message exists and the screen shows no line.');
@@ -508,7 +558,7 @@ if ((delivered.rows[0]?.n ?? 0) > 0 && briefing3.line === null) {
 say(`    today       ${(briefing3.today ?? []).map((item: any) => item.title).join(' · ') || '(nothing)'}`);
 say(`    carried     ${(briefing3.carriedOver ?? []).map((item: any) => item.title).join(' · ') || '(nothing)'}`);
 const day3Messages = (await call('GET', `/api/conversations/${conversationId}/messages`)).json;
-const reached = (day3Messages.messages ?? []).filter((m: any) => m.surface === 'scheduled');
+const reached = (day3Messages.messages ?? []).filter((m: any) => UNPROMPTED.has(m.surface));
 say(`  did she say anything unprompted? ${reached.length === 0 ? 'NO' : `yes — "${reached[reached.length - 1].body}"`}`);
 
 // ── CORRECTING SOMETHING ───────────────────────────────────────────────────
@@ -553,6 +603,10 @@ if (doomed !== undefined) {
 heading('TALKING UNTIL THE FREE TIER RUNS OUT');
 let wall: string | null = null;
 let spoken = 0;
+// What the day had already cost before this section started, so the
+// arithmetic below can be checked rather than asserted.
+const earlierToday = limitsFor('free').messagesPerDay
+  - ((await call('GET', '/api/me')).json.limits.messagesRemaining as number);
 for (let attempt = 0; attempt < 25 && wall === null; attempt += 1) {
   const state = (await call('GET', '/api/me')).json;
   if (state.limits.messagesState === 'approaching' && spoken > 0) {
@@ -563,21 +617,28 @@ for (let attempt = 0; attempt < 25 && wall === null; attempt += 1) {
   wall = result.limit;
 }
 say('');
-say(`  she took ${spoken} messages before refusing.`);
+// `spoken` counts ATTEMPTS, and the last one was the refusal — so it is one
+// more than she accepted. Worth getting right: "she took 16" against a plan
+// that says twenty a day reads as an off-by-four in the product, and the
+// product is exactly right (five earlier in the day, fifteen here, twenty).
+say(`  she accepted ${spoken - 1} here and refused the ${spoken}th.`);
+say(`  with the ${earlierToday} said earlier today, that is ${spoken - 1 + earlierToday} of the free plan's 20.`);
 const atWall = (await call('GET', '/api/me')).json;
 say(`  the snapshot now says: ${atWall.limits.messagesRemaining} left, state "${atWall.limits.messagesState}"`);
 
 // ── A FORTNIGHT ────────────────────────────────────────────────────────────
 
-heading('THE REST OF THE DAY — ticking on, with nothing said');
+heading('THE REST OF THE DAY — fourteen more hours, with nothing said');
 await hoursPass(14);
 const me3 = (await call('GET', '/api/me')).json;
-say(`  stage after two weeks: ${me3.relationship.stageName} — "${me3.relationship.prose}"`);
+say(`  stage after the day: ${me3.relationship.stageName} — "${me3.relationship.prose}"`);
 say(`  mood: ${me3.assistant.moodPhrase}`);
 const story = (await call('GET', '/api/story')).json;
 say(`  the story so far:`);
 for (const event of story.timeline ?? []) say(`    ${event.at.slice(0, 10)}  [${event.type}] ${event.title}`);
-const outreach2 = await db().query<{ kind: string; sent_at: Date | null }>(`SELECT kind, sent_at FROM outreach`);
+const outreach2 = await db().query<{ kind: string; sent_at: Date | null }>(
+  `SELECT kind, sent_at FROM outreach WHERE assistant_id = $1`, [MINE.assistantId],
+);
 say(`  outreach after 12 more days: ${outreach2.rows.length} row(s) — ${outreach2.rows.map((r) => `${r.kind}:${r.sent_at === null ? 'waiting' : 'sent'}`).join(' · ')}`);
 
 // ── WHAT SHE WAS TOLD ──────────────────────────────────────────────────────

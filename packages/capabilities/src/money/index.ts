@@ -79,6 +79,17 @@ function summaryOf(transaction: TransactionLike, language: 'en' | 'ar', localDay
  * floor because two points are not a pattern — the health week draws its line
  * at two workouts for the same reason, and saying nothing is what she does
  * when there is nothing to say.
+ *
+ * THE FLOOR IS ON THE INFERENCES, NOT ON THE ARITHMETIC. "Most of what went
+ * out was rent" is a claim about a pattern and needs points to stand on.
+ * "Nothing has come in yet" is not a claim about anything — it is a statement
+ * that a column is empty, it is true with ONE transaction, and it is the only
+ * line on that screen that explains why the big number is negative.
+ *
+ * Gating it behind three transactions meant the explanation was missing on
+ * exactly the days the number is most alarming: somebody's first two. Found
+ * by using the product on day one, where AED 6,900 out and nothing in
+ * rendered as a bare negative with nothing underneath it.
  */
 export function observe(
   summary: { inMinor: number; outMinor: number; leftMinor: number; topCategories: readonly { category: string; totalMinor: number }[] },
@@ -86,11 +97,10 @@ export function observe(
   currency: string,
   language: 'en' | 'ar',
 ): string | null {
-  if (transactionsThisMonth < 3) return null;
-
-  // Nothing in yet. Said FIRST because it is the one that explains the rest
-  // of the screen: without it, "what's left" is a negative number with no
-  // account of why, which is what the headline was already changed to avoid.
+  // Nothing in yet. FIRST, and ABOVE THE FLOOR, because it is the one that
+  // explains the rest of the screen: without it, "what's left" is a negative
+  // number with no account of why, which is what the headline was already
+  // changed to avoid. See the note above on why this branch is not gated.
   if (summary.inMinor === 0 && summary.outMinor > 0) {
     return line(
       language,
@@ -98,6 +108,9 @@ export function observe(
       'لسه مفيش حاجة داخلة الشهر ده، فده اللي خرج بس.',
     );
   }
+
+  // Everything below this line is an INFERENCE and needs points to stand on.
+  if (transactionsThisMonth < 3) return null;
 
   // One category carrying most of the month. The share is the observation —
   // the amount is already on the screen above it, twice.

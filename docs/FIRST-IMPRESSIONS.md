@@ -1,5 +1,11 @@
 # First impressions
 
+**Third run.** Same person, same day, run again after the resilience and
+performance work — and the first thing it produced was a correction to the
+harness, not a finding about the product. Section 0 is new and is the most
+useful part of this pass. Everything below it that was true last time is still
+true; what changed is marked.
+
 Second run. I signed up as somebody called Rania, talked to Lian, let the
 ticker run every hour through a whole day, watched a reminder fire, corrected
 something she had got wrong, deleted a memory, and talked until she refused.
@@ -35,6 +41,42 @@ What I *can* judge turned out to be most of it:
 - **The prompt.** What she is actually told, in full, at each turn. It is the
   product's instruction to the model and it can be read as a critic without
   ever calling one. It is printed at the end of the transcript.
+
+---
+
+## 0. What this run corrected before it could see anything
+
+**Three findings, and all three were mine.** LESSONS §27 for the fourth,
+fifth and sixth time — a harness that disagrees with the product produces
+findings about the harness — and every one of them would have gone into this
+document as a product observation.
+
+**The transcript said this person had four hundred and ninety-nine reach-outs
+waiting.** `outreach rows: 499`, every one scheduled for a date three months
+in the past, most of them cancelled. It reads as an assistant who has been
+trying to get somebody's attention for a season and being ignored. It was the
+test suite's and the perf tool's leftovers: the session's direct-SQL reads
+were `SELECT … FROM outreach`, unscoped, which is fine against a database this
+tool has to itself and a lie against a developer's. Every raw read is scoped
+to this account's own assistant now.
+
+**The tick report is the whole database's, and did not say so.** `proposed
+62, held back 42` reads as sixty-two messages queued for the one person the
+session is about. The scheduler is a batch job over every account, so the
+number is real and it is not theirs. Labelled now.
+
+**"Did she reach out on her own? NO" — while she had.** The check tested for
+`surface === 'scheduled'`, and a proactive message carries the surface its
+*outreach kind* maps to: `briefing`, `scheduled`, `security` or `proactive`.
+So a delivered briefing — the product's second-biggest idea, working — was
+reported as her never having spoken first. **A harness that under-reports the
+defining feature is worse than one that says nothing**, and this is the second
+time this document has nearly recorded "she does not reach out" as a product
+failure when the product was fine.
+
+The pattern is now unmistakable enough to state as a rule: **every alarming
+finding from this tool gets checked against the tool first.** Six of the last
+seven were the tool.
 
 ---
 
@@ -181,13 +223,45 @@ that a curious person will open once and not open again for a fortnight. I do
 not think it should be padded. I think it is simply a screen that is not for
 day one, and nothing tells a new person that.
 
-**Money on day one is a negative number.** In minus out, with no income ever
-mentioned, is −AED 6,900. The headline already handles this — it says "Spent"
-rather than "What's left" until something has come in — but the categories
-below it are still a list of everything wrong with your month. Her observation
-now appears there (`Most of what went out this month was rent.`), and it is
-the first thing on that screen that sounds like a person rather than a
-spreadsheet.
+**Money on day one is a negative number — and this run showed the case where
+nothing explains it.** In minus out, with no income ever mentioned, is
+−AED 6,900. The headline already handles this: it says "Spent" rather than
+"What's left" until something has come in.
+
+Last run her observation appeared underneath (`Most of what went out this
+month was rent.`) and I called it the first thing on that screen that sounds
+like a person. **This run it did not appear at all**, and the reason is a real
+design seam rather than a bug. `observe()` returns null below **three
+transactions in the month** — a floor that exists because "two points are not
+a pattern", which is exactly right for the branch that says *most of what went
+out was rent*. But the floor is applied to every branch, including this one:
+
+> Nothing has come in this month yet, so this is only what has gone out.
+
+That sentence is not a pattern claim. It is a statement of fact, it is true
+with **one** transaction, and it is the only thing on the screen that explains
+why the big number is negative. Gating it behind three transactions means the
+explanation is missing on exactly the days when the number is most alarming —
+somebody's first two. **The floor belongs on the inferences, not on the one
+line that is arithmetic about whether a column is empty.**
+
+**Fixed, this run.** One condition moved above the floor, with the reasoning
+in the function and a test for both sides of it. The transcript now reads:
+
+> her observation: Nothing has come in this month yet, so this is only what
+> has gone out.
+
+on the day it is needed rather than three transactions later.
+
+**The mood went quiet after the most active day possible, and I am not sure it
+is wrong.** By evening the header read "A little quiet" — after twenty-odd
+messages. `deriveMood` goes quiet when the person's *affect* is low, not when
+contact is: "I am exhausted", "the deadlines are never mine", and then a run
+of heavy filler. So she matches the room rather than the traffic, which is
+defensible and is probably right. It is worth naming because the obvious
+reading of "quiet" is "we have not spoken", and here it meant the opposite.
+⚠ Half unjudgeable: the filler messages are the harness's words, not a
+person's, and a real conversation would move this differently.
 
 **The mood moved and I noticed.** By evening the header read "Quiet, late"
 instead of "Getting to know you". Nothing announced it. It is a small, good
@@ -273,8 +347,9 @@ that dilutes her voice is a model question and I cannot answer it.
 
 Everything below is unjudgeable from here, and the run that answers it is two
 commands — `npm run preflight model`, then `npm run session -- --real`, about
-$0.19 for forty turns at catalogue prices, bounded by the free plan's own
-$3.00 ceiling whatever happens:
+**$0.26** (forty chat turns at $0.19 plus $0.07 of the extraction calls that
+run beside them, from the catalogue), bounded by the free plan's own $3.00
+ceiling whatever happens:
 
 1. **Does she sound like a person?** Nothing in this document answers that.
 2. **Does the briefing line make the briefing worth opening?**
@@ -294,8 +369,37 @@ $3.00 ceiling whatever happens:
 1. ~~**Close the onboarding hole.**~~ Done — a separate lifetime budget for
    the introduction, falling through to the daily one. See HANDOFF §3.0 for
    why neither of the two options I first proposed was right.
-2. **Run the real-model session.** Half of this document is a ⚠.
-3. **Trust this document less than the transcript.** Two of its claims were
-   the harness rather than the product, and both looked exactly like real
-   findings. The tool now announces that class of slip itself; the habit that
-   catches the rest is checking the row before writing the sentence.
+2. **Run the real-model session.** Half of this document is a ⚠, and after
+   three passes the half I can reach is thoroughly worked over. The remaining
+   findings are not going to come from reading the transcript again.
+3. **Trust this document less than the transcript.** ~~Two~~ **six** of its
+   claims have now been the harness rather than the product, and every one
+   looked exactly like a real finding — three of them in this run alone,
+   before it could see anything (§0). The tool announces two classes of that
+   slip itself now and scopes its own reads; the habit that catches the rest
+   is checking the row before writing the sentence.
+
+---
+
+## What the third run leaves behind
+
+**One product change**, and it is small and clearly right: the line that
+explains a negative money figure is no longer suppressed by a floor meant for
+pattern claims.
+
+**Five harness fixes** (the three in §0; the transcript's own summary line
+reporting "she took 16 messages" against a plan that says twenty a day — she
+accepted fifteen there and five earlier, and the product was exactly right;
+and a warning the tool did not carry, after I ran it beside the test suite on
+the same database and it delivered the suite's outreach out from under a
+scheduler test). Five to one is the honest ratio for a third pass over the same day — the product's own machinery has been read closely enough that what
+is left to find in it needs either a model or a person. Specifically:
+
+- **A screen reader and somebody who uses one.** The keyboard half is done and
+  tested with real key events. How any of it is *announced* is not something
+  reachable from here, and it is now the largest unexamined surface in the
+  product.
+- **A native Arabic reader.** ~487 authored strings, judged by their author.
+- **The model.** Everything marked ⚠ above.
+
+None of those is a thing to keep re-deriving from a transcript.

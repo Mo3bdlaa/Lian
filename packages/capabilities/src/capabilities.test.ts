@@ -217,15 +217,38 @@ describe('health is context, not a tracker', () => {
       inMinor: 0, outMinor: 0, leftMinor: 0, topCategories: [] as { category: string; totalMinor: number }[], ...over,
     });
 
-    // The floor. Two points are not a pattern, so she says nothing — the
-    // common case, and the one a generated observation would fill with a
-    // confident sentence about two transactions.
-    assert.equal(observeMoney(month({ outMinor: 40_000 }), 2, 'AED', 'en'), null);
+    // THE FLOOR IS ON THE INFERENCES. Two points are not a pattern, so any
+    // claim ABOUT a pattern says nothing — the common case, and the one a
+    // generated observation would fill with a confident sentence about two
+    // transactions. `inMinor` is non-zero here so the un-gated branch below
+    // is not what is being tested.
+    assert.equal(
+      observeMoney(month({ inMinor: 100_000, outMinor: 40_000, leftMinor: 20_000 }), 2, 'AED', 'en'),
+      null,
+    );
+    // And nothing at all is still nothing.
+    assert.equal(observeMoney(month(), 0, 'AED', 'en'), null);
 
     // A first month with no income: this explains the headline above it,
     // which is why it is checked before anything else.
     assert.match(
       observeMoney(month({ outMinor: 40_000, leftMinor: -40_000 }), 5, 'AED', 'en')!,
+      /Nothing has come in this month yet/,
+    );
+
+    // AND IT IS NOT GATED BY THE FLOOR. Found by using the product on day
+    // one: two transactions, AED 6,900 out, nothing in — and the screen
+    // rendered a bare negative number with nothing underneath explaining it,
+    // because the one line whose job is to explain it was suppressed with
+    // the pattern claims. "Nothing has come in" is not an inference; it is
+    // true with a single transaction, and the first two days are exactly
+    // when the number looks most alarming.
+    assert.match(
+      observeMoney(month({ outMinor: 690_000, leftMinor: -690_000 }), 2, 'AED', 'en')!,
+      /Nothing has come in this month yet/,
+    );
+    assert.match(
+      observeMoney(month({ outMinor: 40_000, leftMinor: -40_000 }), 1, 'AED', 'en')!,
       /Nothing has come in this month yet/,
     );
 
