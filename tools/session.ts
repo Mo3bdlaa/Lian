@@ -3,9 +3,15 @@
 //   npm run session
 //
 // Not a test. A test asserts something it already believes; this signs up as
-// somebody who has never seen the thing, talks to her for a fortnight of
-// simulated days, and writes down what happened — verbatim, in order, with
-// the screens and the prompt she was given at each turn.
+// somebody who has never seen the thing, talks to her through a whole day
+// with the ticker running every hour, and writes down what happened —
+// verbatim, in order, with the prompt she was given at each turn.
+//
+// A DAY, not a fortnight, and the reason is the clock note below: the rows
+// are stamped by the database, so a session that travels to next week writes
+// history the scheduler cannot see. One real day exercises everything that
+// matters — the 05:00 proposal, delivery, the briefing window, quiet hours,
+// and the daily limit — and it exercises it for real.
 //
 // It exists because the most valuable findings in this project came from
 // USING it rather than building it, and every one of them was invisible to a
@@ -43,13 +49,7 @@ import type { AddressInfo } from 'node:net';
 
 const OUT = new URL('../docs/', import.meta.url).pathname;
 
-// ── the clock ──────────────────────────────────────────────────────────────
-//
-// A fortnight has to pass for any of this to be worth watching: memory that
-// comes back, a stage that moves, a reminder that fires tomorrow. So the
-// clock is a variable and the schedule is run by hand at the end of each day,
-// exactly as the external ticker would.
-// ── THE HARD-WON PART OF THIS FILE ─────────────────────────────────────────
+// ── the clock, which is the hard-won part of this file ─────────────────────
 //
 // The clock starts on TODAY'S REAL UTC DATE, at midnight, and only the hour
 // ever moves. That looks arbitrary and it is the difference between this
@@ -331,7 +331,6 @@ say(`  memories kept ${me2.limits.memoriesKept}, pending ${me2.limits.memoriesPe
 say(`  messages left today ${me2.limits.messagesRemaining} (${me2.limits.messagesState})`);
 
 heading('AN HOUR LATER — the things a person actually says');
-advance(0);
 await turn('remind me to call the bank');
 await turn('I paid 400 for the gym today');
 await turn('rent went out, 6500');

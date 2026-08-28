@@ -1,6 +1,6 @@
 
 ── MIDNIGHT — a stranger signs up. ───────────────────────────────
-   (it is Thu 27 Aug, 04:00 where she is)
+   (it is Fri 28 Aug, 04:00 where she is)
   sign-up → 201
   screen  onboarding, step "greet"
   mood    Meeting you, late
@@ -43,10 +43,10 @@
   messages left today 20 (ok)
 
 ── AN HOUR LATER — the things a person actually says ─────────────
-   (it is Thu 27 Aug, 04:00 where she is)
+   (it is Fri 28 Aug, 04:00 where she is)
   me    remind me to call the bank
   her   I'll remind you.
-        [ call the bank · 2026-08-27 ]
+        [ call the bank · 2026-08-28 ]
   me    I paid 400 for the gym today
   her   Logged.
   her   
@@ -56,21 +56,21 @@
   her   Noted.
         [ AED 6,500.00 · rent · Today ]
 
-  TASKS: call the bank (due 2026-08-27)
+  TASKS: call the bank (due 2026-08-28)
   MONEY: in 0, out 6900, left -6900
   her observation: (none — not enough to notice)
 
 ── THE TICKER RUNS, every hour, as it would every five minutes ───
-   (it is Thu 27 Aug, 04:00 where she is)
-    [tick Thu 27 Aug, 05:00] proposed 2, held back 0, duplicate 0
+   (it is Fri 28 Aug, 04:00 where she is)
+    [tick Fri 28 Aug, 05:00] proposed 2, held back 0, duplicate 0
   outreach rows: 2
-    briefing   assistant_initiated waiting    for 2026-08-27T03:00:00.000Z
-    reminder   user_requested     waiting    for 2026-08-27T05:00:00.000Z
+    briefing   assistant_initiated waiting    for 2026-08-28T03:00:00.000Z
+    reminder   user_requested     waiting    for 2026-08-28T05:00:00.000Z
 
 ── PAST 05:00 — the hour outreach is proposed ────────────────────
-   (it is Thu 27 Aug, 05:00 where she is)
-    [tick Thu 27 Aug, 07:00] delivered 1
-  BRIEFING: "(no line)"
+   (it is Fri 28 Aug, 05:00 where she is)
+    [tick Fri 28 Aug, 07:00] delivered 1
+  BRIEFING: "Go on."
     today       call the bank
     carried     (nothing)
     money       {"outMinor":690000,"currency":"AED"}
@@ -82,32 +82,32 @@
   her   That is three late nights this week. Is it one project, or all of them at once?
 
 ── LATER THE SAME DAY — is "I'll remind you" true? ───────────────
-   (it is Thu 27 Aug, 07:00 where she is)
-    [tick Thu 27 Aug, 09:00] delivered 1
+   (it is Fri 28 Aug, 07:00 where she is)
+    [tick Fri 28 Aug, 09:00] delivered 1
   outreach rows now: 2
-    briefing   assistant_initiated SENT for 2026-08-27T03:00:00.000Z
-    reminder   user_requested     SENT for 2026-08-27T05:00:00.000Z
+    briefing   assistant_initiated SENT for 2026-08-28T03:00:00.000Z
+    reminder   user_requested     SENT for 2026-08-28T05:00:00.000Z
     after the 10:00 tick: briefing SENT, message written
     after the 10:00 tick: reminder SENT, message written
-  the task row: due 2026-08-27, open
-  today, in her zone: 2026-08-27
-  the whole briefing: {"day":"2026-08-27","line":null,"today":[{"id":"4f788f80-2cc5-4b24-8d60-644684d57d1d","title":"call the bank","done":false}],"carriedOver":[],"habits":[],"pattern":null,"money":{"outMinor":690000,"currency":"AED"}}
-  /api/tasks says: [{"title":"call the bank","dueOn":"2026-08-27"}]
-  BRIEFING on the day: "(no line)"
+  the task row: due 2026-08-28, open
+  today, in her zone: 2026-08-28
+  the whole briefing: {"day":"2026-08-28","line":"Go on.","today":[{"id":"ec4c820f-818f-48bc-9937-ce61cfc175b9","title":"call the bank","done":false}],"carriedOver":[],"habits":[],"pattern":null,"money":{"outMinor":690000,"currency":"AED"}}
+  /api/tasks says: [{"title":"call the bank","dueOn":"2026-08-28"}]
+  BRIEFING on the day: "Go on."
     today       call the bank
     carried     (nothing)
   did she say anything unprompted? yes — "Go on."
 
 ── CORRECTING SOMETHING SHE GOT WRONG ────────────────────────────
-   (it is Thu 27 Aug, 12:00 where she is)
-  the row as she filed it: gym 400 on 2026-08-27, from a receipt: false
+   (it is Fri 28 Aug, 12:00 where she is)
+  the row as she filed it: gym 400 on 2026-08-28, from a receipt: false
   correcting 400 → 350 ... 200
   now: gym 350
   does the conversation still say 400? — the chip re-derives, so:
     the chip in the conversation now reads: AED 350.00 · gym · Today
 
 ── DELETING A MEMORY ─────────────────────────────────────────────
-   (it is Thu 27 Aug, 12:00 where she is)
+   (it is Fri 28 Aug, 12:00 where she is)
   she is holding 3:
     [preference] They run in the morning, before work.
     [fact] Their late nights come from other people’s deadlines.
@@ -116,7 +116,7 @@
   she now holds 2
 
 ── TALKING UNTIL THE FREE TIER RUNS OUT ──────────────────────────
-   (it is Thu 27 Aug, 12:00 where she is)
+   (it is Fri 28 Aug, 12:00 where she is)
   me    something on my mind, number 1
   her   Go on.
   me    something on my mind, number 2
@@ -160,15 +160,15 @@
   the snapshot now says: 0 left, state "reached"
 
 ── THE REST OF THE DAY — ticking on, with nothing said ───────────
-   (it is Thu 27 Aug, 12:00 where she is)
+   (it is Fri 28 Aug, 12:00 where she is)
   stage after two weeks: Getting acquainted — "We're still getting to know each other. Tell me things twice if you need to — I'm still learning what matters to you."
   mood: Quiet, late
   the story so far:
-    2026-08-27  [milestone] We started talking
+    2026-08-28  [milestone] We started talking
   outreach after 12 more days: 2 row(s) — briefing:sent · reminder:sent
 
 ── WHAT SHE WAS ACTUALLY TOLD — the prompt, at the fourth turn ───
-   (it is Fri 28 Aug, 02:00 where she is)
+   (it is Sat 29 Aug, 02:00 where she is)
   (the turn where I said: "the deadlines are never mine, they are clients")
 
   | You are Lian.
@@ -245,7 +245,7 @@
   | This is the first conversation. Introduce yourself as a secretary, more or less, say plainly what you keep, and ask one thing. Do not claim closeness you have not earned.
 
 ── AND AT A TURN A FORTNIGHT IN ──────────────────────────────────
-   (it is Fri 28 Aug, 02:00 where she is)
+   (it is Sat 29 Aug, 02:00 where she is)
   (the turn where I said: "WHAT TO DO NOW
 This is not sent to anyone. Write briefly, fo")
 
