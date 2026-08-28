@@ -42,7 +42,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { loadConfig } from '../apps/server/src/config.ts';
 import { createApplication } from '../apps/server/src/app.ts';
 import { deterministicEmbedder, EMBEDDING_DIMENSIONS, type AnalysisModel } from '@lian/analysis';
-import { DEFAULT_MODEL, type Provider } from '@lian/llm';
+import { DEFAULT_MODEL, blendedTurnMicros, type Provider } from '@lian/llm';
 import { generateVapidKeys } from '@lian/push';
 import { migrate, closeDb, db } from '@lian/db';
 import type { AddressInfo } from 'node:net';
@@ -243,9 +243,42 @@ const { config } = loadConfig({
   ...process.env, NODE_ENV: 'development', PORT: '0', LIAN_TICK_SECRET: 'session',
   LIAN_VAPID_PUBLIC_KEY: vapid.publicKey, LIAN_VAPID_PRIVATE_KEY: vapid.privateKey,
 });
+// ── which model answers ────────────────────────────────────────────────────
+//
+//   npm run session            the scripted provider above. Free, offline,
+//                              deterministic, and unable to tell you anything
+//                              about her voice.
+//   npm run session -- --real  the real model, through the real key pool.
+//
+// OPT-IN, not "use a key if one happens to be set". A tool that spends money
+// because an environment variable was exported is a tool nobody runs twice,
+// and this one is meant to be run often.
+//
+// The real run still uses the deterministic embedder: retrieval quality is a
+// separate question from voice, and paying for embeddings to answer a
+// question about how she SOUNDS is spending on the wrong axis. Say so rather
+// than quietly mixing the two.
+const REAL = process.argv.includes('--real');
+if (REAL && config.modelApiKeys.length === 0) {
+  console.error('--real needs ANTHROPIC_API_KEY. Run `npm run preflight model` first: it is four');
+  console.error('output tokens, and it separates the four failures that all look like "she did not answer".');
+  process.exit(78);
+}
+if (REAL) {
+  // The estimate, before anything is spent, from the catalogue rather than a
+  // guess. `blendedTurnMicros` is the same function the ceiling rests on.
+  const turns = 40;
+  const estimate = (blendedTurnMicros(DEFAULT_MODEL) * turns) / 1_000_000;
+  console.log(`\nREAL MODEL. About ${turns} turns, roughly $${estimate.toFixed(2)} at catalogue prices.`);
+  console.log('The free plan\'s own $3.00 monthly ceiling bounds it whatever happens.\n');
+}
 const app = createApplication(config, {
-  provider, analysisModel, embedder: deterministicEmbedder(EMBEDDING_DIMENSIONS), log: () => {}, now,
+  ...(REAL ? {} : { provider, analysisModel }),
+  embedder: deterministicEmbedder(EMBEDDING_DIMENSIONS), log: () => {}, now,
 });
+say(REAL
+  ? '  [ the real model is answering — every reply below is hers ]'
+  : '  [ a scripted provider is answering — her replies below are MINE, and say nothing about her voice ]');
 await new Promise<void>((resolve) => app.server.listen(0, '127.0.0.1', resolve));
 const base = `http://127.0.0.1:${(app.server.address() as AddressInfo).port}`;
 

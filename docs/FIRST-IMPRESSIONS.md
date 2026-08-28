@@ -271,8 +271,10 @@ that dilutes her voice is a model question and I cannot answer it.
 
 ## What is waiting on a key
 
-Everything below is unjudgeable from here, and the run that answers it is one
-command (`npm run preflight model`, then `npm run session`, ≈$0.25):
+Everything below is unjudgeable from here, and the run that answers it is two
+commands — `npm run preflight model`, then `npm run session -- --real`, about
+$0.19 for forty turns at catalogue prices, bounded by the free plan's own
+$3.00 ceiling whatever happens:
 
 1. **Does she sound like a person?** Nothing in this document answers that.
 2. **Does the briefing line make the briefing worth opening?**

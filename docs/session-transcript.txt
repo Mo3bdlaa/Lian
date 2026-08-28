@@ -1,3 +1,4 @@
+  [ a scripted provider is answering — her replies below are MINE, and say nothing about her voice ]
 
 ── MIDNIGHT — a stranger signs up. ───────────────────────────────
    (it is Fri 28 Aug, 00:00 where she is)
@@ -92,7 +93,7 @@
     after the 10:00 tick: reminder still waiting
   the task row: due 2026-08-28, open
   today, in her zone: 2026-08-28
-  the whole briefing: {"day":"2026-08-28","line":"Go on.","today":[{"id":"f631e5cd-c728-4a64-8eab-594cf1f8a7b6","title":"call the bank","done":false}],"carriedOver":[],"habits":[],"pattern":null,"money":{"outMinor":690000,"currency":"AED"}}
+  the whole briefing: {"day":"2026-08-28","line":"Go on.","today":[{"id":"c6721db7-df3e-4335-961f-894c82d52285","title":"call the bank","done":false}],"carriedOver":[],"habits":[],"pattern":null,"money":{"outMinor":690000,"currency":"AED"}}
   /api/tasks says: [{"title":"call the bank","dueOn":"2026-08-28"}]
   BRIEFING on the day: "Go on."
     today       call the bank

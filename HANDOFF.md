@@ -620,7 +620,21 @@ stops at the database boundary can only test what happens above that boundary,
 and nothing that joins on a stored timestamp.** That is most of the scheduler,
 and it applies to every test in this repository that moves time.
 
-**READY AND WAITING ON A KEY: the real-model FIRST-IMPRESSIONS run.**
+**READY AND WAITING ON A KEY: the real-model FIRST-IMPRESSIONS run.** It is
+two commands now, not a rewrite:
+
+```sh
+npm run preflight model     # four output tokens; separates the four failures
+npm run session -- --real   # the same session, her voice instead of mine
+```
+
+`--real` is opt-in rather than "use a key if one is set" — a tool that spends
+money because an environment variable was exported is one nobody runs twice.
+It refuses with a useful message if there is no key, prints the estimate
+before spending anything (≈$0.19 for forty turns, from the catalogue rather
+than a guess), and the free plan's own $3.00 ceiling bounds it whatever
+happens. The transcript's first line says which model answered, so a scripted
+run can never be mistaken for a real one later.
 `npm run preflight model` first — four output tokens, a fraction of a cent,
 and it separates the four failures that all look like "she did not answer".
 Then the session: **≈ $0.25**, computed from the catalogue rather than
