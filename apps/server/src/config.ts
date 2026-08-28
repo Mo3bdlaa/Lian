@@ -28,6 +28,11 @@ export type Config = {
   readonly vapid: { readonly publicKey: string; readonly privateKey: string; readonly subject: string } | null;
   readonly embedder: { readonly model: string; readonly apiKey: string; readonly url: string | undefined };
   readonly speechApiKey: string | null;
+  /** Proxy hops in front of this deployment; decides which X-Forwarded-For
+   *  entry is the client. Zero ignores the header. */
+  readonly trustedProxies: number;
+  /** Path to a local MMDB, or null. Nothing leaves the deployment either way. */
+  readonly geoipPath: string | null;
   readonly email: { readonly apiKey: string; readonly from: string } | null;
   /** Null when Stripe is not configured: checkout says so plainly rather
    *  than failing halfway through a payment. */
@@ -110,6 +115,26 @@ export function loadConfig(env: Env): { config: Config; degraded: string[] } {
     require('LIAN_EMBEDDER_MODEL / LIAN_EMBEDDER_API_KEY', undefined, 'memory retrieval falls back to a deterministic embedder: it matches repeated text and misses paraphrase');
   }
 
+  // How many proxy hops sit in front of this deployment. Zero means
+  // X-Forwarded-For is ignored entirely — see clientIp() in @lian/http. It is
+  // a security setting rather than a convenience: the leftmost entry of that
+  // header is whatever the client typed, and it feeds the sign-in rate limit
+  // and the Security screen's location.
+  const trustedProxiesRaw = env['LIAN_TRUSTED_PROXIES'] ?? '0';
+  const trustedProxies = Number(trustedProxiesRaw);
+  if (!Number.isInteger(trustedProxies) || trustedProxies < 0 || trustedProxies > 8) {
+    problems.push(`LIAN_TRUSTED_PROXIES '${trustedProxiesRaw}' is not a hop count between 0 and 8`);
+  }
+
+  // The local IP-to-place database (GeoLite2 or DB-IP, MMDB format). Read in
+  // process, so no third party ever sees a user's address. Absent means the
+  // Security screen shows no location, which is a named loss rather than a
+  // failure — see docs/ACCOUNTS.md for the refresh step.
+  const geoipPath = env['LIAN_GEOIP_DB'] ?? '';
+  if (geoipPath === '') {
+    degraded.push('LIAN_GEOIP_DB is not set — the Security screen shows device and time, and no location');
+  }
+
   const speechApiKey = env['LIAN_SPEECH_API_KEY'] ?? '';
   if (speechApiKey === '') degraded.push('LIAN_SPEECH_API_KEY is not set — voice is unavailable; text is unaffected');
 
@@ -190,6 +215,8 @@ export function loadConfig(env: Env): { config: Config; degraded: string[] } {
       },
       embedder: { model: embedderModel, apiKey: embedderKey, url: env['LIAN_EMBEDDER_URL'] },
       speechApiKey: speechApiKey === '' ? null : speechApiKey,
+      trustedProxies,
+      geoipPath: geoipPath === '' ? null : geoipPath,
       /** Null when no transport is configured. Recovery still records the
        *  request, so a deployment that gains a transport later loses nothing
        *  — what is missing is the delivery, and the app says so. */

@@ -16,6 +16,10 @@ import { walk, rel, read, lineOf, report, importsOf, stripComments, ROOT, type V
 /** Which @lian packages each package may import.  Absent = imports nothing. */
 const ALLOWED: Record<string, string[]> = {
   domain: [],
+  // Reads a file and returns a place. It knows nothing about the product —
+  // not the catalogue, not the schema — so the phrasing stays where the words
+  // are and this stays a parser.
+  geo: [],
   design: ['domain'],
   i18n: ['domain'],
   db: ['domain'],

@@ -46,6 +46,11 @@ const message = (overrides: Partial<Message> = {}): Message => ({
   memoriesDerived: 0, attachments: [], ...overrides,
 });
 
+/** dom.ts escapes text, so a raw catalogue string never matches the markup.
+ *  The two entities that actually occur here are the apostrophe and the
+ *  ampersand. */
+const unescape_ = (markup: string): string => markup.replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+
 const state = (overrides: Partial<State> = {}): State => ({ ...initial, me: me(), path: '/chat', ...overrides });
 
 describe('chat (UI-UX §3)', () => {
@@ -88,8 +93,8 @@ describe('chat (UI-UX §3)', () => {
     // Found by looking at a screenshot, once the seed stopped writing a fake
     // user agent that made every row say "Device".
     const rows = [
-      { id: 'd-1', label: 'Mac · Chrome', kind: 'computer' as const, lastSeen: null, current: true },
-      { id: 'd-2', label: 'iPhone · Safari', kind: 'phone' as const, lastSeen: '2026-08-26T09:00:00Z', current: false },
+      { id: 'd-1', label: 'Mac · Chrome', kind: 'computer' as const, lastSeen: null, place: null, current: true },
+      { id: 'd-2', label: 'iPhone · Safari', kind: 'phone' as const, lastSeen: '2026-08-26T09:00:00Z', place: null, current: false },
     ];
     const markup = render(securityScreen(me(), { devices: rows, attempts: [] }));
     const iconOf = (label: string): string => {
@@ -102,6 +107,38 @@ describe('chat (UI-UX §3)', () => {
     };
     assert.equal(iconOf('iPhone · Safari'), 'i-device', 'a phone was drawn as a computer');
     assert.equal(iconOf('Mac · Chrome'), 'i-laptop', 'a Mac was drawn as a phone — the icon is tracking `current`, not the device');
+  });
+
+  test('a location is beside the device and the time, hedged, or absent', () => {
+    // UI-UX §17. Three rules, and each is a way the screen could stop being
+    // read: a city stated confidently is wrong often enough (mobile carriers,
+    // VPNs, Private Relay) to produce the false alarm the screen exists to
+    // prevent; a location REPLACING the device and the time removes the two
+    // things that actually answer "was that you?"; and "Unknown" fills the
+    // space an answer would take with a restatement of the question.
+    const view = {
+      devices: [
+        { id: 'd-1', label: 'Mac · Chrome', kind: 'computer' as const, lastSeen: '2026-08-26T09:00:00Z', place: { kind: 'near' as const, name: 'Dubai' }, current: false },
+        { id: 'd-2', label: 'iPhone · Safari', kind: 'phone' as const, lastSeen: '2026-08-25T09:00:00Z', place: { kind: 'country' as const, name: 'Germany' }, current: false },
+        { id: 'd-3', label: 'Windows · Firefox', kind: 'computer' as const, lastSeen: '2026-08-24T09:00:00Z', place: null, current: false },
+      ],
+      attempts: [{ outcome: 'success', at: '2026-08-26T09:30:00Z', place: { kind: 'near' as const, name: 'Dubai' } }],
+    };
+    const markup = unescape_(render(securityScreen(me(), view)));
+
+    assert.match(markup, /Near Dubai/, 'a city has to be hedged');
+    assert.doesNotMatch(markup, /(^|[^r] )Dubai(?! )/, 'a bare city name reads as certainty the database does not have');
+    assert.match(markup, /In Germany/, 'low confidence degrades to the country');
+    assert.doesNotMatch(markup, /Unknown/i, 'an unresolvable address must show NOTHING, not "Unknown"');
+
+    // Beside, never instead: every row still carries its device and its date.
+    for (const label of ['Mac · Chrome', 'iPhone · Safari', 'Windows · Firefox']) {
+      assert.ok(markup.includes(label), `${label} lost its device label`);
+    }
+    assert.match(markup, /26 August[\s\S]*Near Dubai|Near Dubai[\s\S]*26 August/, 'the date and the place are on the same row');
+    // The row with no place is a normal row, not a shorter or emptier one.
+    const noPlace = markup.slice(markup.indexOf('Windows · Firefox'));
+    assert.match(noPlace, /24 August/, 'a device with no location lost its date too');
   });
 
   test('a control tag would render as text if one ever arrived', () => {

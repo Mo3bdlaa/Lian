@@ -157,6 +157,15 @@ export const CATALOG = {
   'security.trusted_devices': { en: 'Trusted devices', ar: 'أجهزة موثوقة', addressee: 'none' },
   'security.this_device': { en: 'this device', ar: 'الجهاز الحالي', addressee: 'none' },
   'security.recent_attempts': { en: 'Recent attempts', ar: 'محاولات أخيرة', addressee: 'none' },
+  // UI-UX §17's location, phrased with the confidence it deserves. "Near
+  // Dubai" and not "Dubai": mobile carriers, VPNs and Private Relay routinely
+  // name a city somebody has never been to, and a confident wrong city on a
+  // security screen produces the false alarm the screen exists to prevent.
+  // {place} is the database's own name for it, in the language being read.
+  'security.near': { en: 'Near {place}', ar: 'قريب من {place}', addressee: 'none' },
+  // What a low-confidence answer degrades to. The country is the largest true
+  // thing available when the city would be a guess wearing a place name.
+  'security.in_country': { en: 'In {place}', ar: 'في {place}', addressee: 'none' },
   'security.revoke': { en: 'Revoke', ar: 'إلغاء', addressee: 'none' },
   'security.outcome_success': { en: 'Signed in', ar: 'دخول', addressee: 'none' },
   'security.outcome_bad_password': { en: 'Wrong password', ar: 'كلمة سر غلط', addressee: 'none' },

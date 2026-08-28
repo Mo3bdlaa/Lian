@@ -74,7 +74,7 @@ export async function requestPasswordReset(
     await ports.sendPasswordReset({ userId: user.id, email: user.email, token });
     await ports.recordAttempt({
       userId: user.id, email, fingerprint: null,
-      locationLabel: null, userAgent: input.userAgent, outcome: 'reset_requested',
+      ip: null, userAgent: input.userAgent, outcome: 'reset_requested',
     });
   } else {
     // Recorded WITHOUT a user, so a burst of requests for addresses that do
@@ -82,7 +82,7 @@ export async function requestPasswordReset(
     // testing a list of emails against this endpoint.
     await ports.recordAttempt({
       userId: null, email, fingerprint: null,
-      locationLabel: null, userAgent: input.userAgent, outcome: 'unknown_email',
+      ip: null, userAgent: input.userAgent, outcome: 'unknown_email',
     });
   }
 
@@ -106,7 +106,7 @@ export type ResetOutcome =
  * that no longer exist.
  */
 export async function completePasswordReset(
-  input: { token: string; password: string; device: { fingerprint: string; userAgent: string | null; locationLabel: string | null } },
+  input: { token: string; password: string; device: { fingerprint: string; userAgent: string | null; ip: string | null } },
   ports: AuthPorts & RecoveryPorts,
   now: Date,
 ): Promise<ResetOutcome> {
@@ -127,7 +127,7 @@ export async function completePasswordReset(
   const device = await ports.upsertDevice(claimed.userId, {
     fingerprint: input.device.fingerprint,
     userAgent: input.device.userAgent,
-    locationLabel: input.device.locationLabel,
+    ip: input.device.ip,
   });
   await ports.trustDevice(claimed.userId, device.id);
 
@@ -139,12 +139,12 @@ export async function completePasswordReset(
 
   await ports.recordAttempt({
     userId: claimed.userId, email: '', fingerprint: input.device.fingerprint,
-    locationLabel: input.device.locationLabel, userAgent: input.device.userAgent, outcome: 'reset_completed',
+    ip: input.device.ip, userAgent: input.device.userAgent, outcome: 'reset_completed',
   });
   // Decision 6: she mentions it. Not a bank alert — UI-UX §16's register.
   await ports.raiseSecurityEvent({
     userId: claimed.userId, kind: 'password_reset',
-    locationLabel: input.device.locationLabel, confirmationId: '',
+    ip: input.device.ip, confirmationId: '',
   });
 
   return { status: 'reset', userId: claimed.userId, sessionToken: token, sessionsRevoked };

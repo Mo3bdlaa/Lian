@@ -27,6 +27,7 @@ import { localDayKey, localHour, atLocalHour, limitsFor, messageBudget, nextStep
 import { moodPhrase, t, CONSENT_VERSION, type CopyKey } from '@lian/i18n';
 import { describeCaptures, observe, observeMoney, LANGUAGE_STYLES } from '@lian/capabilities';
 import { resolveTheme, timeBand } from '@lian/design';
+import type { GeoLookup, Place } from '@lian/geo';
 
 import { readReceipt, describeReading, type Embedder, type AnalysisModel } from '@lian/analysis';
 import {
@@ -67,6 +68,11 @@ export type Deps = {
    *  rather than failing as if something went wrong. Both directions come
    *  from one provider — a voice note in, her sentence out. */
   readonly speech: SpeechProvider | null;
+  /** The local IP-to-place lookup, or null when no database is configured.
+   *  Nothing leaves the deployment either way: a null here means the Security
+   *  screen shows device and time and no location, which is the honest
+   *  degradation rather than a third party being asked. */
+  readonly geo: GeoLookup | null;
 };
 
 const dayKeyFor = (timeZone: string, now: Date): string => localDayKey(now, timeZone);
@@ -175,7 +181,7 @@ function authPorts(deps: Deps): AuthPorts & RecoveryPorts & VerificationPorts {
     async recordAttempt(input) {
       return db.auth.recordAttempt({
         userId: input.userId ?? null, email: input.email, fingerprint: input.fingerprint,
-        locationLabel: input.locationLabel, userAgent: input.userAgent, outcome: input.outcome,
+        ip: input.ip, userAgent: input.userAgent, outcome: input.outcome,
       });
     },
     createConfirmation: (userId, input) => db.auth.createConfirmation({ userId }, input),
@@ -1301,15 +1307,26 @@ export function readPorts(deps: Deps): ReadPorts {
     },
 
     async security({ userId, deviceId }) {
+      // The PLACE is derived HERE, at render, from the address that was
+      // stored — and is never persisted. A stored place is frozen at the
+      // moment it was written; this one is re-read from whatever database the
+      // deployment currently has, in whatever language they are reading it
+      // in, and is simply absent when there is no database or no answer.
+      const geoUser = await db.accounts.getUser({ userId });
+      const geoLanguage = languageOf(geoUser?.languageStyle ?? 'auto', geoUser?.signupLanguage ?? null);
+      const place = (ip: string | null): Place | null =>
+        (ip === null || deps.geo === undefined || deps.geo === null ? null : deps.geo(ip, geoLanguage));
+
       const devices = (await db.auth.listDevices({ userId })).map((device) => ({
         id: device.id,
         label: deviceLabel(device.userAgent),
         kind: deviceKind(device.userAgent),
         lastSeen: device.lastSeenAt?.toISOString() ?? null,
+        place: place(device.lastIp),
         current: device.id === deviceId,
       }));
       const attempts = (await db.auth.recentAttempts({ userId }, 10)).map((attempt) => ({
-        outcome: attempt.outcome, at: attempt.createdAt.toISOString(), location: attempt.locationLabel,
+        outcome: attempt.outcome, at: attempt.createdAt.toISOString(), place: place(attempt.ip),
       }));
       return { devices, attempts };
     },

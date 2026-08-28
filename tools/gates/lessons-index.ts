@@ -170,6 +170,12 @@ const COVERAGE: Record<string, Coverage[]> = {
     { where: 'tools/browser.ts', marker: /A REAL key press, through the browser's input pipeline/ },
     { where: 'apps/server/src/browser.test.ts', marker: /a sheet takes the keyboard, keeps it, and gives it back/ },
   ],
+  '25': [
+    { where: 'apps/server/src/app.ts', marker: /Without this line the option is/ },
+    { where: 'apps/server/src/config.test.ts', marker: /the trusted-proxy count is a number of hops/ },
+    { where: 'packages/http/src/clientip.test.ts', marker: /A FORGED HEADER CANNOT MOVE THE ANSWER/ },
+    { where: 'apps/server/src/attachments.test.ts', marker: /A sign-up that was refused must say so HERE/ },
+  ],
 };
 
 const lessons = read(`${ROOT}/LESSONS.md`);

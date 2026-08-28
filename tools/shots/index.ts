@@ -382,8 +382,28 @@ const { config } = loadConfig({
   LIAN_VAPID_PUBLIC_KEY: vapid.publicKey,
   LIAN_VAPID_PRIVATE_KEY: vapid.privateKey,
 });
+/**
+ * A stand-in for the IP database, so the shots are reproducible for anybody.
+ *
+ * The real database is 8 MB, licensed, and refreshed monthly — committing a
+ * copy would put somebody else's data in this repository and make the
+ * screenshots depend on which month it was taken. So the LOOKUP is a fixture
+ * and everything around it is real: real addresses in the seed, the real
+ * derive-at-render path, the real phrasing rules.
+ *
+ * It covers the three states the screen has, because a screenshot that only
+ * shows the happy one is how this screen got its last two bugs: a confident
+ * city, a low-confidence country, and an address with no answer at all.
+ */
+const geo = (ip: string): { kind: 'near' | 'country'; name: string } | null => {
+  if (ip.startsWith('5.')) return { kind: 'near', name: 'Dubai' };
+  if (ip.startsWith('2a00:')) return { kind: 'country', name: 'Germany' };
+  if (ip.startsWith('185.')) return { kind: 'country', name: 'Ireland' };
+  return null;
+};
+
 const { server } = createApplication(config, {
-  provider, analysisModel,
+  provider, analysisModel, geo,
   embedder: deterministicEmbedder(EMBEDDING_DIMENSIONS),
   log: () => {},
 });

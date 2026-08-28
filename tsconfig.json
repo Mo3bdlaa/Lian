@@ -53,6 +53,9 @@
       "@lian/push": [
         "./packages/push/src/index.ts"
       ],
+      "@lian/geo": [
+        "./packages/geo/src/index.ts"
+      ],
       "@lian/http": [
         "./packages/http/src/index.ts"
       ],

@@ -429,6 +429,43 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
     the two would eventually disagree about where the day ends. Reversing it
     is cheap in code and expensive in what it re-opens.
 
+15c. **The Security screen resolves locations from a LOCAL database, never a
+    service. RECONSIDERED — this was previously declined.**
+
+    The earlier entry said an IP-to-city lookup was "a third-party service and
+    a privacy decision, not a patch", and left it. That reasoning was half
+    right and reached the wrong conclusion: the privacy objection is real, but
+    it is an objection to a SERVICE, and a service is not the only way to
+    resolve an address. A GeoLite2 or DB-IP file read in process resolves it
+    with nothing leaving the deployment — so "your data, your server" stays
+    literally true, and it works offline and self-hosted as well.
+
+    The absence was also not the discipline it looked like. Google and
+    Facebook both show a location on the equivalent screen; a security page
+    without one reads as a missing feature rather than as restraint, and a
+    person comparing them concludes this product knows less than it does.
+
+    What makes it reversible-in-principle and expensive-in-practice: the
+    phrasing is a promise about confidence. **"Near Dubai", never "Dubai"** —
+    mobile carriers route a country through one metro, a VPN puts somebody in
+    Frankfurt, Private Relay names a city near them that is often not theirs.
+    A confident wrong city produces the false alarm the screen exists to
+    prevent, and somebody who gets two of those stops reading it, which is
+    worse than never having had the line. Low confidence degrades to the
+    country; nothing resolvable degrades to NOTHING, never "Unknown".
+
+    And it is BESIDE the device and the time, never instead of them. Those two
+    are what actually answer "was that you?"; the place is supporting
+    evidence.
+
+15d. **`X-Forwarded-For` is read from the RIGHT, by a configured hop count**
+    (`LIAN_TRUSTED_PROXIES`, default 0 — ignore the header entirely). It was
+    read from the left, which is the entry the client sends. That fed the
+    `auth:ip:` rate limit, so sign-in throttling was defeated by rotating a
+    header; and it now feeds the location, where it would have let an attacker
+    choose the city on their victim's security screen. Reversing this
+    re-opens both.
+
 ### Expensive — a public contract
 
 11. **The Stripe API version is pinned** (`2024-06-20`). An account whose
@@ -723,9 +760,14 @@ it felt like.
    gap. The seed sends real user agents now, migration 0019 drops the dead
    column (a stored label is frozen where a derived one is not — §22's shape),
    and a browser test asserts a real Chromium is named rather than called
-   "Unknown device". WHAT REMAINS is `location: null`, which needs an
-   IP-to-city lookup: a third-party service and a privacy decision, not a
-   patch, and yours to make.
+   "Unknown device". AND THE LOCATION IS BUILT — see decisions 15c and 15d.
+   It resolves from a local MaxMind-format file (`@lian/geo`, a reader written
+   here rather than a dependency), so no third party sees a user's address;
+   it is phrased "Near Dubai" rather than "Dubai"; it degrades to the country
+   and then to nothing; and it sits beside the device and the time rather
+   than in their place. What remains is operational, not a decision:
+   `LIAN_GEOIP_DB` has to point at a file, and that file has to be refreshed
+   monthly — ACCOUNTS.md §6a.
 8. ~~**"Message limit approaching" is not shown anywhere.**~~ DONE this run.
    A quiet line above the composer, from a server-computed state, in both
    languages: `limit-approaching-ltr.png`, `limit-approaching-rtl.png`.

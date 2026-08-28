@@ -11,18 +11,18 @@ import type { UserScope } from '../scope.ts';
 
 export type Device = {
   id: string; fingerprint: string; userAgent: string | null;
-  locationLabel: string | null; firstSeenAt: Date; lastSeenAt: Date; trustedAt: Date | null; revokedAt: Date | null;
+  lastIp: string | null; firstSeenAt: Date; lastSeenAt: Date; trustedAt: Date | null; revokedAt: Date | null;
 };
 type DeviceRow = {
   id: string; fingerprint: string; user_agent: string | null;
-  location_label: string | null; first_seen_at: Date; last_seen_at: Date; trusted_at: Date | null; revoked_at: Date | null;
+  last_ip: string | null; first_seen_at: Date; last_seen_at: Date; trusted_at: Date | null; revoked_at: Date | null;
 };
 // No `label`. What the Security screen shows is DERIVED from user_agent at
 // read time (deviceLabel in the composition root), so a stored one would be a
 // second source of truth frozen at write time — see migration 0019.
-const D_COLUMNS = 'id, fingerprint, user_agent, location_label, first_seen_at, last_seen_at, trusted_at, revoked_at';
+const D_COLUMNS = 'id, fingerprint, user_agent, host(last_ip) AS last_ip, first_seen_at, last_seen_at, trusted_at, revoked_at';
 const toDevice = (r: DeviceRow): Device => ({
-  id: r.id, fingerprint: r.fingerprint, userAgent: r.user_agent, locationLabel: r.location_label,
+  id: r.id, fingerprint: r.fingerprint, userAgent: r.user_agent, lastIp: r.last_ip,
   firstSeenAt: r.first_seen_at, lastSeenAt: r.last_seen_at, trustedAt: r.trusted_at, revokedAt: r.revoked_at,
 });
 
@@ -34,18 +34,36 @@ export async function findDevice(scope: UserScope, fingerprint: string, sql: Sql
   return rows[0] === undefined ? null : toDevice(rows[0]);
 }
 
+/**
+ * An address Postgres will accept as `inet`, or null.
+ *
+ * The column is `inet` precisely so a malformed value is refused rather than
+ * stored — but a refusal is a 500 on a sign-in, and a spoofed header is
+ * exactly where a malformed value comes from. So the shape is checked here
+ * and anything else becomes null: a sign-in with no recorded address beats a
+ * sign-in that fails because somebody sent a header full of punctuation.
+ */
+function validIp(ip: string | null | undefined): string | null {
+  if (ip === null || ip === undefined || ip === 'unknown') return null;
+  const value = ip.trim();
+  // A conservative shape check; Postgres does the real parse.
+  return /^[0-9a-fA-F:.]{2,45}$/.test(value) ? value : null;
+}
+
 export async function upsertDevice(
   scope: UserScope,
-  input: { fingerprint: string; userAgent?: string | null; locationLabel?: string | null },
+  input: { fingerprint: string; userAgent?: string | null; ip?: string | null },
   sql: Sql = db(),
 ): Promise<Device> {
   const { rows } = await sql.query<DeviceRow>(
-    `INSERT INTO devices (user_id, fingerprint, user_agent, location_label)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO devices (user_id, fingerprint, user_agent, last_ip)
+     VALUES ($1, $2, $3, $4::inet)
      ON CONFLICT (user_id, fingerprint)
-     DO UPDATE SET last_seen_at = now(), user_agent = coalesce(EXCLUDED.user_agent, devices.user_agent)
+     DO UPDATE SET last_seen_at = now(),
+                   user_agent = coalesce(EXCLUDED.user_agent, devices.user_agent),
+                   last_ip = coalesce(EXCLUDED.last_ip, devices.last_ip)
      RETURNING ${D_COLUMNS}`,
-    [scope.userId, input.fingerprint, input.userAgent ?? null, input.locationLabel ?? null],
+    [scope.userId, input.fingerprint, input.userAgent ?? null, validIp(input.ip)],
   );
   return toDevice(rows[0]!);
 }
@@ -131,24 +149,24 @@ export type AttemptOutcome =
   | 'reset_requested' | 'reset_completed';
 
 export async function recordAttempt(
-  input: { userId: string | null; email: string; fingerprint?: string | null; locationLabel?: string | null; userAgent?: string | null; outcome: AttemptOutcome },
+  input: { userId: string | null; email: string; fingerprint?: string | null; ip?: string | null; userAgent?: string | null; outcome: AttemptOutcome },
   sql: Sql = db(),
 ): Promise<string> {
   const { rows } = await sql.query<{ id: string }>(
-    `INSERT INTO sign_in_attempts (user_id, email_attempted, fingerprint, location_label, user_agent, outcome)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-    [input.userId, input.email, input.fingerprint ?? null, input.locationLabel ?? null, input.userAgent ?? null, input.outcome],
+    `INSERT INTO sign_in_attempts (user_id, email_attempted, fingerprint, ip, user_agent, outcome)
+     VALUES ($1, $2, $3, $4::inet, $5, $6) RETURNING id`,
+    [input.userId, input.email, input.fingerprint ?? null, validIp(input.ip), input.userAgent ?? null, input.outcome],
   );
   return rows[0]!.id;
 }
 
-export async function recentAttempts(scope: UserScope, limit: number, sql: Sql = db()): Promise<{ outcome: AttemptOutcome; locationLabel: string | null; createdAt: Date }[]> {
-  const { rows } = await sql.query<{ outcome: AttemptOutcome; location_label: string | null; created_at: Date }>(
-    `SELECT outcome, location_label, created_at FROM sign_in_attempts
+export async function recentAttempts(scope: UserScope, limit: number, sql: Sql = db()): Promise<{ outcome: AttemptOutcome; ip: string | null; createdAt: Date }[]> {
+  const { rows } = await sql.query<{ outcome: AttemptOutcome; ip: string | null; created_at: Date }>(
+    `SELECT outcome, host(ip) AS ip, created_at FROM sign_in_attempts
      WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
     [scope.userId, limit],
   );
-  return rows.map((r) => ({ outcome: r.outcome, locationLabel: r.location_label, createdAt: r.created_at }));
+  return rows.map((r) => ({ outcome: r.outcome, ip: r.ip, createdAt: r.created_at }));
 }
 
 // ── the new-device hold (Q10) ─────────────────────────────────────────────

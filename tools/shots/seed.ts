@@ -147,8 +147,13 @@ export async function seed(fullness: Fullness, options: {
     // `label` column that nothing read — so the Security screenshot rendered
     // "Device", and HANDOFF carried it for two runs as a product gap. It was
     // a fixture disagreeing with itself.
-    `INSERT INTO devices (user_id, fingerprint, user_agent, location_label, trusted_at)
-     VALUES ($1, $2, 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36', 'Dubai', now()) RETURNING id`,
+    // A REAL address as well as a real user agent. The place is DERIVED from
+    // this at render — there is no location column any more — so a seed that
+    // wrote a place would be writing something the product cannot produce.
+    // 5.1.2.3 is in a routable allocation, so the shot shows what a real row
+    // shows: whatever the deployment's own database says, or nothing.
+    `INSERT INTO devices (user_id, fingerprint, user_agent, last_ip, trusted_at)
+     VALUES ($1, $2, 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36', '5.1.2.3'::inet, now()) RETURNING id`,
     [userId, `fp-${Date.now()}`],
   );
   await sql.query(
@@ -158,15 +163,18 @@ export async function seed(fullness: Fullness, options: {
   );
   if (fullness === 'full') {
     await sql.query(
-      `INSERT INTO devices (user_id, fingerprint, user_agent, location_label, last_seen_at)
-       VALUES ($1, $2, 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1', 'Dubai', now() - interval '2 days')`,
+      `INSERT INTO devices (user_id, fingerprint, user_agent, last_ip, last_seen_at)
+       VALUES ($1, $2, 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1', '2a00:1450:4001:800::200e'::inet, now() - interval '2 days')`,
       [userId, `fp2-${Date.now()}`],
     );
     await sql.query(
-      `INSERT INTO sign_in_attempts (user_id, email_attempted, outcome, location_label, created_at)
-       VALUES ($1, $2, 'success', 'Dubai', now() - interval '1 hour'),
-              ($1, $2, 'held_new_device', 'Amsterdam', now() - interval '2 days'),
-              ($1, $2, 'bad_password', 'Amsterdam', now() - interval '2 days')`,
+      // One row with no address at all, on purpose: the shot has to show what
+      // an unresolvable attempt looks like, and the answer is NOTHING rather
+      // than "Unknown".
+      `INSERT INTO sign_in_attempts (user_id, email_attempted, outcome, ip, created_at)
+       VALUES ($1, $2, 'success', '5.1.2.3'::inet, now() - interval '1 hour'),
+              ($1, $2, 'held_new_device', '185.60.216.35'::inet, now() - interval '2 days'),
+              ($1, $2, 'bad_password', NULL, now() - interval '2 days')`,
       [userId, email],
     );
   }

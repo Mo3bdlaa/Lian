@@ -132,6 +132,20 @@ describe('the environment contract', () => {
     assert.equal(local.config.logConfirmationLinks, true);
   });
 
+  test('the trusted-proxy count is a number of hops, and zero is the default', () => {
+    // It decides which X-Forwarded-For entry is believed, which decides the
+    // sign-in rate limit and the Security screen's location. A default of
+    // zero ignores the header entirely — right for a direct deployment, and
+    // the safe direction for a misconfigured one.
+    assert.equal(loadConfig(MINIMUM).config.trustedProxies, 0);
+    assert.equal(loadConfig({ ...MINIMUM, LIAN_TRUSTED_PROXIES: '2' }).config.trustedProxies, 2);
+    for (const bad of ['-1', '1.5', 'two', '99']) {
+      const problems = problemsOf({ ...PRODUCTION, LIAN_TRUSTED_PROXIES: bad });
+      assert.equal(problems.length, 1, `${bad} was accepted as a hop count`);
+      assert.match(problems[0]!, /hop count between 0 and 8/);
+    }
+  });
+
   test('storage needs all four values or it is not configured', () => {
     // A bucket name with no key is the shape that fails at the first upload
     // rather than at boot.
@@ -141,7 +155,12 @@ describe('the environment contract', () => {
   });
 
   test('a full production environment loads with nothing degraded', () => {
-    const { config, degraded } = loadConfig({ ...PRODUCTION, LIAN_SPEECH_API_KEY: 'v' });
+    // Every optional service named, including the geo database — "full"
+    // means nothing is missing, so a capability added later has to be added
+    // here too or this test stops meaning what it says.
+    const { config, degraded } = loadConfig({
+      ...PRODUCTION, LIAN_SPEECH_API_KEY: 'v', LIAN_GEOIP_DB: '/srv/lian/geo.mmdb',
+    });
     assert.deepEqual(degraded, []);
     assert.equal(config.storage?.bucket, 'lian');
     assert.equal(config.publicUrl, 'https://lian.example');

@@ -22,7 +22,7 @@ export const CONFIRMATION_TTL_MINUTES = 30;
 export type DeviceInfo = {
   readonly fingerprint: string;
   readonly userAgent: string | null;
-  readonly locationLabel: string | null;
+  readonly ip: string | null;
 };
 
 export type SignInResult =
@@ -81,12 +81,12 @@ export async function signUp(
   const device = await ports.upsertDevice(user.id, {
     fingerprint: input.device.fingerprint,
     userAgent: input.device.userAgent,
-    locationLabel: input.device.locationLabel,
+    ip: input.device.ip,
   });
   await ports.trustDevice(user.id, device.id);
   const { token, hash } = newToken();
   await ports.createSession(user.id, { deviceId: device.id, tokenHash: hash, expiresAt: expiry(now, SESSION_TTL_DAYS) });
-  await ports.recordAttempt({ userId: user.id, email: user.email, fingerprint: input.device.fingerprint, locationLabel: input.device.locationLabel, userAgent: input.device.userAgent, outcome: 'success' });
+  await ports.recordAttempt({ userId: user.id, email: user.email, fingerprint: input.device.fingerprint, ip: input.device.ip, userAgent: input.device.userAgent, outcome: 'success' });
   // Day 0 of this user's cohort. Without it there is no denominator, and
   // every retention number afterwards is measuring a subset of the people it
   // claims to.
@@ -103,14 +103,14 @@ export async function signIn(
   const user = await ports.findUserByEmail(email);
 
   if (user === null) {
-    await ports.recordAttempt({ userId: null, email, fingerprint: input.device.fingerprint, locationLabel: input.device.locationLabel, userAgent: input.device.userAgent, outcome: 'unknown_email' });
+    await ports.recordAttempt({ userId: null, email, fingerprint: input.device.fingerprint, ip: input.device.ip, userAgent: input.device.userAgent, outcome: 'unknown_email' });
     // Spend comparable time so the absence of a user is not a timing oracle.
     await verifyPassword(input.password, 'scrypt$32768$8$1$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=');
     return { status: 'rejected' };
   }
 
   if (!(await verifyPassword(input.password, user.passwordHash))) {
-    await ports.recordAttempt({ userId: user.id, email, fingerprint: input.device.fingerprint, locationLabel: input.device.locationLabel, userAgent: input.device.userAgent, outcome: 'bad_password' });
+    await ports.recordAttempt({ userId: user.id, email, fingerprint: input.device.fingerprint, ip: input.device.ip, userAgent: input.device.userAgent, outcome: 'bad_password' });
     return { status: 'rejected' };
   }
 
@@ -120,7 +120,7 @@ export async function signIn(
   if (recognised) {
     const { token, hash } = newToken();
     await ports.createSession(user.id, { deviceId: known.id, tokenHash: hash, expiresAt: expiry(now, SESSION_TTL_DAYS) });
-    await ports.recordAttempt({ userId: user.id, email, fingerprint: input.device.fingerprint, locationLabel: input.device.locationLabel, userAgent: input.device.userAgent, outcome: 'success' });
+    await ports.recordAttempt({ userId: user.id, email, fingerprint: input.device.fingerprint, ip: input.device.ip, userAgent: input.device.userAgent, outcome: 'success' });
     // A returning user's day-N event.
     await ports.recordEvent({ name: 'session_started', userId: user.id });
     return { status: 'signed_in', userId: user.id, sessionToken: token };
@@ -133,19 +133,19 @@ export async function signIn(
   const device = await ports.upsertDevice(user.id, {
     fingerprint: input.device.fingerprint,
     userAgent: input.device.userAgent,
-    locationLabel: input.device.locationLabel,
+    ip: input.device.ip,
   });
   const attemptId = await ports.recordAttempt({
     userId: user.id, email, fingerprint: input.device.fingerprint,
-    locationLabel: input.device.locationLabel, userAgent: input.device.userAgent, outcome: 'held_new_device',
+    ip: input.device.ip, userAgent: input.device.userAgent, outcome: 'held_new_device',
   });
   const { token, hash } = newToken();
   const confirmationId = await ports.createConfirmation(user.id, {
     deviceId: device.id, attemptId, tokenHash: hash,
     expiresAt: new Date(now.getTime() + CONFIRMATION_TTL_MINUTES * 60_000),
   });
-  await ports.sendDeviceConfirmation({ userId: user.id, email, token, locationLabel: input.device.locationLabel, userAgent: input.device.userAgent });
-  await ports.raiseSecurityEvent({ userId: user.id, kind: 'held_new_device', locationLabel: input.device.locationLabel, confirmationId });
+  await ports.sendDeviceConfirmation({ userId: user.id, email, token, ip: input.device.ip, userAgent: input.device.userAgent });
+  await ports.raiseSecurityEvent({ userId: user.id, kind: 'held_new_device', ip: input.device.ip, confirmationId });
 
   return { status: 'held_new_device', userId: user.id };
 }
@@ -164,13 +164,13 @@ export async function resolveDeviceConfirmation(
     // existing session ends — if the password is known to someone else, a
     // session opened earlier is the thing that matters.
     const sessionsRevoked = await ports.revokeAllSessions(claimed.userId);
-    await ports.recordAttempt({ userId: claimed.userId, email: '', fingerprint: null, locationLabel: null, userAgent: null, outcome: 'denied' });
+    await ports.recordAttempt({ userId: claimed.userId, email: '', fingerprint: null, ip: null, userAgent: null, outcome: 'denied' });
     return { status: 'denied', userId: claimed.userId, sessionsRevoked };
   }
 
   await ports.trustDevice(claimed.userId, claimed.deviceId);
   const { token, hash } = newToken();
   await ports.createSession(claimed.userId, { deviceId: claimed.deviceId, tokenHash: hash, expiresAt: expiry(now, SESSION_TTL_DAYS) });
-  await ports.recordAttempt({ userId: claimed.userId, email: '', fingerprint: null, locationLabel: null, userAgent: null, outcome: 'confirmed' });
+  await ports.recordAttempt({ userId: claimed.userId, email: '', fingerprint: null, ip: null, userAgent: null, outcome: 'confirmed' });
   return { status: 'confirmed', userId: claimed.userId, sessionToken: token };
 }

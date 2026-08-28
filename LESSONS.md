@@ -654,3 +654,31 @@ it. The attribute was in seven templates and the behaviour was in none.
   photo viewer renders inside the album screen — a manager watching only
   `#r-overlays` would have missed the one overlay that covers the whole
   display, and would have made it inert along with the screen it sits in.
+
+## 25. A setting that is read is not a setting that is connected
+
+**`trustedProxies` was added to `ServerOptions`, read in `server.ts`, given a
+config entry, an environment variable, documentation, and a test asserting it
+parsed correctly. `app.ts` never passed it. The whole feature was inert, and
+every request was attributed to the socket.**
+
+This is §24 pointed at configuration: a name declared and the behaviour never
+wired. The difference is that §24's `role="dialog"` was visibly a promise, and
+a setting looks like plumbing — so nothing in review pauses on it.
+
+- **The test asserted the wrong end.** `config.test.ts` checked that
+  `LIAN_TRUSTED_PROXIES: '2'` produced `trustedProxies: 2`, which was true and
+  meant nothing. **A setting needs a test that it CHANGES BEHAVIOUR**, not one
+  that it parses: send the same request with the setting at 0 and at 1 and
+  assert the two are treated differently.
+- **The failure was three lines downstream of the cause.** A rate-limited
+  sign-up returned 429, the test read `.userId` off the error body, and the
+  suite reported `Cannot read properties of undefined (reading 'id')`. That
+  sent me to the rate-limit table twice before I checked whether the wire
+  existed. **A helper that unwraps a response must throw on the status**, or
+  every failure downstream of it names a property instead of a reason.
+- **I treated the messenger twice.** The tests were correctly reporting that
+  the feature did nothing; I read them as flaky infrastructure and "fixed"
+  them — twice — before reading them as a finding. Both fixes were real
+  improvements and neither was the bug. **When a test starts failing after a
+  change, the change is the suspect, not the test.**

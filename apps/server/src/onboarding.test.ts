@@ -25,6 +25,46 @@ import { generateVapidKeys } from '@lian/push';
 import { createApplication } from './app.ts';
 import { loadConfig } from './config.ts';
 
+/**
+ * A different client address on every run.
+ *
+ * These tests send an X-Forwarded-For to model distinct clients — and the
+ * `auth:ip:` rate limit is a DATABASE row keyed on that address (LESSONS
+ * §12), so a fixed one accumulates across runs and the suite starts failing
+ * the second time somebody runs it locally. That is the worst kind of
+ * flake: it passes in CI, where the database is new, and fails on the
+ * machine of whoever is trying to work.
+ *
+ * The addresses stay inside 192.0.2.0/24 — TEST-NET-1, which is reserved for
+ * documentation and which `isRoutable` refuses, so nothing here ever reaches
+ * a geo lookup either.
+ */
+/**
+ * A client address that is unique per CALL and per PROCESS.
+ *
+ * These tests send an X-Forwarded-For to model distinct clients, and the
+ * `auth:ip:` rate limit is a DATABASE row keyed on that address (LESSONS
+ * §12). So an address that repeats — across runs, across files, or across
+ * two calls in one file — means two sign-ups share a bucket and the second
+ * is refused with a 429 that surfaces three lines later as an undefined
+ * property.
+ *
+ * TEST-NET-1 was not big enough. A /24 is 250 addresses and the suite makes
+ * hundreds of sign-ups, so collisions were near-certain by birthday alone —
+ * which is why a random base per file fixed it for one file and not for the
+ * run. This is a /8 keyed on the process id, so two files cannot collide and
+ * a counter inside one cannot either.
+ *
+ * 10.0.0.0/8 is private, so `isRoutable` refuses it and nothing here reaches
+ * a geo lookup — which is also the honest thing for a fake address to be.
+ */
+let nextAddress = 0;
+const clientAddress = (): string => {
+  const n = (nextAddress += 1);
+  return `10.${process.pid % 256}.${(n >> 8) % 256}.${n % 256}`;
+};
+
+
 const HAS_DB = (process.env['DATABASE_URL'] ?? '') !== '';
 const NOW = new Date('2026-05-18T06:30:00.000Z');
 const VAPID = generateVapidKeys();
@@ -67,11 +107,24 @@ function scriptedAnalysis(): AnalysisModel {
 
 describe('onboarding, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, () => {
   const created: string[] = [];
-  let close: (() => Promise<void>) | null = null;
+  /**
+   * Every server this file starts, closed in `after` whatever happens.
+   *
+   * The second test used to close its server on its LAST LINE, inside the
+   * test body — so when that test failed, the server was never closed, the
+   * event loop never drained, and `node --test` waited forever. A whole suite
+   * run hung on one failing assertion, which is worse than the failure by a
+   * wide margin: a red run tells you something, a hung one tells you nothing
+   * and costs ten minutes to notice.
+   */
+  const closers: (() => Promise<void>)[] = [];
+  const closeLater = (server: { close(cb: () => void): unknown; closeAllConnections(): void }): void => {
+    closers.push(() => new Promise<void>((resolve) => { server.closeAllConnections(); server.close(() => resolve()); }));
+  };
 
   before(async () => { await migrate(() => {}); });
   after(async () => {
-    if (close !== null) await close();
+    for (const shut of closers) await shut();
     for (const userId of created) await accounts.deleteAccount({ userId });
     await closeDb();
   });
@@ -96,6 +149,13 @@ describe('onboarding, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not set
 
     const config = loadConfig({
       NODE_ENV: 'test', DATABASE_URL: process.env['DATABASE_URL'], PORT: '0',
+      // ONE TRUSTED PROXY, declared. These tests send an X-Forwarded-For to
+      // model distinct clients, and that only means anything if the
+      // deployment says a proxy is in front of it. With the default of zero
+      // the header is ignored and every request shares the loopback's
+      // rate-limit bucket — which is the point of the default, and is what
+      // stops an attacker minting fresh buckets by rotating a header.
+      LIAN_TRUSTED_PROXIES: '1',
       LIAN_TICK_SECRET: 'x', LIAN_VAPID_PUBLIC_KEY: VAPID.publicKey, LIAN_VAPID_PRIVATE_KEY: VAPID.privateKey,
     }).config;
     const { server } = createApplication(config, {
@@ -103,7 +163,7 @@ describe('onboarding, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not set
       embedder: deterministicEmbedder(EMBEDDING_DIMENSIONS), now: () => NOW, log: () => {},
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    close = () => new Promise<void>((resolve) => { server.closeAllConnections(); server.close(() => resolve()); });
+    closeLater(server);
     const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
     let key = 0;
@@ -123,7 +183,7 @@ describe('onboarding, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not set
     const email = `ob-${Date.now()}@example.test`;
     const signUp = await fetch(`${base}/api/auth/sign-up`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'idempotency-key': `su-${Date.now()}`, 'x-forwarded-for': '192.0.2.100' },
+      headers: { 'content-type': 'application/json', 'idempotency-key': `su-${Date.now()}`, 'x-forwarded-for': clientAddress() },
       body: JSON.stringify({ email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai', isAdult: true, agreedToTerms: true }),
     });
     const account = (await signUp.json()) as { userId: string; sessionToken: string };
@@ -174,7 +234,7 @@ describe('onboarding, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not set
       method: 'POST',
       headers: {
         'content-type': 'application/json', authorization: `Bearer ${account.sessionToken}`,
-        'idempotency-key': `np-${Date.now()}`, 'x-forwarded-for': '192.0.2.101',
+        'idempotency-key': `np-${Date.now()}`, 'x-forwarded-for': clientAddress(),
       },
       body: JSON.stringify({ outcome: 'denied' }),
     });
@@ -207,6 +267,13 @@ describe('onboarding, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not set
     // answers must be distinguishable — while both stop her asking again.
     const config = loadConfig({
       NODE_ENV: 'test', DATABASE_URL: process.env['DATABASE_URL'], PORT: '0',
+      // ONE TRUSTED PROXY, declared. These tests send an X-Forwarded-For to
+      // model distinct clients, and that only means anything if the
+      // deployment says a proxy is in front of it. With the default of zero
+      // the header is ignored and every request shares the loopback's
+      // rate-limit bucket — which is the point of the default, and is what
+      // stops an attacker minting fresh buckets by rotating a header.
+      LIAN_TRUSTED_PROXIES: '1',
       LIAN_TICK_SECRET: 'x', LIAN_VAPID_PUBLIC_KEY: VAPID.publicKey, LIAN_VAPID_PRIVATE_KEY: VAPID.privateKey,
     }).config;
     const { server } = createApplication(config, {
@@ -214,12 +281,13 @@ describe('onboarding, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not set
       embedder: deterministicEmbedder(EMBEDDING_DIMENSIONS), now: () => NOW, log: () => {},
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    closeLater(server);
     const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
     const signUpOne = async () => {
       const response = await fetch(`${base}/api/auth/sign-up`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json', 'idempotency-key': `su-${Date.now()}-${Math.random()}`, 'x-forwarded-for': '192.0.2.110' },
+        headers: { 'content-type': 'application/json', 'idempotency-key': `su-${Date.now()}-${Math.random()}`, 'x-forwarded-for': clientAddress() },
         body: JSON.stringify({
           email: `perm-${Date.now()}-${Math.random()}@example.test`, password: 'a-long-enough-password',
           timeZone: 'UTC', isAdult: true, agreedToTerms: true,
@@ -235,7 +303,7 @@ describe('onboarding, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not set
       method: 'POST',
       headers: {
         'content-type': 'application/json', authorization: `Bearer ${granting.sessionToken}`,
-        'idempotency-key': `sub-${Date.now()}`, 'x-forwarded-for': '192.0.2.111',
+        'idempotency-key': `sub-${Date.now()}`, 'x-forwarded-for': clientAddress(),
       },
       body: JSON.stringify({ endpoint: 'https://push.example.test/abc', keys: { p256dh: 'BPk', auth: 'xyz' } }),
     });
@@ -246,7 +314,7 @@ describe('onboarding, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not set
       method: 'POST',
       headers: {
         'content-type': 'application/json', authorization: `Bearer ${declining.sessionToken}`,
-        'idempotency-key': `np-${Date.now()}`, 'x-forwarded-for': '192.0.2.112',
+        'idempotency-key': `np-${Date.now()}`, 'x-forwarded-for': clientAddress(),
       },
       body: JSON.stringify({ outcome: 'denied' }),
     });
@@ -263,6 +331,6 @@ describe('onboarding, over HTTP', { skip: HAS_DB ? false : 'DATABASE_URL not set
     );
     assert.deepEqual(granted.rows.map((row) => row.user_id), [granting.userId]);
 
-    await new Promise<void>((resolve) => { server.closeAllConnections(); server.close(() => resolve()); });
+    // Registered rather than closed here: see closeLater above.
   });
 });

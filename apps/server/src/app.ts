@@ -17,6 +17,7 @@ import { httpEmailProvider } from '@lian/email';
 import { stripeClient } from '@lian/billing';
 import { keys as keyPoolStore } from '@lian/db';
 import type { Fetcher } from '@lian/push';
+import { openGeo, type GeoLookup } from '@lian/geo';
 import type { Server } from 'node:http';
 import { analysisModelFrom } from './analysis.ts';
 import { routesFor, type Deps } from './wiring.ts';
@@ -37,6 +38,9 @@ export type Overrides = {
   readonly fetcher?: Fetcher;
   readonly speech?: Deps['speech'];
   readonly store?: ObjectStore | null;
+  /** The local IP-to-place lookup, or null when no database is configured.
+   *  Injectable so a test can supply one without a file on disk. */
+  readonly geo?: GeoLookup | null;
 };
 
 export type Application = {
@@ -144,8 +148,13 @@ export function createApplication(config: Config, overrides: Overrides = {}): Ap
       : s3Store({ ...config.storage, now });
   const runSchedule = scheduleRunner({ ...jobDeps, store });
 
+  // Opened ONCE at boot. A missing or unreadable file is a named loss, not a
+  // failure to start: the product shows device and time, and no location.
+  const geo = overrides.geo !== undefined ? overrides.geo
+    : config.geoipPath === null ? null : openGeo(config.geoipPath, log);
+
   const deps: Deps = {
-    config, provider, analysisModel, embedder, now, log,
+    config, provider, analysisModel, embedder, now, log, geo,
     // Object storage. In development with no bucket configured the store is
     // in-process: it works, and it is honest — the objects live as long as
     // the process does, and the boot log says the bucket is missing.
@@ -191,6 +200,11 @@ export function createApplication(config: Config, overrides: Overrides = {}): Ap
     // The origin a state-changing request must come from, when it declares
     // one. Belt and braces behind the SameSite=Lax session cookie.
     origin: config.publicUrl,
+    // How many proxy hops are in front of this, which decides WHICH
+    // X-Forwarded-For entry is believed. Without this line the option is
+    // inert and every request is attributed to the socket — one rate-limit
+    // bucket for the whole world behind a proxy, and no location at all.
+    trustedProxies: config.trustedProxies,
     onError: (error, path) => { log(`unhandled error on ${path}: ${String(error)}`); },
   });
 

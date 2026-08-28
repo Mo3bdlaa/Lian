@@ -28,7 +28,7 @@ export type AuthRoutePorts = MiddlewarePorts & {
   requestReset(input: { email: string; ip: string | null; userAgent: string | null }): Promise<{ status: 'accepted'; canEmail: boolean }>;
   completeReset(input: {
     token: string; password: string;
-    device: { fingerprint: string; userAgent: string | null; locationLabel: string | null };
+    device: { fingerprint: string; userAgent: string | null; ip: string | null };
   }): Promise<{ status: string; sessionToken?: string; sessionsRevoked?: number }>;
   /** UI-UX §21. Confirming blocks nothing; it is what makes recovery
    *  reachable. `sent` is false when the deployment has no transport. */
@@ -38,7 +38,7 @@ export type AuthRoutePorts = MiddlewarePorts & {
   now(): Date;
 };
 
-export type DeviceFrom = { fingerprint: string; userAgent: string | null; locationLabel: string | null };
+export type DeviceFrom = { fingerprint: string; userAgent: string | null; ip: string | null };
 
 /**
  * A device fingerprint from headers, not from a client-supplied id.
@@ -53,7 +53,12 @@ export function fingerprintOf(context: RequestContext): DeviceFrom {
   return {
     fingerprint: client !== '' ? client.slice(0, 128) : `ua:${Buffer.from(userAgent ?? 'unknown').toString('base64url').slice(0, 64)}`,
     userAgent,
-    locationLabel: context.headers['x-lian-location'] ?? null,
+    // NOT a header. This used to be `x-lian-location`, which the client
+    // chooses — so the Security screen's location was written by whoever was
+    // signing in, including an attacker. The address comes from the
+    // connection now (clientIp, counted from the right of X-Forwarded-For),
+    // and the place is derived from it at render.
+    ip: context.ip,
   };
 }
 

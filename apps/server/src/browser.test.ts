@@ -27,6 +27,32 @@ import { createApplication } from './app.ts';
 import { loadConfig } from './config.ts';
 import { Browser, chromiumPath } from '../../../tools/browser.ts';
 
+/**
+ * A client address that is unique per CALL and per PROCESS.
+ *
+ * These tests send an X-Forwarded-For to model distinct clients, and the
+ * `auth:ip:` rate limit is a DATABASE row keyed on that address (LESSONS
+ * §12). So an address that repeats — across runs, across files, or across
+ * two calls in one file — means two sign-ups share a bucket and the second
+ * is refused with a 429 that surfaces three lines later as an undefined
+ * property.
+ *
+ * TEST-NET-1 was not big enough. A /24 is 250 addresses and the suite makes
+ * hundreds of sign-ups, so collisions were near-certain by birthday alone —
+ * which is why a random base per file fixed it for one file and not for the
+ * run. This is a /8 keyed on the process id, so two files cannot collide and
+ * a counter inside one cannot either.
+ *
+ * 10.0.0.0/8 is private, so `isRoutable` refuses it and nothing here reaches
+ * a geo lookup — which is also the honest thing for a fake address to be.
+ */
+let nextAddress = 0;
+const clientAddress = (): string => {
+  const n = (nextAddress += 1);
+  return `10.${process.pid % 256}.${(n >> 8) % 256}.${n % 256}`;
+};
+
+
 const HAS_DB = (process.env['DATABASE_URL'] ?? '') !== '';
 const HAS_BROWSER = chromiumPath() !== null;
 const SKIP = !HAS_DB ? 'DATABASE_URL not set' : !HAS_BROWSER ? 'no chromium' : false;
@@ -107,7 +133,7 @@ describe('the app, in a browser', { skip: SKIP }, () => {
     // address (ten a minute), which is correct and which a test file driving
     // several accounts from one loopback address would otherwise trip — the
     // limiter would be the thing under test.
-    await page.setExtraHeaders({ 'x-forwarded-for': `203.0.113.${(addresses += 1) % 90}` });
+    await page.setExtraHeaders({ 'x-forwarded-for': clientAddress() });
     extra.push(page);
     return page;
   }
@@ -116,6 +142,13 @@ describe('the app, in a browser', { skip: SKIP }, () => {
     await migrate(() => {});
     const { config } = loadConfig({
       NODE_ENV: 'test', DATABASE_URL: process.env['DATABASE_URL'], PORT: '0',
+      // ONE TRUSTED PROXY, declared. These tests send an X-Forwarded-For to
+      // model distinct clients, and that only means anything if the
+      // deployment says a proxy is in front of it. With the default of zero
+      // the header is ignored and every request shares the loopback's
+      // rate-limit bucket — which is the point of the default, and is what
+      // stops an attacker minting fresh buckets by rotating a header.
+      LIAN_TRUSTED_PROXIES: '1',
       LIAN_TICK_SECRET: 'x', LIAN_VAPID_PUBLIC_KEY: VAPID.publicKey, LIAN_VAPID_PRIVATE_KEY: VAPID.privateKey,
     });
     const application = createApplication(config, {
@@ -129,7 +162,7 @@ describe('the app, in a browser', { skip: SKIP }, () => {
     close = () => new Promise<void>((resolve) => { server.closeAllConnections(); server.close(() => resolve()); });
     browser = await Browser.launch();
     await browser.setViewport(390, 844);
-    await browser.setExtraHeaders({ 'x-forwarded-for': '203.0.113.250' });
+    await browser.setExtraHeaders({ 'x-forwarded-for': clientAddress() });
   });
 
   after(async () => {
@@ -156,8 +189,7 @@ describe('the app, in a browser', { skip: SKIP }, () => {
         'content-type': 'application/json',
         'idempotency-key': `signup-${email}`,
         // A distinct address per account: these are different people.
-        // 203.0.113.0/24 belongs to this file (see onboarding.test.ts).
-        'x-forwarded-for': `203.0.113.${100 + ((addresses += 1) % 100)}`,
+        'x-forwarded-for': clientAddress(),
       },
       body: JSON.stringify({ email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai', isAdult: true, agreedToTerms: true }),
     });
@@ -415,7 +447,7 @@ describe('the app, in a browser', { skip: SKIP }, () => {
       method: 'POST',
       headers: {
         'content-type': 'application/json', 'idempotency-key': `su-${email}`,
-        'x-forwarded-for': '203.0.113.241', 'user-agent': 'the-first-device',
+        'x-forwarded-for': clientAddress(), 'user-agent': 'the-first-device',
       },
       body: JSON.stringify({ email, password: 'a-long-enough-password', timeZone: 'Asia/Dubai', isAdult: true, agreedToTerms: true }),
     });

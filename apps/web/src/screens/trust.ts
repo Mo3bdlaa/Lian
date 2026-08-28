@@ -8,9 +8,32 @@ import { t } from '../copy.ts';
 import { dateLabel, time } from '../format.ts';
 import type { Snapshot } from '../state.ts';
 
+/** A place the server resolved, already hedged. The client renders it and
+ *  does not decide anything about it — the confidence rule lives beside the
+ *  database that produced it. */
+export type Place = { kind: 'near' | 'country'; name: string };
+
+/**
+ * The place, or an empty string.
+ *
+ * SUPPORTING EVIDENCE, joined onto the line that already carries device and
+ * time — never a line of its own and never in their place. Those two are what
+ * actually answer "was that you?"; a city is a hint that is wrong often
+ * enough to mislead, and it earns a clause rather than a row.
+ *
+ * Empty when there is nothing: no database, an address nobody routes, a miss.
+ * Never "Unknown", which occupies the space an answer would take with a
+ * restatement of the question.
+ */
+function placeLine(place: Place | null, language: 'en' | 'ar', gender: 'female' | 'male'): string {
+  if (place === null) return '';
+  return t(place.kind === 'near' ? 'security.near' : 'security.in_country', language, gender)
+    .replace('{place}', place.name);
+}
+
 export type Security = {
-  devices: { id: string; label: string; kind: 'phone' | 'computer'; lastSeen: string | null; current: boolean }[];
-  attempts: { outcome: string; at: string; location: string | null }[];
+  devices: { id: string; label: string; kind: 'phone' | 'computer'; lastSeen: string | null; place: Place | null; current: boolean }[];
+  attempts: { outcome: string; at: string; place: Place | null }[];
 };
 
 export function settingsScreen(me: Snapshot): Html {
@@ -86,7 +109,10 @@ export function securityScreen(me: Snapshot, data: Security): Html {
       ${icon(device.kind === 'phone' ? 'i-device' : 'i-laptop', 'sm', 'icon--muted')}
       <span class="row__label">
         ${device.label}
-        <span class="row__sub">${device.current ? t('security.this_device', language, gender) : device.lastSeen === null ? '' : dateLabel(device.lastSeen.slice(0, 10), language, me.user.timeZone)}</span>
+        <span class="row__sub">${[
+          device.current ? t('security.this_device', language, gender) : device.lastSeen === null ? '' : dateLabel(device.lastSeen.slice(0, 10), language, me.user.timeZone),
+          placeLine(device.place, language, gender),
+        ].filter((part) => part !== '').join(' · ')}</span>
       </span>
       ${device.current ? '' : html`<button class="button button--plain" data-action="revoke-device" data-id="${device.id}">${t('security.revoke', language, gender)}</button>`}
     </div>`)}
@@ -96,7 +122,10 @@ export function securityScreen(me: Snapshot, data: Security): Html {
       ${icon(attempt.outcome === 'success' ? 'i-check' : attempt.outcome === 'held_new_device' ? 'i-shield' : 'i-lock', 'sm', 'icon--muted')}
       <span class="row__label">
         ${t(`security.outcome_${attempt.outcome}` as 'security.outcome_success', language, gender)}
-        <span class="row__sub">${dateLabel(attempt.at.slice(0, 10), language, me.user.timeZone)} · ${time(attempt.at, language, me.user.timeZone)}</span>
+        <span class="row__sub">${[
+          `${dateLabel(attempt.at.slice(0, 10), language, me.user.timeZone)} · ${time(attempt.at, language, me.user.timeZone)}`,
+          placeLine(attempt.place, language, gender),
+        ].filter((part) => part !== '').join(' · ')}</span>
       </span>
     </div>`)}
 

@@ -184,14 +184,33 @@ export type StoryView = {
    */
   timeline: { id: string; type: string; title: string; body: string | null; at: string; derived: boolean }[];
 };
+/**
+ * A place, hedged by construction.
+ *
+ * `near` is rendered "Near Dubai" and never "Dubai": mobile carriers route a
+ * whole country through one metro, a VPN puts somebody in Frankfurt, and
+ * Private Relay names a city near them that is often not theirs. A confident
+ * wrong city produces the false alarm this screen exists to prevent, and
+ * somebody who gets two of those stops reading it.
+ *
+ * `country` is what a low-confidence answer degrades TO. Nothing at all is
+ * what an unresolvable address degrades to — never "Unknown", which is a row
+ * saying something happened somewhere, in the space where an answer would go.
+ *
+ * LOCATION IS BESIDE device and time, never instead of them. Those two are
+ * what actually answer "was that you?"; the place is supporting evidence, and
+ * it is absent more often than it is present.
+ */
+export type SecurityPlace = { kind: 'near' | 'country'; name: string };
+
 export type SecurityView = {
   /** `kind` is derived from the same user agent the label is, and is what the
    *  icon renders. It used to render `current` instead — so the row reading
    *  "Mac · Chrome" carried a phone, which is a picture disagreeing with the
    *  words beside it. Which device you are on is already said in words
    *  underneath; the icon's job is the other question. */
-  devices: { id: string; label: string; kind: 'phone' | 'computer'; lastSeen: string | null; current: boolean }[];
-  attempts: { outcome: string; at: string; location: string | null }[];
+  devices: { id: string; label: string; kind: 'phone' | 'computer'; lastSeen: string | null; place: SecurityPlace | null; current: boolean }[];
+  attempts: { outcome: string; at: string; place: SecurityPlace | null }[];
 };
 
 export type ReadPorts = MiddlewarePorts & {

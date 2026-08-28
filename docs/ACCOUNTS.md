@@ -327,6 +327,82 @@ single-use account-access link into your logs.
 
 ---
 
+## 6a. The IP-to-place database — a file, not a service
+
+**What it is for.** The Security screen (UI-UX §17) shows where a sign-in came
+from, beside the device and the time. It resolves **locally**: a MaxMind-format
+database read in process, so **no third party ever sees a user's IP address**.
+That is the whole reason it is a file — a lookup service would resolve "was
+that you?" by telling somebody else where you are, on every sign-in, forever.
+It also works offline, works self-hosted, and costs nothing per lookup.
+
+**Tier.** Free, either way:
+
+- **DB-IP Lite** — no account at all. `https://db-ip.com/db/download/ip-to-country-lite`
+  (or the city edition). Direct download, CC-BY licence, monthly.
+- **MaxMind GeoLite2** — free but needs a signed-up account and a licence key
+  to download. Worth it for one reason: **more languages**. DB-IP's free
+  country file carries de, en, es, fa, fr, ja, ko, pt-BR, ru and zh-CN and
+  **no Arabic**, so an Arabic reader sees "قريب من Dubai" — a Latin place name
+  in an Arabic sentence. That is the database's limit, not a bug, and the
+  product deliberately does not maintain its own table of place names to paper
+  over it. [Read 2026-08-27.]
+
+**City or country?** Either works. A country database answers "In Germany"; a
+city one answers "Near Dubai" and falls back to the country when its own
+`accuracy_radius` is over 50 km. The city edition is a bigger file for a
+slightly better answer, and the phrasing hedges both.
+
+**Produces:** `LIAN_GEOIP_DB=/path/to/dbip-country-lite.mmdb`
+
+**THE REFRESH IS AN OPERATIONAL STEP, and it is the part that gets forgotten.**
+Address allocations move. A file from last year names the wrong country often
+enough to matter on a screen whose whole job is telling somebody when
+something looks wrong. Both publishers update monthly:
+
+```sh
+# monthly, wherever the app runs. Download, verify, swap, restart.
+curl -sSL -o /srv/lian/geo.mmdb.gz   https://download.db-ip.com/free/dbip-country-lite-$(date +%Y-%m).mmdb.gz
+gunzip -f /srv/lian/geo.mmdb.gz
+node -e "const{Mmdb}=await import('@lian/geo');console.log(Mmdb.open('/srv/lian/geo.mmdb').metadata)" --input-type=module
+# then restart: the file is opened once at boot.
+```
+
+The last line is the check worth keeping — it prints the metadata, so a
+truncated download or a renamed format is caught before the app is restarted
+onto it rather than after.
+
+**If you skip this entirely:** the screen shows device and time and no
+location, and `loadConfig` says so in its degraded list. Nothing breaks.
+
+```sh
+# The reader, against your actual file — the same check the tests run.
+LIAN_GEOIP_DB=/srv/lian/geo.mmdb npm test -- packages/geo/src/geo.test.ts
+```
+
+### And the setting that decides which address it looks up
+
+`LIAN_TRUSTED_PROXIES` — **how many proxy hops you actually run**, default 0.
+
+This is a security setting, not a convenience. `X-Forwarded-For` is appended
+to left-to-right, so the entries on the **right** come from infrastructure you
+control and the leftmost is whatever the client sent. Reading the leftmost —
+which this product did — lets anybody choose their own address: sign-in rate
+limiting is defeated by rotating a header, and the Security screen names
+whatever city an attacker picked.
+
+| Deployment | Set it to |
+|---|---|
+| Direct, nothing in front | `0` — the header is ignored, the socket is used |
+| Cloudflare only | `1` |
+| Cloudflare + your own reverse proxy | `2` |
+
+Too high and the address falls back to the socket (safe). Too low and you
+believe a forged entry — so **count the hops, and if unsure use 0** until you
+have.
+
+---
+
 ## 7. Web push and the tick secret — no account exists
 
 **What they are for.** Her proactive messages arriving on a locked phone, and
@@ -483,6 +559,8 @@ LIAN_STORAGE_SECRET_ACCESS_KEY=…            # 4
 LIAN_STORAGE_REGION=auto                    # 4
 LIAN_EMAIL_API_KEY=re_…                     # 6  needs 1's DNS verified
 LIAN_EMAIL_FROM=Lian <hello@yourdomain>     # 6
+LIAN_GEOIP_DB=/srv/lian/geo.mmdb            # 6a local file; refresh monthly
+LIAN_TRUSTED_PROXIES=0                      # 6a hops in front of you; 0 ignores XFF
 LIAN_VAPID_PUBLIC_KEY=…                     # 7  npm run keys vapid
 LIAN_VAPID_PRIVATE_KEY=…                    # 7
 LIAN_VAPID_SUBJECT=mailto:you@yourdomain    # 7
@@ -506,6 +584,7 @@ Nothing here crashes the app. Each absence is a named loss, collected into
 | Storage | photographs and voice notes | all text |
 | Email | verification, device confirmation, reset **delivery** | the requests are still recorded, and the app says delivery is unavailable |
 | Push | her messages arriving on a locked phone | a proactive turn still runs and reports `nowhereToSend` |
+| Geo database | the location line on the Security screen | device and time, which are what actually answer "was that you?" |
 | Stripe | anyone paying | the free tier, entirely |
 | Tick secret | the ticker exits 78 | the app, with no scheduled outreach |
 

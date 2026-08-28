@@ -1,0 +1,8 @@
+{
+  "name": "@lian/geo",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

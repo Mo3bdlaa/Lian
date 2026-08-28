@@ -7,8 +7,8 @@ import { newToken, hashToken } from './tokens.ts';
 import type { AuthPorts, AuthDevice, AuthUser } from './ports.ts';
 
 const NOW = new Date('2026-05-18T10:00:00Z');
-const LAPTOP = { fingerprint: 'fp-laptop', userAgent: 'Firefox', locationLabel: 'Dubai' };
-const STRANGER = { fingerprint: 'fp-stranger', userAgent: 'curl', locationLabel: 'Frankfurt' };
+const LAPTOP = { fingerprint: 'fp-laptop', userAgent: 'Firefox', ip: '5.1.2.3' };
+const STRANGER = { fingerprint: 'fp-stranger', userAgent: 'curl', ip: 'Frankfurt' };
 
 function fakePorts() {
   const users = new Map<string, AuthUser>();

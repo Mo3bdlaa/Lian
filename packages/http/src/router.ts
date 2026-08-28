@@ -86,7 +86,10 @@ export async function readBody(request: IncomingMessage): Promise<string> {
   return Buffer.concat(chunks).toString('utf8');
 }
 
-export function contextFrom(request: IncomingMessage, rawBody: string, params: Record<string, string>, url: URL): RequestContext {
+export function contextFrom(
+  request: IncomingMessage, rawBody: string, params: Record<string, string>, url: URL,
+  trustedProxies = 0,
+): RequestContext {
   const headers: Record<string, string> = {};
   for (const [name, value] of Object.entries(request.headers)) {
     if (typeof value === 'string') headers[name.toLowerCase()] = value;
@@ -106,11 +109,47 @@ export function contextFrom(request: IncomingMessage, rawBody: string, params: R
         throw new HttpError(400, 'bad_json', 'that request body was not valid JSON');
       }
     },
-    // Trusting a forwarded header is a decision: behind a proxy it is the
-    // only real client address, and directly exposed it is spoofable. It is
-    // used for rate limiting and sign-in records, never for authorisation.
-    ip: headers['x-forwarded-for']?.split(',')[0]?.trim() ?? request.socket.remoteAddress ?? 'unknown',
+    ip: clientIp(headers, request.socket.remoteAddress ?? null, trustedProxies),
   };
+}
+
+/**
+ * The client's address, counting from the RIGHT.
+ *
+ * `X-Forwarded-For` is appended to by each proxy, so the rightmost entries
+ * are the ones written by infrastructure you control and the leftmost is
+ * whatever the client sent. Taking `[0]` — which this did — means anybody can
+ * choose their own address by sending the header.
+ *
+ * That is not academic here. It is used for the `auth:ip:` rate limit, so a
+ * rotating header defeats sign-in throttling; and now for the location on the
+ * Security screen, where an attacker choosing the city defeats the one
+ * question the screen exists to answer.
+ *
+ * So: `trustedProxies` is how many hops you actually run, and the address is
+ * that many from the end. DEFAULT ZERO — the header is ignored entirely and
+ * the socket is used, which is right for a direct deployment and fails safe
+ * for a misconfigured one. Behind Cloudflare alone it is 1; behind Cloudflare
+ * and your own reverse proxy, 2.
+ *
+ * Exported because it is the kind of thing that has to be tested against the
+ * header chains that actually arrive, not reasoned about.
+ */
+export function clientIp(
+  headers: Record<string, string | undefined>,
+  socketAddress: string | null,
+  trustedProxies: number,
+): string {
+  const socket = socketAddress ?? 'unknown';
+  if (trustedProxies <= 0) return socket;
+  const chain = (headers['x-forwarded-for'] ?? '')
+    .split(',').map((entry) => entry.trim()).filter((entry) => entry !== '');
+  // The chain is [client, proxy1, proxy2, …]; our own hops are on the right.
+  // With one trusted hop the client is the last entry, and so on leftwards.
+  // A chain shorter than the hops we trust means the header did not come
+  // through them: fall back to the socket rather than believing the client.
+  if (chain.length < trustedProxies) return socket;
+  return chain[chain.length - trustedProxies] ?? socket;
 }
 
 export function writeResult(response: ServerResponse, result: HandlerResult): void {

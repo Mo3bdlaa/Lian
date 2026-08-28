@@ -11,6 +11,15 @@ import {
 
 export type ServerOptions = {
   readonly routes: readonly Route[];
+  /**
+   * How many proxy hops you actually run in front of this.
+   *
+   * Decides which entry of `X-Forwarded-For` is believed — see `clientIp`.
+   * ZERO means the header is ignored and the socket is used, which is right
+   * for a direct deployment and fails safe for a misconfigured one. Behind
+   * Cloudflare alone it is 1; behind Cloudflare and your own reverse proxy, 2.
+   */
+  readonly trustedProxies?: number;
   /** Static files: the PWA shell, the manifest, the service worker. */
   /** A body may be binary — the app icons are PNGs. */
   readonly staticFiles?: Readonly<Record<string, { contentType: string; body: string | Uint8Array }>>;
@@ -136,7 +145,7 @@ export function createLianServer(options: ServerOptions): Server {
       }
 
       const rawBody = request.method === 'GET' ? '' : await readBody(request);
-      const context = contextFrom(request, rawBody, match.params, url);
+      const context = contextFrom(request, rawBody, match.params, url, options.trustedProxies ?? 0);
       const result: HandlerResult = await match.route.handler(context);
 
       if ('stream' in result) {

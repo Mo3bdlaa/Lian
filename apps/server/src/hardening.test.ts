@@ -65,6 +65,13 @@ describe('attacked', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, () => {
     store = memoryStore();
     const config = loadConfig({
       NODE_ENV: 'test', DATABASE_URL: process.env['DATABASE_URL'], PORT: '0',
+      // ONE TRUSTED PROXY, declared. These tests send an X-Forwarded-For to
+      // model distinct clients, and that only means anything if the
+      // deployment says a proxy is in front of it. With the default of zero
+      // the header is ignored and every request shares the loopback's
+      // rate-limit bucket — which is the point of the default, and is what
+      // stops an attacker minting fresh buckets by rotating a header.
+      LIAN_TRUSTED_PROXIES: '1',
       LIAN_TICK_SECRET: TICK_SECRET,
       LIAN_VAPID_PUBLIC_KEY: VAPID.publicKey, LIAN_VAPID_PRIVATE_KEY: VAPID.privateKey,
       LIAN_PUBLIC_URL: 'http://lian.test',

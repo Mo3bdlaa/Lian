@@ -11,7 +11,7 @@ import { hashPassword, verifyPassword } from './password.ts';
 import type { AuthPorts, RecoveryPorts, AuthUser } from './ports.ts';
 
 const NOW = new Date('2026-05-18T06:30:00.000Z');
-const DEVICE = { fingerprint: 'fp-laptop', userAgent: 'Firefox', locationLabel: 'Dubai' };
+const DEVICE = { fingerprint: 'fp-laptop', userAgent: 'Firefox', ip: '5.1.2.3' };
 
 function fakePorts(users: AuthUser[] = []) {
   const resets: { userId: string; tokenHash: string; expiresAt: Date; usedAt: Date | null }[] = [];

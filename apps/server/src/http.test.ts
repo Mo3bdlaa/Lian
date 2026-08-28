@@ -21,6 +21,32 @@ import { hashToken } from '@lian/auth';
 import { createApplication, type Overrides } from './app.ts';
 import { loadConfig, type Config } from './config.ts';
 
+/**
+ * A client address that is unique per CALL and per PROCESS.
+ *
+ * These tests send an X-Forwarded-For to model distinct clients, and the
+ * `auth:ip:` rate limit is a DATABASE row keyed on that address (LESSONS
+ * §12). So an address that repeats — across runs, across files, or across
+ * two calls in one file — means two sign-ups share a bucket and the second
+ * is refused with a 429 that surfaces three lines later as an undefined
+ * property.
+ *
+ * TEST-NET-1 was not big enough. A /24 is 250 addresses and the suite makes
+ * hundreds of sign-ups, so collisions were near-certain by birthday alone —
+ * which is why a random base per file fixed it for one file and not for the
+ * run. This is a /8 keyed on the process id, so two files cannot collide and
+ * a counter inside one cannot either.
+ *
+ * 10.0.0.0/8 is private, so `isRoutable` refuses it and nothing here reaches
+ * a geo lookup — which is also the honest thing for a fake address to be.
+ */
+let nextAddress = 0;
+const clientAddress = (): string => {
+  const n = (nextAddress += 1);
+  return `10.${process.pid % 256}.${(n >> 8) % 256}.${n % 256}`;
+};
+
+
 const HAS_DB = (process.env['DATABASE_URL'] ?? '') !== '';
 const NOW = new Date('2026-05-18T06:30:00.000Z');
 const TICK_SECRET = 'test-tick-secret';
@@ -41,14 +67,22 @@ function fakeProvider(reply = 'Noted — I will keep that in mind.'): Provider &
   };
 }
 
-function testConfig(): Config {
+function testConfig(overrides: Record<string, string> = {}): Config {
   return loadConfig({
     NODE_ENV: 'test',
     DATABASE_URL: process.env['DATABASE_URL'],
     PORT: '0',
+    // ONE TRUSTED PROXY, declared. These tests send an X-Forwarded-For to
+    // model distinct clients, and that only means anything if the
+    // deployment says a proxy is in front of it. With the default of zero
+    // the header is ignored and every request shares the loopback's
+    // rate-limit bucket — which is the point of the default, and is what
+    // stops an attacker minting fresh buckets by rotating a header.
+    LIAN_TRUSTED_PROXIES: '1',
     LIAN_TICK_SECRET: TICK_SECRET,
     LIAN_VAPID_PUBLIC_KEY: VAPID.publicKey,
     LIAN_VAPID_PRIVATE_KEY: VAPID.privateKey,
+    ...overrides,
   }).config;
 }
 
@@ -59,9 +93,9 @@ type Running = { base: string; close: () => Promise<void>; provider: Provider & 
  *  socket and the run never exits. */
 const running: Running[] = [];
 
-async function start(overrides: Overrides = {}): Promise<Running> {
+async function start(overrides: Overrides & { env?: Record<string, string> } = {}): Promise<Running> {
   const provider = (overrides.provider as Provider & { calls: CompletionRequest[] } | undefined) ?? fakeProvider();
-  const { server } = createApplication(testConfig(), {
+  const { server } = createApplication(testConfig(overrides.env ?? {}), {
     provider,
     embedder: deterministicEmbedder(EMBEDDING_DIMENSIONS),
     now: () => NOW,
@@ -228,6 +262,56 @@ describe('the HTTP layer', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, ()
   });
 
   // ── the flow ────────────────────────────────────────────────────────────
+
+  test('LIAN_TRUSTED_PROXIES changes who a request is attributed to, not just what parses', async () => {
+    // LESSONS §25. The setting was added to ServerOptions, read in
+    // server.ts, given a config entry, an env var, docs, and a test asserting
+    // it PARSED — and app.ts never passed it. The whole thing was inert and
+    // every request was attributed to the socket.
+    //
+    // So this asserts the BEHAVIOUR, from outside, the only way it can be
+    // seen: the `auth:ip:` rate limit is keyed on the client address, so two
+    // requests with different forwarded addresses share a bucket when the
+    // header is ignored and have their own when it is trusted. Nothing about
+    // the config object is inspected.
+    const forged = (address: string) => ({ 'x-forwarded-for': address });
+    const attempts = async (server: Running, address: string): Promise<number[]> => {
+      const seen: number[] = [];
+      for (let n = 0; n < 12; n += 1) {
+        const response = await fetch(`${server.base}/api/auth/sign-in`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', ...forged(address) },
+          body: JSON.stringify({ email: `nobody-${n}@example.test`, password: 'wrong-but-long-enough' }),
+        });
+        seen.push(response.status);
+      }
+      return seen;
+    };
+
+    // Trusting one hop: each forged address is its own bucket, so a fresh
+    // address is never rate limited by what the previous one spent.
+    const trusting = await start({ env: { LIAN_TRUSTED_PROXIES: '1' } });
+    running.push(trusting);
+    await attempts(trusting, clientAddress());
+    const freshBucket = await attempts(trusting, clientAddress());
+    assert.ok(
+      !freshBucket.every((status) => status === 429),
+      'with a trusted proxy, a different forwarded address must get its own rate-limit bucket',
+    );
+
+    // Trusting nothing: the header is ignored, both addresses are the same
+    // socket, and the second run is refused by what the first spent. THIS is
+    // the assertion that would have caught the missing wire — it fails
+    // identically whether the setting is 0 or simply never passed.
+    const ignoring = await start({ env: { LIAN_TRUSTED_PROXIES: '0' } });
+    running.push(ignoring);
+    await attempts(ignoring, clientAddress());
+    const sameBucket = await attempts(ignoring, clientAddress());
+    assert.ok(
+      sameBucket.some((status) => status === 429),
+      'with no trusted proxy the forwarded header must be IGNORED — a client that can pick its own address can mint rate-limit buckets',
+    );
+  });
 
   test('sign-up creates an account, an assistant and somewhere to talk', async () => {
     const user = await signUp(app.base);
@@ -459,13 +543,13 @@ describe('the HTTP layer', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, ()
     let refused = 0;
     for (let i = 0; i < 62; i += 1) {
       const target = i % 2 === 0 ? one.base : two.base;
-      const response = await post(target, '/api/push/prompted', { outcome: 'dismissed' }, { token: user.token, ip: '192.0.2.7' });
+      const response = await post(target, '/api/push/prompted', { outcome: 'dismissed' }, { token: user.token, ip: clientAddress() });
       if (response.status === 429) refused += 1;
     }
     assert.ok(refused > 0, 'the shared limit was never reached — the counter is not shared');
 
     // And it says when to come back, rather than just refusing.
-    const refusal = await post(two.base, '/api/push/prompted', { outcome: 'dismissed' }, { token: user.token, ip: '192.0.2.7' });
+    const refusal = await post(two.base, '/api/push/prompted', { outcome: 'dismissed' }, { token: user.token, ip: clientAddress() });
     assert.equal(refusal.status, 429);
     assert.match(String(refusal.json['message']), /try again in \d+s/);
 
@@ -477,7 +561,7 @@ describe('the HTTP layer', { skip: HAS_DB ? false : 'DATABASE_URL not set' }, ()
     const { email } = await signUp(app.base);
     const attempts: number[] = [];
     for (let i = 0; i < 8; i += 1) {
-      attempts.push((await post(app.base, '/api/auth/sign-in', { email, password: 'wrong-password-here' }, { ip: '192.0.2.9' })).status);
+      attempts.push((await post(app.base, '/api/auth/sign-in', { email, password: 'wrong-password-here' }, { ip: clientAddress() })).status);
     }
     assert.ok(attempts.includes(429), 'guessing was never slowed down');
     // And never 200 with a session.
