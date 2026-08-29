@@ -844,3 +844,42 @@ Three failures, and the middle one is the one nobody writes down:
   everything behind the first row that throws, and the next run starts on the
   same broken row and does it again. The ninety-nine people after it are not
   party to that failure and should not hear about it by hearing nothing.
+
+## 31. An index the planner cannot prove it may use is indistinguishable from an unused one
+
+**`memories_embedding_idx` reported zero scans, and the first conclusion drawn
+from that was "nothing reads it, drop it". The opposite was true: it was the
+one thing that should have been running.**
+
+`findSimilar` — the near-duplicate check, once per extracted candidate on every
+turn — orders by pure cosine distance, exactly what an ivfflat index answers.
+The index was **partial on `status = 'active'`**, and `findSimilar` never
+mentions `status`. A partial index is usable only when the planner can prove
+the query's predicate *implies* the index's, so it could not, and Postgres fell
+back to a sequential scan: **33.1 ms instead of 2.9 ms**, costing more per turn
+than retrieval itself.
+
+- **Zero scans has two causes and they need opposite fixes.** Nothing wants it
+  → delete it. Something wants it and cannot reach it → repair it. The
+  statistic is identical; only reading the queries tells them apart, and
+  "delete the unused index" is the plausible-sounding one.
+- **The symptom is a slow correct answer**, which is indistinguishable from a
+  fast one from anywhere except a stopwatch. Nothing throws, nothing logs,
+  nothing degrades — the feature works, for eleven times the money.
+- **Widen the index, do not narrow the query.** Adding `status = 'active'` to
+  `findSimilar` also makes the index usable, in one line, in the file already
+  open — and silently changes behaviour: memories waiting in the pending queue
+  stop being seen by the duplicate check, so an account at capacity
+  accumulates copies. The cheaper fix was the wrong one, and its cost was
+  invisible until somebody was at capacity.
+- **A plan assertion is not the test for this.** `EXPLAIN` was tried first and
+  thrown away: at one row the planner correctly prefers a different index, so
+  the test failed while the schema was right, and `enable_seqscan = off` does
+  not help because the competing path is also an index. Making it pass would
+  mean seeding thousands of rows to bribe the planner. **The defect was a
+  predicate that excluded its caller, so the test is about the predicate.**
+
+**The general form:** an index is a claim that a particular query will be
+answered a particular way, and nothing in the schema records which query. Write
+the caller's `WHERE` next to the index's, and check that one implies the other
+— by hand if necessary, because no tool will tell you.

@@ -32,10 +32,12 @@ to watch.
 **CI IS GREEN.** It was red for seventeen consecutive runs and the cause was
 one line: `postgres:16` ships no pgvector, so migration 0003 died and every
 database-backed test with it. `npm run verify` is green too: typecheck (server
-and browser), **16 gates**, **762 tests**, including 23 that drive real
+and browser), **16 gates**, **780 tests**, including 23 that drive real
 Chromium, 31 that prove each gate FAILS on a deliberate violation, 32 that
-attack the product with a second account, and 32 that break its dependencies
-on purpose.
+attack the product with a second account, 32 that break its dependencies on
+purpose, and **16 that hold the measuring tools to the same standard as the
+product** — because six of the last seven alarming results from `npm run
+session` were the tool.
 
 **`npm run shots` photographs 98 screens** into `docs/shots/`, with six gaps
 listed rather than skipped. Start there — reading HTML is not looking at a
@@ -59,7 +61,61 @@ that too.
 
 ---
 
-## 0. What the thirteenth run did
+## 0. What the fourteenth run did
+
+### The harness got the treatment the product got
+
+Six of the last seven alarming results from `npm run session` were the tool.
+That ratio directs real work at nothing and buries the one finding that
+matters, so the instruments now have rules rather than habits —
+`tools/harness.ts`, three of them, each a function with tests in
+`tools/harness.test.ts` that fail when the rule is removed.
+
+1. **An alarming claim names the rows it read**, or `alarming()` throws rather
+   than printing it. Not "outreach rows: 499" but *499 rows, from this query,
+   scoped to this assistant*. Every one of the six would have been caught on
+   sight. `'EVERY ACCOUNT'` is a valid scope — the tick report genuinely is
+   the whole database's, and the rule is naming that, not hiding it.
+2. **A tool asserts its own isolation.** `assertOwnRows()` fails the run when
+   what it is about to report is not its own account's. **A row with no owner
+   column counts as foreign**, because a read that did not select an owner
+   cannot be shown to be isolated — the alternative is a check that passes
+   exactly when it has nothing to check.
+3. **A measurement says what it compared.** `recallOf()` returns
+   `no-ground-truth` as its own case rather than a number, because 0/0 renders
+   as a tick in every naive spelling: `NaN >= 0.8` fails for the wrong reason,
+   `Math.max(1, n)` gives a 0% that sends somebody to rebuild a healthy index.
+
+And isolation is now **checked rather than warned about**: the session takes a
+Postgres advisory lock so two runs cannot overlap, and reports any other
+active connection on the database by name. Both verified by causing them.
+
+### The vector index is a check that fails, not a line in a runbook
+
+`npm run preflight db` measures the index's **actual recall** — the same query
+with and without the index path, on whatever real corpus exists — and fails
+below 80%, naming the `REINDEX` as the fix. It needs no synthetic data and no
+theory about why an index is bad; it measures the symptom. It also diagnoses
+the three ways Postgres itself can be unreachable, because a stack trace is
+not a diagnosis and that is what this command exists to prevent.
+
+**AND A CORRECTION.** The last run asserted that "built on an empty table" was
+the *cause* of the index returning 2 of 60. That mechanism was tried directly
+— null every vector, rebuild on nothing, write them back — and produced
+**30/30, no degradation.** So the story was plausible and unproven, and it is
+retracted in `docs/RETRIEVAL-CEILING.md` rather than repeated. What stands is
+the observation (2 of 60 as found, 60 of 60 rebuilt) and pgvector's own
+build-time warning, which this database printed: *"ivfflat index created with
+little data … This will cause low recall."* The remedy is the same; the
+reasoning behind it is now the part that is actually true.
+
+### LESSONS §31
+
+**An index the planner cannot prove it may use is indistinguishable from an
+unused one.** Zero scans has two causes needing opposite fixes, and "delete
+the unused index" is the plausible-sounding one.
+
+## 0y. What the thirteenth run did
 
 ### The retrieval ceiling, measured — and a 237 MB index that excluded its caller
 
@@ -958,9 +1014,16 @@ it felt like.
    here rather than a dependency), so no third party sees a user's address;
    it is phrased "Near Dubai" rather than "Dubai"; it degrades to the country
    and then to nothing; and it sits beside the device and the time rather
-   than in their place. What remains is operational, not a decision:
-   `LIAN_GEOIP_DB` has to point at a file, and that file has to be refreshed
-   monthly — ACCOUNTS.md §6a.
+   than in their place. ~~What remains is operational, not a decision.~~
+   **AND THE OPERATIONAL HALF IS NOW CHECKED**, because "refresh it monthly"
+   in a document is the same shape as the REINDEX that was silently never
+   done. `npm run preflight geo` asks four questions with four different
+   fixes: does the file exist, does it parse, **how old is it** (from the
+   file's own build epoch, not its mtime — a copied file keeps the wrong
+   one), and does it actually resolve known addresses. Stale warns at 60 days
+   and fails at 180, because a stale database does not fail, it answers
+   confidently with a city whose range has been reassigned — the false alarm
+   the "Near Dubai" phrasing exists to prevent.
 8. ~~**"Message limit approaching" is not shown anywhere.**~~ DONE this run.
    A quiet line above the composer, from a server-computed state, in both
    languages: `limit-approaching-ltr.png`, `limit-approaching-rtl.png`.
@@ -1006,11 +1069,12 @@ it felt like.
 
 ```sh
 npm run up                      # migrate, server, ticker
-npm run verify                  # typecheck, 16 gates, 762 tests
+npm run verify                  # typecheck, 16 gates, 780 tests
 #   export DATABASE_URL first, or 137 of them SKIP without saying so
 npm run perf                    # the baseline, remeasured into docs/PERFORMANCE.md
 npm run shots                   # 98 screenshots into docs/shots/, gaps listed
-npm run preflight               # the five live integrations, each diagnosed
+npm run preflight               # the live integrations, each diagnosed
+npm run preflight db            #   — incl. the vector index's REAL recall
 npm run session                 # sign up as a stranger, use it, keep the transcript
 npm run keys vapid              # the two credentials nothing issues
 npm run keys tick               #   — see docs/ACCOUNTS.md step 7
@@ -1043,4 +1107,6 @@ npm run report:economics        # the free tier, every assumption named
 | `packages/db/src/client.ts` | why the rollback has its own catch (§29) |
 | `packages/jobs/src/tick.ts` | the three ways a scheduler lies (§30) |
 | `docs/PERFORMANCE.md` | the measured baseline, with the machine it came from |
-| `docs/LESSONS-AUDIT.md` | all thirty lessons against the code: gated, prose, or stale |
+| `docs/LESSONS-AUDIT.md` | every lesson against the code: gated, prose, or stale |
+| `tools/harness.ts` | the three rules the measuring tools have to obey |
+| `docs/RETRIEVAL-CEILING.md` | what retrieval costs at scale, and one retracted claim |

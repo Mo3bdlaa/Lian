@@ -284,10 +284,16 @@ npm run migrate
 are real memories.**
 
 An ivfflat index computes its list centroids **from the data it is built on**,
-and a migration necessarily runs against an empty table. Measured: built empty
-and then filled with ten thousand vectors, `memories_embedding_idx` returns
-**2** of the 60 nearest when asked. Rebuilt after the data exists it returns
-**60 of 60, in 2 ms**.
+and a migration necessarily runs against an empty table. pgvector says so
+itself, at build time:
+
+> NOTICE: ivfflat index created with little data / DETAIL: This will cause low
+> recall. / HINT: Drop the index until the table has more data.
+
+And it was measured here: the index in the development database returned **2**
+of the 60 nearest out of ten thousand vectors; rebuilt on the populated table,
+**60 of 60, in 2 ms**. (The exact mechanism behind that 2 is unconfirmed — see
+`docs/RETRIEVAL-CEILING.md`, which says so. The remedy is the same either way.)
 
 ```sh
 psql "$DATABASE_URL" -c "REINDEX INDEX CONCURRENTLY memories_embedding_idx"
@@ -296,11 +302,16 @@ psql "$DATABASE_URL" -c "REINDEX INDEX CONCURRENTLY memories_embedding_idx"
 **Once, after the first few hundred accounts have a history**, and again after
 any bulk import or re-embed. `CONCURRENTLY` so it does not lock writes.
 
-**Nothing in the product will notice if this is never done**, which is the
-reason it is written here rather than left to be discovered: the index serves
+**Nothing in the product will notice if this is never done**: the index serves
 the near-duplicate check, so the failure mode is *a memory she already had,
 stored a second time* — no error, no alert, just her repeating herself
-slightly more often than she should. See `docs/RETRIEVAL-CEILING.md`.
+slightly more often than she should.
+
+**So it is checked rather than only written down.** `npm run preflight db`
+measures the index's actual recall against the real corpus — the same query
+with and without the index path — and **fails** below 80%, naming the REINDEX
+as the fix. Run it after the first few hundred accounts have a history. See
+`docs/RETRIEVAL-CEILING.md`.
 
 ---
 
@@ -424,6 +435,24 @@ believe a forged entry — so **count the hops, and if unsure use 0** until you
 have.
 
 ---
+
+**CHECKED, not just written down.**
+
+```sh
+npm run preflight geo
+```
+
+Four questions with four different fixes: does the file exist, does it parse,
+**how old is it** — read from the file's own build epoch rather than its mtime,
+because a copied file keeps the wrong one — and does it resolve known
+addresses at all. Age warns past 60 days (one missed monthly refresh) and fails
+past 180.
+
+**A stale database does not fail; it answers.** With a city whose range has
+since been reassigned, confidently, on the one screen whose job is to answer
+"was that you?" — which is the false alarm the "Near Dubai" phrasing exists to
+prevent. Somebody who gets two of those stops reading the screen, and that is
+worse than no location line at all.
 
 ## 7. Web push and the tick secret — no account exists
 

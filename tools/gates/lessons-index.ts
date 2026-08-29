@@ -204,6 +204,12 @@ const COVERAGE: Record<string, Coverage[]> = {
     { where: 'packages/jobs/src/tick.test.ts', marker: /is skipped, not delivered twice/ },
     { where: 'packages/jobs/src/tick.test.ts', marker: /stale message is dropped rather than delivered late/ },
   ],
+  '31': [
+    { where: 'packages/db/migrations/0022_embedding_index_predicate.sql', marker: /partial index is only usable when|could not prove/ },
+    { where: 'packages/db/src/repositories/lessons.test.ts', marker: /does not exclude its only caller/ },
+    { where: 'tools/preflight.ts', marker: /partial on `status`, which findSimilar does not filter on/ },
+    { where: 'tools/harness.test.ts', marker: /an index returning nothing is caught/ },
+  ],
 };
 
 const lessons = read(`${ROOT}/LESSONS.md`);

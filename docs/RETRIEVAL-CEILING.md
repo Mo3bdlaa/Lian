@@ -75,16 +75,37 @@ structural, so the test is.
 
 ### The part that cannot be fixed from a migration
 
-An ivfflat index computes its list centroids **from the data it is built on**,
-and a migration runs against an empty table. Built empty and then filled with
-ten thousand vectors, this index returns **2** of the 60 nearest when asked.
-Rebuilt after the data exists: **60 of 60, in 2.0 ms**.
+**What was observed, first-hand:** the `memories_embedding_idx` that existed in
+the development database — created by migration 0003, filled by weeks of test
+runs — returned **2** of the 60 nearest when asked, out of ~10,000 vectors.
+`DROP` and `CREATE` on the populated table: **60 of 60, in 2.0 ms**.
 
-So `REINDEX INDEX CONCURRENTLY memories_embedding_idx` belongs in the
-operational runbook once there is a corpus. **Nothing in the product will
-notice if it is never done**, because the failure mode is a duplicate memory
-rather than an error — which is exactly the kind of thing that has to be
-written down somewhere a person will read.
+**What was NOT established, and was asserted here in an earlier draft:** that
+"built on an empty table" is the cause. That mechanism was tried directly —
+null every `embedding_v`, rebuild the index on nothing, write the vectors back
+— and it produced **30/30 recall, no degradation at all.** So the story is
+plausible and unproven, and it is corrected here rather than repeated.
+
+**What is documented and is not mine:** pgvector warns at build time when the
+table is too small, in its own words —
+
+> NOTICE: ivfflat index created with little data
+> DETAIL: This will cause low recall.
+> HINT: Drop the index until the table has more data.
+
+— which is exactly what a migration on an empty table does, and which was
+printed by this database during the attempt above.
+
+So the operational advice stands on the observation and on the extension's own
+warning rather than on a mechanism this project can demonstrate:
+`REINDEX INDEX CONCURRENTLY memories_embedding_idx` once a corpus exists.
+
+**And it no longer lives only in a document.** `npm run preflight db` measures
+recall directly — the same query with and without the index path, on whatever
+real corpus exists — and fails when the index returns less than 80% of the
+right answer. It does not need the mechanism to be true; it measures the
+symptom. **Nothing in the product notices otherwise**, because the failure
+mode is a duplicate memory rather than an error.
 
 ### What it costs to keep
 

@@ -45,6 +45,7 @@ import { deterministicEmbedder, EMBEDDING_DIMENSIONS, type AnalysisModel } from 
 import { DEFAULT_MODEL, blendedTurnMicros, costMicros, type Provider } from '@lian/llm';
 import { ANALYSIS_MODEL } from '../apps/server/src/analysis.ts';
 import { limitsFor } from '@lian/domain';
+import { alarming, assertOwnRows } from './harness.ts';
 import { generateVapidKeys } from '@lian/push';
 import { migrate, closeDb, db } from '@lian/db';
 import type { AddressInfo } from 'node:net';
@@ -141,7 +142,13 @@ async function hoursPass(count: number): Promise<void> {
     // messages queued for the one person this session is about, and the honest
     // number for them is on the scoped rows below.
     if (p !== undefined && (p.scheduled > 0 || p.heldBack > 0)) {
-      say(`    [tick ${localNow()}] across every account in this database: proposed ${p.scheduled}, held back ${p.heldBack}, duplicate ${p.duplicate}`);
+      // 'EVERY ACCOUNT' is a scope, and naming it is the whole rule — the
+      // scheduler genuinely is a batch job over the database, and unlabelled
+      // this reads as sixty-two messages queued for one person.
+      say(`    ${alarming(
+        `[tick ${localNow()}] proposed ${p.scheduled}, held back ${p.heldBack}, duplicate ${p.duplicate}`,
+        { query: 'runSchedule()', scope: 'EVERY ACCOUNT IN THIS DATABASE', rows: p.scheduled + p.heldBack },
+      )}`);
     }
     const sent = report.outreach?.sent ?? 0;
     if (sent > 0) say(`    [tick ${localNow()}] delivered ${sent} (all accounts)`);
@@ -294,6 +301,49 @@ if (REAL) {
   console.log(`  ${turns * 2} extraction calls on ${ANALYSIS_MODEL}  $${(extraction / 1_000_000).toFixed(2)}`);
   console.log('The free plan\'s own $3.00 monthly ceiling bounds it whatever happens.\n');
 }
+// ISOLATION, CHECKED RATHER THAN ASSUMED.
+//
+// A warning nobody reads is not a safeguard. This tool drives the real
+// scheduler over every account in the database, so two things must be true
+// before it starts, and both are now asked rather than hoped for:
+//
+//   1. NO OTHER SESSION RUN. An advisory lock, released when the connection
+//      goes. Two of these at once deliver each other's outreach.
+//   2. NOBODY ELSE IS WORKING IN HERE. `npm test` and a running dev server
+//      both tick. When one is active this says SO, with the connections it
+//      found — rule 1 of tools/harness.ts, applied to itself.
+//
+// This is not paranoia: a full suite run failed once on a scheduler test with
+// "expected a reminder, got []", passed on every retry, and cost twenty
+// minutes of hunting a defect that was not there. The cause was this tool,
+// running beside it, delivering the suite's outreach.
+{
+  const held = await db().query<{ locked: boolean }>(
+    // A constant key, so any two runs of THIS tool collide and nothing else does.
+    `SELECT pg_try_advisory_lock(724_193_001) AS locked`,
+  );
+  if (held.rows[0]?.locked !== true) {
+    console.error('\n  Another `npm run session` is already running against this database.');
+    console.error('  Two of them deliver each other\'s outreach. Wait for it, or use a');
+    console.error('  different DATABASE_URL.\n');
+    process.exit(78);
+  }
+
+  const others = await db().query<{ n: number; who: string }>(
+    `SELECT count(*)::int AS n,
+            coalesce(string_agg(DISTINCT left(coalesce(nullif(application_name, ''), 'unnamed'), 24), ', '), '') AS who
+     FROM pg_stat_activity
+     WHERE datname = current_database() AND pid <> pg_backend_pid() AND state <> 'idle'`,
+  );
+  const busy = others.rows[0];
+  if (busy !== undefined && busy.n > 0) {
+    console.error(`\n  ${busy.n} other connection(s) are ACTIVE on this database right now (${busy.who}).`);
+    console.error('  If that is `npm test`, stop one of them: this tool runs the real');
+    console.error('  scheduler and will deliver the suite\'s outreach out from under it,');
+    console.error('  producing a scheduler failure that passes on every retry.\n');
+  }
+}
+
 // A LOUD WARNING, BECAUSE THIS TOOL IS NOT INERT.
 //
 // It runs the REAL scheduler, hour by hour, and the scheduler is a batch job
@@ -464,11 +514,18 @@ await hoursPass(1); // 02:00 UTC — 06:00 in Dubai, past the proposal hour
 // an outreach's state is the set of timestamps it has (sent, delivered,
 // opened, answered, cancelled), so "what happened to it" is a fact about
 // when rather than a word somebody has to keep in step.
-const outreach1 = await db().query<{ kind: string; source: string; scheduled_for: Date; sent_at: Date | null; cancelled_at: Date | null }>(
-  `SELECT kind, source, scheduled_for, sent_at, cancelled_at FROM outreach
+const outreach1 = await db().query<{ kind: string; source: string; scheduled_for: Date; sent_at: Date | null; cancelled_at: Date | null; assistant_id: string }>(
+  `SELECT kind, source, scheduled_for, sent_at, cancelled_at, assistant_id FROM outreach
    WHERE assistant_id = $1 ORDER BY scheduled_for`, [MINE.assistantId],
 );
-say(`  outreach rows: ${outreach1.rows.length}`);
+// RULE 1 and RULE 2 together (tools/harness.ts). The count carries the query
+// and the scope it came from, and the rows are checked to be this account's
+// before anything is said about them. "outreach rows: 499" is the line this
+// replaces, and it went into a document as a product finding.
+assertOwnRows('outreach', outreach1.rows.map((r) => ({ assistantId: r.assistant_id })), MINE);
+say(`  ${alarming(`outreach rows: ${outreach1.rows.length}`, {
+  query: 'outreach WHERE assistant_id = $1', scope: MINE.assistantId, rows: outreach1.rows.length,
+})}`);
 for (const row of outreach1.rows) {
   const state = row.cancelled_at !== null ? 'cancelled' : row.sent_at !== null ? 'sent' : 'waiting';
   say(`    ${row.kind.padEnd(10)} ${row.source.padEnd(18)} ${state.padEnd(10)} for ${row.scheduled_for.toISOString()}`);
@@ -507,11 +564,14 @@ await turn('I am exhausted');
 
 heading('LATER THE SAME DAY — is "I\'ll remind you" true?');
 await hoursPass(2);
-const dueDay = await db().query<{ kind: string; source: string; scheduled_for: Date; sent_at: Date | null }>(
-  `SELECT kind, source, scheduled_for, sent_at FROM outreach
+const dueDay = await db().query<{ kind: string; source: string; scheduled_for: Date; sent_at: Date | null; assistant_id: string }>(
+  `SELECT kind, source, scheduled_for, sent_at, assistant_id FROM outreach
    WHERE assistant_id = $1 ORDER BY scheduled_for`, [MINE.assistantId],
 );
-say(`  outreach rows now: ${dueDay.rows.length}`);
+assertOwnRows('outreach (day of)', dueDay.rows.map((r) => ({ assistantId: r.assistant_id })), MINE);
+say(`  ${alarming(`outreach rows now: ${dueDay.rows.length}`, {
+  query: 'outreach WHERE assistant_id = $1', scope: MINE.assistantId, rows: dueDay.rows.length,
+})}`);
 for (const row of dueDay.rows) {
   say(`    ${row.kind.padEnd(10)} ${row.source.padEnd(18)} ${row.sent_at === null ? 'waiting' : 'SENT'} for ${row.scheduled_for.toISOString()}`);
 }

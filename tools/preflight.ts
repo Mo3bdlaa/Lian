@@ -2,7 +2,7 @@
 // PREFLIGHT — the live integrations, against the real services.
 //
 //   node tools/preflight.ts            # everything that is configured
-//   node tools/preflight.ts model      # one of: model, email, storage, speech, stripe, push
+//   node tools/preflight.ts model      # one of: model, email, storage, speech, stripe, push, geo, db
 //
 // MODEL is first, because without it she does not answer at all and every
 // other check is about a feature of a product that cannot talk. It is also
@@ -32,12 +32,16 @@
 //
 // NOTHING HERE WRITES TO YOUR DATABASE. It uploads one object under a
 // `preflight/` prefix and deletes it, sends one short sentence to be spoken,
-// and makes one read-only call to Stripe.
+// makes one read-only call to Stripe, and runs two read-only SELECTs against
+// Postgres to check the vector index is actually answering.
 import { s3Store, presign } from '@lian/storage';
 import { httpSpeechProvider, DEFAULT_SPEECH } from '@lian/voice';
 import { STRIPE_API_VERSION } from '@lian/billing';
 import { httpEmailProvider, EmailError } from '@lian/email';
 import { DEFAULT_MODEL } from '@lian/llm';
+import { db, closeDb } from '@lian/db';
+import { Mmdb, lookupIn } from '@lian/geo';
+import { recallOf, recallVerdict, RECALL_FLOOR } from './harness.ts';
 import { loadConfig } from '../apps/server/src/config.ts';
 
 const only = process.argv[2] ?? 'all';
@@ -432,6 +436,242 @@ async function checkPush(): Promise<void> {
   console.log('      see whether her sentence arrives.');
 }
 
+/**
+ * The vector index — the one thing here whose failure is SILENT.
+ *
+ * An ivfflat index computes its list centroids from the data it is built on,
+ * and a migration necessarily runs against an empty table. Built empty and
+ * then filled with ten thousand vectors, `memories_embedding_idx` returns
+ * **2** of the 60 nearest when asked; rebuilt after the data exists, 60 of 60
+ * (docs/RETRIEVAL-CEILING.md).
+ *
+ * NOTHING IN THE PRODUCT NOTICES. The index serves `findSimilar`, the
+ * near-duplicate check, so a broken one does not throw and does not slow
+ * anything down — it just fails to find the duplicate, and she stores a
+ * memory she already had. No error, no alert, no log line. That is exactly
+ * the class of defect that survives for months, and it is why this lives in a
+ * command that FAILS rather than in a runbook nobody opens.
+ *
+ * HOW IT IS MEASURED: against the real corpus rather than a synthetic one.
+ * The same query is run twice — once letting the planner use the index, once
+ * with index scans disabled so it must go through the heap — and the two
+ * answers are compared. The sequential answer is exact by construction, so
+ * the overlap IS the recall. No seeding, no fixtures, nothing written.
+ */
+async function checkVectorIndex(): Promise<void> {
+  console.log('\n── THE VECTOR INDEX ──────────────────────────────────────');
+  if ((process.env['DATABASE_URL'] ?? '') === '') {
+    skip('vector index', 'DATABASE_URL not set');
+    return;
+  }
+
+  const sql = db();
+  try {
+    // REACHING IT AT ALL IS THE FIRST CHECK, and this file exists because a
+    // stack trace is not a diagnosis. An ECONNREFUSED here used to come out
+    // as fourteen lines of pg-pool internals; it is one of the three things
+    // it can be and they have three different fixes.
+    try {
+      await sql.query('SELECT 1');
+    } catch (error) {
+      const message = (error as Error).message;
+      const code = (error as { code?: string }).code ?? '';
+      if (code === 'ECONNREFUSED' || /ECONNREFUSED/.test(message)) {
+        fail('postgres', `nothing is listening at ${new URL(config.databaseUrl).host}`,
+          'the server is not running, or DATABASE_URL points at the wrong host or port. Locally: `npm run db:up`.');
+      } else if (/password|authenticat|role .* does not exist/i.test(message)) {
+        fail('postgres', `refused the credentials: ${message}`,
+          'the user or password in DATABASE_URL is wrong, or that role has no access to that database.');
+      } else if (/database .* does not exist/i.test(message)) {
+        fail('postgres', message, 'the server is up and the database is not. `npm run db:up` creates it.');
+      } else {
+        fail('postgres', message, 'the connection failed for a reason none of the usual three explains — the message above is the server\'s own.');
+      }
+      return;
+    }
+    pass('postgres', 'reachable');
+
+    const extension = await sql.query<{ n: string }>(
+      `SELECT count(*) AS n FROM pg_extension WHERE extname = 'vector'`,
+    );
+    if (Number(extension.rows[0]!.n) === 0) {
+      fail('pgvector', 'the `vector` extension is not installed in this database',
+        'a plain postgres image does not ship it. Use an image or a managed instance with pgvector, then `npm run migrate`.');
+      return;
+    }
+    pass('pgvector', 'installed');
+
+    // STRUCTURAL FIRST. The index was partial on `status = 'active'` while
+    // findSimilar never filters status, so the planner could not prove the
+    // implication and never used it — 33ms instead of 3ms, silently, for as
+    // long as it took somebody to look. Migration 0022 fixed it; this is here
+    // because a deployment can be hand-edited and a repository cannot.
+    const definition = await sql.query<{ indexdef: string }>(
+      `SELECT indexdef FROM pg_indexes WHERE tablename = 'memories' AND indexname = 'memories_embedding_idx'`,
+    );
+    if (definition.rows.length === 0) {
+      fail('memories_embedding_idx', 'the vector index does not exist',
+        'run `npm run migrate` — migration 0003 creates it and 0022 corrects its predicate.');
+      return;
+    }
+    if (/status/.test(definition.rows[0]!.indexdef)) {
+      fail('memories_embedding_idx',
+        'the index is partial on `status`, which findSimilar does not filter on',
+        'a partial index is only usable when the planner can prove the query implies it. Apply migration 0022.');
+      return;
+    }
+    pass('index predicate', 'matches its caller');
+
+    // Then RECALL, on whatever corpus exists.
+    const biggest = await sql.query<{ assistant_id: string; n: number }>(
+      `SELECT assistant_id, count(*)::int AS n FROM memories
+       WHERE deleted_at IS NULL AND embedding_v IS NOT NULL
+       GROUP BY assistant_id ORDER BY n DESC LIMIT 1`,
+    );
+    const corpus = biggest.rows[0];
+    // ASSUMPTION: 200 rows. Below that the planner will not choose the index
+    // at all — correctly, a sequential scan is cheaper — so both sides of the
+    // comparison would be the same plan and the recall figure would be a
+    // tautology. This is the size at which the question starts to mean
+    // something, not a claim about when the index starts to matter.
+    const MEANINGFUL = 200;
+    if (corpus === undefined || corpus.n < MEANINGFUL) {
+      skip('index recall', `the largest account has ${corpus?.n ?? 0} embedded memories — under ${MEANINGFUL} there is nothing to measure`);
+      console.log('      Not a pass. Run this again once real accounts have a history,');
+      console.log('      because an index built by a migration on an empty table returns');
+      console.log('      almost nothing and says nothing about it. See ACCOUNTS.md §5.');
+      return;
+    }
+
+    const K = 30;
+    const probe = await sql.query<{ embedding: string }>(
+      `SELECT embedding_v::text AS embedding FROM memories
+       WHERE assistant_id = $1 AND deleted_at IS NULL AND embedding_v IS NOT NULL LIMIT 1`,
+      [corpus.assistant_id],
+    );
+    const vector = probe.rows[0]!.embedding;
+    const NEAREST = `SELECT id FROM memories
+       WHERE assistant_id = $1 AND deleted_at IS NULL AND embedding_v IS NOT NULL
+       ORDER BY embedding_v <=> $2::vector LIMIT ${K}`;
+
+    const client = await sql.connect();
+    let viaIndex: string[];
+    let exact: string[];
+    let usedIndex: boolean;
+    try {
+      const plan = await client.query<Record<string, string>>(`EXPLAIN ${NEAREST}`, [corpus.assistant_id, vector]);
+      usedIndex = plan.rows.some((r) => /memories_embedding_idx/.test(r['QUERY PLAN'] ?? ''));
+      viaIndex = (await client.query<{ id: string }>(NEAREST, [corpus.assistant_id, vector])).rows.map((r) => r.id);
+      // The ground truth: no index path available, so it must read the heap,
+      // which is exact by construction.
+      await client.query('SET LOCAL enable_indexscan = off');
+      await client.query('SET LOCAL enable_bitmapscan = off');
+      exact = (await client.query<{ id: string }>(NEAREST, [corpus.assistant_id, vector])).rows.map((r) => r.id);
+    } finally {
+      client.release();
+    }
+
+    if (!usedIndex) {
+      skip('index recall', `the planner is not choosing the index at ${corpus.n} rows`);
+      console.log('      Not a failure: at this size a sequential scan is genuinely');
+      console.log('      cheaper, so there is no index answer to compare against.');
+      return;
+    }
+
+    // The arithmetic is in tools/harness.ts and is unit-tested there — in
+    // particular that an EMPTY ground truth is `unmeasurable` rather than a
+    // tick or a spurious failure, which every naive spelling of 0/0 gets
+    // wrong in one direction or the other.
+    const measured = recallOf(viaIndex, exact);
+    const verdict = recallVerdict(measured);
+    if (verdict === 'unmeasurable') {
+      skip('index recall', measured.kind === 'no-ground-truth' ? measured.why : 'nothing to compare');
+      return;
+    }
+    const { overlap, of, recall } = measured as { overlap: number; of: number; recall: number };
+    if (verdict === 'fail') {
+      fail('index recall',
+        `the index returns ${overlap} of the ${of} nearest — ${Math.round(recall * 100)}%, under the ${Math.round(RECALL_FLOOR * 100)}% floor`,
+        'rebuild it on the data that exists now: psql "$DATABASE_URL" -c "REINDEX INDEX CONCURRENTLY memories_embedding_idx"');
+      console.log('      This does not throw and does not slow anything down. It makes');
+      console.log('      her store a memory she already had. See ACCOUNTS.md §5.');
+      return;
+    }
+    pass('index recall', `${overlap}/${of} over ${corpus.n} memories`);
+  } finally {
+    await closeDb();
+  }
+}
+
+/**
+ * The IP-to-place database — a FILE, and files go stale silently.
+ *
+ * It was carried in HANDOFF as "operational, not a decision": point
+ * `LIAN_GEOIP_DB` at a file and refresh it monthly. That is the same shape as
+ * the vector index above — a true sentence in a document that nothing
+ * enforces — and the failure mode here is worse than slowness.
+ *
+ * A stale database does not fail. It answers, confidently, with a city that
+ * has since been reassigned to a different range. The Security screen exists
+ * to answer "was that you?", and the whole reason it says "Near Dubai" rather
+ * than "Dubai" is that a confident wrong city produces the false alarm the
+ * screen exists to prevent — somebody who gets two of those stops reading it,
+ * which is worse than no line at all.
+ *
+ * So: does the file exist, does it parse, how old is it, and does it actually
+ * resolve something. Four questions, four different fixes.
+ */
+async function checkGeo(): Promise<void> {
+  console.log('\n── IP → PLACE ────────────────────────────────────────────');
+  if (config.geoipPath === null) {
+    skip('geo database', 'LIAN_GEOIP_DB not set — the Security screen shows device and time, and no location');
+    console.log('      That is a supported state, not a broken one: an unresolvable');
+    console.log('      address shows nothing rather than "Unknown". ACCOUNTS.md §6a.');
+    return;
+  }
+
+  let database: Mmdb;
+  try {
+    database = Mmdb.open(config.geoipPath);
+  } catch (error) {
+    fail('geo database', `${config.geoipPath} could not be read: ${(error as Error).message}`,
+      'the path is wrong, the file is truncated, or it is not an MMDB. Download it again — ACCOUNTS.md §6a.');
+    return;
+  }
+  pass('geo database', `${config.geoipPath} parses`);
+
+  // AGE. The build epoch is in the file's own metadata, so this is the
+  // provider's date rather than the filesystem's — a copied file keeps its
+  // mtime and loses nothing, and mtime would call a fresh copy of an ancient
+  // database new.
+  const builtAt = new Date(database.metadata.buildEpoch * 1000);
+  const days = Math.floor((Date.now() - builtAt.getTime()) / 86_400_000);
+  // ASSUMPTION: 60 days. DB-IP and MaxMind both publish monthly, so one
+  // missed refresh is normal and two is a pattern. Not a cliff — accuracy
+  // degrades gradually — which is why this warns at 60 and fails at 180
+  // rather than pretending there is a moment it stops working.
+  if (days > 180) {
+    fail('geo database age', `built ${days} days ago (${builtAt.toISOString().slice(0, 10)})`,
+      'ranges get reassigned. A confident wrong city on a security screen is the false alarm that screen exists to prevent. Refresh it — ACCOUNTS.md §6a.');
+  } else if (days > 60) {
+    console.log(`  – geo database age  built ${days} days ago (${builtAt.toISOString().slice(0, 10)}) — past one monthly refresh`);
+  } else {
+    pass('geo database age', `built ${days} days ago`);
+  }
+
+  // AND DOES IT ANSWER. A file that parses and resolves nothing is a file
+  // with the wrong SHAPE — a country-only database where a city one was
+  // expected, or an ASN database entirely.
+  const probes = ['8.8.8.8', '1.1.1.1', '208.67.222.222'];
+  const answers = probes.map((ip) => lookupIn(database, ip, 'en')).filter((place) => place !== null);
+  if (answers.length === 0) {
+    fail('geo lookup', `none of ${probes.join(', ')} resolved to a place`,
+      'the file parses but carries no city or country records for well-known addresses — it is probably the wrong kind of database (ASN, or country-only where city was expected).');
+    return;
+  }
+  pass('geo lookup', `${answers.length}/${probes.length} known addresses resolved, e.g. ${answers[0]!.kind} ${answers[0]!.name}`);
+}
+
 async function main(): Promise<void> {
   console.log('\nLIAN — preflight');
   console.log(`${new Date().toISOString()}   NODE_ENV=${config.nodeEnv}   public url ${config.publicUrl}`);
@@ -441,6 +681,8 @@ async function main(): Promise<void> {
   if (wants('speech')) await checkSpeech();
   if (wants('stripe')) await checkStripe();
   if (wants('push')) await checkPush();
+  if (wants('geo')) await checkGeo();
+  if (wants('db')) await checkVectorIndex();
 
   console.log('');
   if (failures === 0) console.log('nothing failed. What was skipped is not configured, which is a different thing.\n');

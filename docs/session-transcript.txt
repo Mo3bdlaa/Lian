@@ -1,7 +1,7 @@
   [ a scripted provider is answering — her replies below are MINE, and say nothing about her voice ]
 
 ── MIDNIGHT — a stranger signs up. ───────────────────────────────
-   (it is Fri 28 Aug, 00:00 where she is)
+   (it is Sat 29 Aug, 00:00 where she is)
   sign-up → 201
   screen  onboarding, step "greet"
   mood    Meeting you, late
@@ -48,10 +48,10 @@
   messages left today 20 (ok)
 
 ── AN HOUR LATER — the things a person actually says ─────────────
-   (it is Fri 28 Aug, 00:00 where she is)
+   (it is Sat 29 Aug, 00:00 where she is)
   me    remind me to call the bank
   her   I'll remind you.
-        [ call the bank · 2026-08-28 ]
+        [ call the bank · 2026-08-29 ]
   me    I paid 400 for the gym today
   her   Logged.
   her   
@@ -61,18 +61,21 @@
   her   Noted.
         [ AED 6,500.00 · rent · Today ]
 
-  TASKS: call the bank (due 2026-08-28)
+  TASKS: call the bank (due 2026-08-29)
   MONEY: in 0, out 6900, left -6900
   her observation: Nothing has come in this month yet, so this is only what has gone out.
 
 ── THE TICKER RUNS, every hour, as it would every five minutes ───
-   (it is Fri 28 Aug, 00:00 where she is)
-    [tick Fri 28 Aug, 01:00] across every account in this database: proposed 0, held back 147, duplicate 40
+   (it is Sat 29 Aug, 00:00 where she is)
+    [tick Sat 29 Aug, 01:00] proposed 102, held back 54, duplicate 31
+      ↳ 156 row(s) from runSchedule(), scoped to EVERY ACCOUNT IN THIS DATABASE
+    [tick Sat 29 Aug, 01:00] delivered 4 (all accounts)
   outreach rows: 0
+      ↳ 0 row(s) from outreach WHERE assistant_id = $1, scoped to 0b305145-3bfc-4c2f-ac04-0308dafe9093
 
 ── PAST 05:00 — the hour outreach is proposed ────────────────────
-   (it is Fri 28 Aug, 01:00 where she is)
-    [tick Fri 28 Aug, 02:00] delivered 2 (all accounts)
+   (it is Sat 29 Aug, 01:00 where she is)
+    [tick Sat 29 Aug, 03:00] delivered 54 (all accounts)
   BRIEFING: "(no line)"
     today       call the bank
     carried     (nothing)
@@ -85,33 +88,35 @@
   her   That is three late nights this week. Is it one project, or all of them at once?
 
 ── LATER THE SAME DAY — is "I'll remind you" true? ───────────────
-   (it is Fri 28 Aug, 03:00 where she is)
-    [tick Fri 28 Aug, 05:00] across every account in this database: proposed 2, held back 4, duplicate 4
+   (it is Sat 29 Aug, 03:00 where she is)
+    [tick Sat 29 Aug, 05:00] proposed 7, held back 5, duplicate 0
+      ↳ 12 row(s) from runSchedule(), scoped to EVERY ACCOUNT IN THIS DATABASE
   outreach rows now: 2
-    briefing   assistant_initiated waiting for 2026-08-28T07:00:00.000Z
-    reminder   user_requested     waiting for 2026-08-28T09:00:00.000Z
-    [tick Fri 28 Aug, 07:00] delivered 1 (all accounts)
+      ↳ 2 row(s) from outreach WHERE assistant_id = $1, scoped to 0b305145-3bfc-4c2f-ac04-0308dafe9093
+    briefing   assistant_initiated waiting for 2026-08-29T07:00:00.000Z
+    reminder   user_requested     waiting for 2026-08-29T09:00:00.000Z
+    [tick Sat 29 Aug, 07:00] delivered 6 (all accounts)
     after the 10:00 tick: briefing SENT, message written
     after the 10:00 tick: reminder still waiting
-  the task row: due 2026-08-28, open
-  today, in her zone: 2026-08-28
-  the whole briefing: {"day":"2026-08-28","line":"Go on.","today":[{"id":"f6576553-0abe-42e3-ad98-625f5e772cf4","title":"call the bank","done":false}],"carriedOver":[],"habits":[],"pattern":null,"money":{"outMinor":690000,"currency":"AED"}}
-  /api/tasks says: [{"title":"call the bank","dueOn":"2026-08-28"}]
+  the task row: due 2026-08-29, open
+  today, in her zone: 2026-08-29
+  the whole briefing: {"day":"2026-08-29","line":"Go on.","today":[{"id":"c9551855-9dd4-454a-87bc-ab3cf995d65f","title":"call the bank","done":false}],"carriedOver":[],"habits":[],"pattern":null,"money":{"outMinor":690000,"currency":"AED"}}
+  /api/tasks says: [{"title":"call the bank","dueOn":"2026-08-29"}]
   BRIEFING on the day: "Go on."
     today       call the bank
     carried     (nothing)
   did she say anything unprompted? yes — "Go on."
 
 ── CORRECTING SOMETHING SHE GOT WRONG ────────────────────────────
-   (it is Fri 28 Aug, 08:00 where she is)
-  the row as she filed it: gym 400 on 2026-08-28, from a receipt: false
+   (it is Sat 29 Aug, 08:00 where she is)
+  the row as she filed it: gym 400 on 2026-08-29, from a receipt: false
   correcting 400 → 350 ... 200
   now: gym 350
   does the conversation still say 400? — the chip re-derives, so:
     the chip in the conversation now reads: AED 350.00 · gym · Today
 
 ── DELETING A MEMORY ─────────────────────────────────────────────
-   (it is Fri 28 Aug, 08:00 where she is)
+   (it is Sat 29 Aug, 08:00 where she is)
   she is holding 3:
     [preference] They run in the morning, before work.
     [fact] Their late nights come from other people’s deadlines.
@@ -120,7 +125,7 @@
   she now holds 2
 
 ── TALKING UNTIL THE FREE TIER RUNS OUT ──────────────────────────
-   (it is Fri 28 Aug, 08:00 where she is)
+   (it is Sat 29 Aug, 08:00 where she is)
   me    something on my mind, number 1
   her   Go on.
   me    something on my mind, number 2
@@ -165,16 +170,17 @@
   the snapshot now says: 0 left, state "reached"
 
 ── THE REST OF THE DAY — fourteen more hours, with nothing said ──
-   (it is Fri 28 Aug, 08:00 where she is)
-    [tick Fri 28 Aug, 09:00] delivered 1 (all accounts)
+   (it is Sat 29 Aug, 08:00 where she is)
+    [tick Sat 29 Aug, 09:00] delivered 1 (all accounts)
+    [tick Sat 29 Aug, 13:00] delivered 48 (all accounts)
   stage after the day: Getting acquainted — "We're still getting to know each other. Tell me things twice if you need to — I'm still learning what matters to you."
   mood: A little quiet
   the story so far:
-    2026-08-28  [milestone] We started talking
+    2026-08-29  [milestone] We started talking
   outreach after 12 more days: 2 row(s) — briefing:sent · reminder:sent
 
 ── WHAT SHE WAS ACTUALLY TOLD — the prompt, at the fourth turn ───
-   (it is Fri 28 Aug, 22:00 where she is)
+   (it is Sat 29 Aug, 22:00 where she is)
   (the turn where I said: "the deadlines are never mine, they are clients")
 
   | You are Lian.
@@ -251,7 +257,7 @@
   | This is the first conversation. Introduce yourself as a secretary, more or less, say plainly what you keep, and ask one thing. Do not claim closeness you have not earned.
 
 ── AND AT A TURN A FORTNIGHT IN ──────────────────────────────────
-   (it is Fri 28 Aug, 22:00 where she is)
+   (it is Sat 29 Aug, 22:00 where she is)
   (the turn where I said: "WHAT TO DO NOW
 This is not sent to anyone. Write briefly, fo")
 

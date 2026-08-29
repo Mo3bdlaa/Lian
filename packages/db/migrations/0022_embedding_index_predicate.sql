@@ -50,12 +50,17 @@ CREATE INDEX memories_embedding_idx ON memories
   WHERE deleted_at IS NULL AND embedding_v IS NOT NULL;
 
 -- A NOTE FOR WHOEVER OPERATES THIS, because it is not fixable from a
--- migration: an ivfflat index computes its list centroids FROM THE DATA IT IS
--- BUILT ON, and a migration runs against an empty table. Built empty and then
--- filled with ten thousand vectors, this index returns **2** of the 60 nearest
--- when asked. Rebuilt after the data exists it returns 60 of 60, in 2ms.
+-- migration. pgvector builds an ivfflat index's list centroids FROM THE DATA
+-- PRESENT AT BUILD TIME, and a migration runs against an empty table — it
+-- warns about exactly this itself ("ivfflat index created with little data …
+-- This will cause low recall"). Measured here: the index in the development
+-- database returned 2 of the 60 nearest out of ten thousand vectors, and
+-- 60 of 60 after being rebuilt on the populated table.
 --
 -- So `REINDEX INDEX CONCURRENTLY memories_embedding_idx` belongs in the
--- operational runbook, once there is a corpus — see docs/RETRIEVAL-CEILING.md.
--- Nothing here can do it, and nothing in the product will notice if it is not
--- done, because the failure is a duplicate memory rather than an error.
+-- operational runbook once there is a corpus — ACCOUNTS.md §5. Nothing here
+-- can do it, and nothing in the product notices when it has not been done,
+-- because the failure is a duplicate memory rather than an error.
+--
+-- WHICH IS WHY IT IS ALSO A CHECK: `npm run preflight db` measures the
+-- index's real recall and fails below 80%.
