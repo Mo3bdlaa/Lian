@@ -258,6 +258,34 @@ describe('every gate objects to a deliberate violation (LESSONS §15)', () => {
     });
   });
 
+  test('no-native-deps: a dependency that would compile (arm64)', () => {
+    // The gate that licenses the Dockerfile's cross-architecture copy. It
+    // installs node_modules on the BUILD platform and copies it into an arm64
+    // image, which is sound only while nothing in there is architecture-
+    // specific — and a native dependency would surface at require() time on
+    // the box, in production, having passed every test on the build machine.
+    //
+    // The dirty case is the SHAPE THAT HIDES: no .node file and no
+    // binding.gyp, just an install script — which is how most binary
+    // dependencies actually ship today.
+    proves('no-native-deps', {
+      clean: { 'node_modules/harmless/package.json': '{"name":"harmless","version":"1.0.0"}\n' },
+      dirty: { 'node_modules/sharp-ish/package.json': '{"name":"sharp-ish","version":"1.0.0","scripts":{"install":"node-gyp rebuild"}}\n' },
+      says: /runs a install script|architecture-independent|cannot carry this/,
+    });
+  });
+
+  test('no-native-deps: a compiled binary, the obvious shape', () => {
+    proves('no-native-deps', {
+      clean: { 'node_modules/harmless/package.json': '{"name":"harmless","version":"1.0.0"}\n' },
+      dirty: {
+        'node_modules/native-thing/package.json': '{"name":"native-thing","version":"1.0.0"}\n',
+        'node_modules/native-thing/build/Release/thing.node': 'not really a binary, but named like one\n',
+      },
+      says: /compiled \.node binary/,
+    });
+  });
+
   test('the gates can see the product screens at all', () => {
     // Not a violation case — a BLINDNESS case, which is the failure the
     // §15 meta-tests exist for and the one they cannot express as a fixture.

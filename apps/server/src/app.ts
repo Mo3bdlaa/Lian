@@ -15,7 +15,7 @@ import { httpSpeechProvider, DEFAULT_SPEECH } from '@lian/voice';
 import { s3Store, memoryStore, type ObjectStore } from '@lian/storage';
 import { httpEmailProvider } from '@lian/email';
 import { stripeClient } from '@lian/billing';
-import { keys as keyPoolStore } from '@lian/db';
+import { keys as keyPoolStore, configureDb } from '@lian/db';
 import type { Fetcher } from '@lian/push';
 import { openGeo, type GeoLookup } from '@lian/geo';
 import type { Server } from 'node:http';
@@ -98,6 +98,11 @@ export function liveAssets(): Record<string, { contentType: string; body: string
 }
 
 export function createApplication(config: Config, overrides: Overrides = {}): Application {
+  // THE DATABASE THIS APPLICATION WAS CONFIGURED WITH, not whatever the
+  // environment happened to hold when some other module first asked. Config
+  // is the source; @lian/db is told. See configureDb() for what went wrong
+  // when they were two independent readers of one variable.
+  configureDb(config.databaseUrl);
   const log = overrides.log ?? ((line: string) => { console.log(line); });
   const now = overrides.now ?? (() => new Date());
 
@@ -168,6 +173,15 @@ export function createApplication(config: Config, overrides: Overrides = {}): Ap
 
   const deps: Deps = {
     config, provider, analysisModel, embedder, now, log, geo,
+    startedAt: now(),
+    // Whether a key exists AND is not cooling down — the readiness probe's
+    // question. Deliberately not a completion: readiness is polled, and a
+    // probe that costs money per call is a probe somebody turns off.
+    async modelKeyAvailable() {
+      if (config.modelKeyRefs.length === 0) return false;
+      await primed;
+      return (await pool.take(now())) !== null;
+    },
     // Object storage. In development with no bucket configured the store is
     // in-process: it works, and it is honest — the objects live as long as
     // the process does, and the boot log says the bucket is missing.

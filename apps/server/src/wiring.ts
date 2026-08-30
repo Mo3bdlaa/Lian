@@ -9,6 +9,7 @@
 // that does not call an API, a clock that does not move, a fetcher that
 // records the push it was given.  Nothing here branches on NODE_ENV.
 import * as db from '@lian/db';
+import { db as rawDb } from '@lian/db';
 import {
   signUp as authSignUp, signIn as authSignIn, resolveDeviceConfirmation,
   requestPasswordReset, completePasswordReset,
@@ -31,9 +32,9 @@ import type { GeoLookup, Place } from '@lian/geo';
 
 import { readReceipt, describeReading, type Embedder, type AnalysisModel } from '@lian/analysis';
 import {
-  authRoutes, chatRoutes, correctionRoutes, platformRoutes,
+  authRoutes, chatRoutes, correctionRoutes, platformRoutes, healthRoutes,
   type MiddlewarePorts, type AuthRoutePorts, type ChatRoutePorts,
-  type CorrectionPorts, type PlatformPorts, type ReadPorts, type Route,
+  type CorrectionPorts, type PlatformPorts, type ReadPorts, type Route, type HealthPorts,
   readRoutes, attachmentRoutes, type AttachmentPorts, type HealthView,
   billingRoutes, type BillingPorts,
 } from '@lian/http';
@@ -58,6 +59,15 @@ export type Deps = {
    *  running a model. */
   readonly runTick: (now: Date) => Promise<unknown>;
   readonly log: (line: string) => void;
+  /** When this process came up. Readiness reports uptime, and an uptime that
+   *  keeps resetting is a restart loop somebody needs to see. */
+  readonly startedAt: Date;
+  /**
+   * Can the model be reached at all — is there a key that is not cooling
+   * down? Injected rather than reached for, so the readiness probe does not
+   * need the key pool and a test can drive both answers.
+   */
+  readonly modelKeyAvailable: () => Promise<boolean>;
   /** Null when no bucket is configured: an upload reports that plainly
    *  rather than failing halfway through. */
   readonly store: ObjectStore | null;
@@ -729,6 +739,39 @@ export function platformPorts(deps: Deps): PlatformPorts {
 }
 
 /** The route table this deployment serves. */
+/**
+ * The readiness probes, each asking the real thing.
+ *
+ * A probe that returns a literal is worse than no probe: it reports 200 while
+ * the database is unreachable, which is the exact failure the endpoint exists
+ * to surface. Every one of these makes a real call.
+ */
+export function healthPorts(deps: Deps): HealthPorts {
+  return {
+    now: () => deps.now(),
+    startedAt: deps.startedAt,
+    // The cheapest round trip there is. Not a count and not a join: under
+    // load a heavy probe becomes part of the problem it is reporting.
+    async probeDatabase() { await rawDb().query('SELECT 1'); },
+    probeStorage: deps.store === null ? null : async () => {
+      // A HEAD on a key that does not exist. It exercises credentials,
+      // region, clock skew and the network — everything a PUT would — and
+      // writes nothing. `null` is the expected answer and is a pass; an
+      // exception is the store refusing to talk to us.
+      await deps.store!.head('preflight/readiness-probe-does-not-exist');
+    },
+    probeModel: deps.config.modelApiKeys.length === 0 ? null : async () => {
+      // NOT a completion. A readiness endpoint is polled, and a probe that
+      // costs money per call is a probe somebody turns off. What is asked is
+      // whether the pool can hand out a key that is not cooling down — which
+      // is the difference between "she cannot answer at all" and "she is
+      // answering slowly".
+      const available = await deps.modelKeyAvailable();
+      if (!available) throw new Error('every model API key is cooling down — see api_key_pool.cooldown_until');
+    },
+  };
+}
+
 export function routesFor(deps: Deps): Route[] {
   return [
     ...authRoutes(authRoutePorts(deps), { secureCookies: deps.config.secureCookies }),
@@ -737,6 +780,7 @@ export function routesFor(deps: Deps): Route[] {
     ...billingRoutes(billingPorts(deps)),
     ...chatRoutes(chatRoutePorts(deps)),
     ...platformRoutes(platformPorts(deps)),
+    ...healthRoutes(healthPorts(deps)),
     // Last: its pattern is `/api/:kind/:id`, which would otherwise shadow a
     // named route added later.  Order is the only thing keeping that true, so
     // it is stated rather than assumed.

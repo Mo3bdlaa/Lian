@@ -78,6 +78,16 @@ export function presign(
     /** Sent as a response header on GET — how a download gets a filename. */
     responseContentDisposition?: string;
     responseContentType?: string;
+    /**
+     * Extra query parameters, which MUST be signed with everything else.
+     *
+     * Only the backup listing uses this (`list-type=2&prefix=…`). SigV4 signs
+     * the canonical query string, so a parameter appended to the URL after
+     * signing produces a SignatureDoesNotMatch that reads like a credentials
+     * problem and is not one — which is why they go in here rather than being
+     * concatenated at the call site.
+     */
+    query?: URLSearchParams;
   },
 ): string {
   const { amzDate, day } = stamp(input.now);
@@ -93,6 +103,7 @@ export function presign(
   ]);
   if (input.responseContentDisposition !== undefined) query.set('response-content-disposition', input.responseContentDisposition);
   if (input.responseContentType !== undefined) query.set('response-content-type', input.responseContentType);
+  for (const [name, value] of input.query ?? []) query.set(name, value);
 
   const canonicalQuery = [...query.entries()]
     .map(([name, value]) => [uriEncode(name, true), uriEncode(value, true)] as const)

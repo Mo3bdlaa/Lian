@@ -20,7 +20,7 @@ export type S3Options = S3Config & {
 export const UPLOAD_URL_SECONDS = 15 * 60;
 export const DOWNLOAD_URL_SECONDS = 5 * 60;
 
-export function s3Store(options: S3Options): ObjectStore {
+export function s3Store(options: S3Options): ObjectStore & { list(prefix: string): Promise<string[]> } {
   const now = options.now ?? (() => new Date());
   const call = options.fetcher ?? fetch;
 
@@ -33,6 +33,38 @@ export function s3Store(options: S3Options): ObjectStore {
 
   return {
     id: 's3',
+
+    /**
+     * The keys under a prefix — ListObjectsV2, paginated.
+     *
+     * BEYOND the ObjectStore port on purpose. The port has no `list` because
+     * the database is the index of what exists (see store.ts), and a deletion
+     * that depends on an eventually-consistent listing is not a deletion.
+     *
+     * Backups are the one exception and the reason they are: they have no
+     * database row, because the whole point of them is surviving the
+     * database. Nothing else in the product calls this.
+     */
+    async list(prefix: string): Promise<string[]> {
+      const keys: string[] = [];
+      let token: string | null = null;
+      // Bounded: R2 and S3 both cap a page at 1000, so this is at most a few
+      // round trips for a retention window of dailies. An unbounded loop over
+      // a paginated API is how a bucket with a surprise in it hangs a cron.
+      for (let page = 0; page < 20; page += 1) {
+        const query = new URLSearchParams({ 'list-type': '2', prefix, 'max-keys': '1000' });
+        if (token !== null) query.set('continuation-token', token);
+        const signed = presign(options, { method: 'GET', key: '', expiresIn: DOWNLOAD_URL_SECONDS, now: now(), query });
+        const response = await call(signed);
+        if (!response.ok) throw new Error(`storage refused the listing: ${response.status}`);
+        const xml = await response.text();
+        for (const match of xml.matchAll(/<Key>([^<]+)<\/Key>/g)) keys.push(match[1]!);
+        const truncated = /<IsTruncated>true<\/IsTruncated>/.test(xml);
+        token = truncated ? (/<NextContinuationToken>([^<]+)<\/NextContinuationToken>/.exec(xml)?.[1] ?? null) : null;
+        if (token === null) break;
+      }
+      return keys.sort();
+    },
 
     async presignPut({ key, contentType, expiresIn }) {
       return {

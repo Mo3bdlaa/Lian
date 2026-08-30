@@ -28,12 +28,19 @@ export type ObjectStore = {
 /** In-process. Development, tests, and any deployment that has not been given
  *  a bucket — where it is honest rather than convenient: the objects live as
  *  long as the process does, and the config says so at boot. */
-export function memoryStore(options: { baseUrl?: string } = {}): ObjectStore & { size(): number } {
+export function memoryStore(options: { baseUrl?: string } = {}): ObjectStore & { size(): number; list(prefix: string): Promise<string[]> } {
   const objects = new Map<string, StoredObject>();
   const base = options.baseUrl ?? 'memory://objects';
   return {
     id: 'memory',
     size: () => objects.size,
+    // BEYOND the port, like `size()`, and for the same reason the port has no
+    // `list`: the database is the index of what exists. Backups are the one
+    // thing with no database row — they have to survive the database — so
+    // they list, and the s3 store grows the same method. Nothing else uses it.
+    async list(prefix: string) {
+      return [...objects.keys()].filter((key) => key.startsWith(prefix)).sort();
+    },
     async presignPut({ key }) {
       return { url: `${base}/${encodeURIComponent(key)}`, method: 'PUT', headers: {} };
     },

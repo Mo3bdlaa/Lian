@@ -5,6 +5,7 @@ export { authRoutes, fingerprintOf, type AuthRoutePorts } from './routes/auth.ts
 export { chatRoutes, MAX_MESSAGE_LENGTH, type ChatRoutePorts, type ChatTurn } from './routes/chat.ts';
 export { correctionRoutes, CORRECTION_KINDS, type CorrectionPorts, type CorrectionKind } from './routes/capture.ts';
 export { platformRoutes, DELETE_CONFIRMATION, type PlatformPorts } from './routes/platform.ts';
+export { healthRoutes, type HealthPorts, type ProbeResult } from './routes/health.ts';
 export { attachmentRoutes, type AttachmentPorts } from './routes/attachments.ts';
 export { billingRoutes, type BillingPorts, type SubscriptionSummary } from './routes/billing.ts';
 export { readRoutes, REACTIONS, type ReadPorts, type Snapshot, type MessageView, type MemoryView, type TaskView, type NoteView, type MoneyView, type StoryView, type SecurityView, type HealthView, type AlbumView, type SearchView, type BriefingView, type ProfileView, type SettingsView, type ConversationView } from './routes/read.ts';

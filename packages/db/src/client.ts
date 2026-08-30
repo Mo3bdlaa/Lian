@@ -10,9 +10,39 @@ pg.types.setTypeParser(20, (v: string) => Number(v));
 export type Sql = { query<R extends pg.QueryResultRow = pg.QueryResultRow>(text: string, params?: unknown[]): Promise<pg.QueryResult<R>> };
 
 let pool: pg.Pool | undefined;
+let configuredUrl: string | null = null;
+
+/**
+ * Tell this package which database to use, once, at boot.
+ *
+ * WHY THIS EXISTS. `Config` parses and validates `DATABASE_URL`, and this
+ * package read `process.env` directly — two places holding one value, which
+ * agree in production and can disagree anywhere else (LESSONS §22). It showed
+ * up as a readiness probe reporting 200 against a deliberately broken URL: the
+ * application had been configured with one database and the pool had already
+ * opened another.
+ *
+ * `db()` still takes no arguments, because thirty repository functions call it
+ * and threading a URL through all of them would be worse than the problem.
+ * The composition root sets it; everything else asks.
+ *
+ * Setting it after a pool is open is refused rather than ignored: silently
+ * keeping the old connection is how a process ends up talking to a database
+ * nobody configured.
+ */
+export function configureDb(url: string): void {
+  // Compared against the EFFECTIVE url, not against `configuredUrl`: a pool
+  // opened from the environment before anybody configured anything is already
+  // pointed at this database, and re-stating it is a no-op rather than a
+  // conflict. Only a change of database is refused.
+  if (pool !== undefined && databaseUrl() !== url) {
+    throw new Error('configureDb() was called after the pool was opened — close it first, or configure before the first query.');
+  }
+  configuredUrl = url;
+}
 
 export function databaseUrl(): string {
-  const url = process.env['DATABASE_URL'];
+  const url = configuredUrl ?? process.env['DATABASE_URL'];
   if (url === undefined || url === '') {
     throw new Error('DATABASE_URL is not set. Required context is an error, not a default.');
   }
@@ -32,6 +62,114 @@ export function databaseUrl(): string {
  * statement becomes an outage.
  */
 const STATEMENT_TIMEOUT_MS = 15_000;
+
+// ── surviving a database that was asleep ──────────────────────────────────
+//
+// Neon's free tier SUSPENDS an idle database. The first connection after that
+// wakes it, and while it is waking, connection attempts fail or hang — which
+// arrives in the product as an outage, indistinguishable from the database
+// being gone.
+//
+// THE SAFETY RULE, and it is the whole design: only the ACQUISITION is
+// retried, never a query. A failure to establish a connection proves no
+// statement was executed, so trying again cannot repeat a write. A failure
+// once a statement is in flight proves nothing of the kind — the insert may
+// have committed and the acknowledgement been lost — so those are surfaced,
+// and idempotency (not retries) is what makes them safe.
+//
+// This is the same rule as the model provider's retry (@lian/llm): retry only
+// while nothing has happened yet.
+
+/** Attempts to get a connection, including the first. */
+const RESUME_ATTEMPTS = 4;
+/**
+ * ASSUMPTION, stated because it is a judgement: 250ms, doubling, so the four
+ * attempts span roughly 250 + 500 + 1000 = 1.75s of waiting. Neon documents a
+ * cold start of a few hundred milliseconds; this covers several times that
+ * without turning a genuinely dead database into a four-second hang on every
+ * request.
+ */
+const RESUME_BASE_DELAY_MS = 250;
+
+/**
+ * Is this the database being unreachable, as opposed to a statement failing?
+ *
+ * Deliberately a small allowlist of CONNECTION-PHASE conditions rather than a
+ * catch-all. Anything not named here is surfaced, because the cost of
+ * wrongly deciding "that was just a cold start" is retrying a write.
+ */
+export function isColdStart(error: unknown): boolean {
+  const code = (error as { code?: string } | null)?.code ?? '';
+  if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ETIMEDOUT' || code === 'EHOSTUNREACH') return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    // node-postgres' own words when connectionTimeoutMillis elapses.
+    /timeout exceeded when trying to connect/i.test(message)
+    // Neon's proxy, and pg, while an endpoint is waking.
+    || /Connection terminated due to connection timeout/i.test(message)
+    || /the database system is starting up/i.test(message)
+    || /Connection terminated unexpectedly/i.test(message)
+  );
+}
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Acquire a connection, waiting out a database that is waking up.
+ *
+ * `connect` is passed in rather than reached for, so the retry can be tested
+ * against a connector that fails a known number of times — which is the only
+ * way to test this deterministically without a Neon endpoint to suspend.
+ */
+export async function connectWithResume<T>(
+  connect: () => Promise<T>,
+  options: { attempts?: number; baseDelayMs?: number; wait?: (ms: number) => Promise<void>; onRetry?: (attempt: number, error: unknown) => void } = {},
+): Promise<T> {
+  const attempts = options.attempts ?? RESUME_ATTEMPTS;
+  const base = options.baseDelayMs ?? RESUME_BASE_DELAY_MS;
+  const wait = options.wait ?? sleep;
+  let last: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await connect();
+    } catch (error) {
+      last = error;
+      // NOT a cold start, or out of attempts: this is the answer.
+      if (!isColdStart(error) || attempt === attempts) throw error;
+      options.onRetry?.(attempt, error);
+      await wait(base * 2 ** (attempt - 1));
+    }
+  }
+  /* c8 ignore next -- the loop returns or throws */
+  throw last;
+}
+
+/**
+ * The pool, with acquisition that survives a suspended database.
+ *
+ * `query` is overridden rather than left alone: `pg.Pool#query` acquires and
+ * queries in one call, so a cold start surfaces as a query failure with no
+ * way to tell it apart from a statement that ran. Splitting them is what
+ * makes the retry provably safe — see connectWithResume above.
+ */
+function withResume(made: pg.Pool): pg.Pool {
+  const original = made.query.bind(made);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pg.Pool#query has five overloads; this preserves all of them.
+  (made as { query: unknown }).query = async function query(...args: unknown[]): Promise<unknown> {
+    const client = await connectWithResume(
+      () => made.connect(),
+      { onRetry: (attempt, error) => logIdleError(new Error(`database asleep, attempt ${attempt}: ${(error as Error).message}`)) },
+    );
+    try {
+      // ONE attempt. The connection is established, so a failure here may be
+      // a statement that partly ran.
+      return await (client.query as (...a: unknown[]) => Promise<unknown>)(...args);
+    } finally {
+      client.release();
+    }
+  } as typeof original;
+  return made;
+}
 
 export function db(): pg.Pool {
   if (pool !== undefined) return pool;
@@ -61,7 +199,7 @@ export function db(): pg.Pool {
     logIdleError(error);
   });
 
-  pool = made;
+  pool = withResume(made);
   return pool;
 }
 
@@ -78,11 +216,15 @@ export function onIdleClientError(log: (error: Error) => void): void {
 export async function closeDb(): Promise<void> {
   await pool?.end();
   pool = undefined;
+  configuredUrl = null;
 }
 
 /** Run a unit of work in one transaction. */
 export async function transaction<T>(fn: (sql: Sql) => Promise<T>): Promise<T> {
-  const client = await db().connect();
+  // Acquisition retries; everything inside the transaction does not. A
+  // transaction that dies halfway is rolled back by Postgres and re-running it
+  // is the CALLER's decision, not this function's.
+  const client = await connectWithResume(() => db().connect());
 
   // THE POOL'S LISTENER DOES NOT COVER THIS CLIENT WHILE WE HOLD IT.
   //

@@ -1,4 +1,4 @@
-export { db, closeDb, transaction, databaseUrl, onIdleClientError, type Sql } from './client.ts';
+export { db, closeDb, transaction, databaseUrl, configureDb, connectWithResume, isColdStart, onIdleClientError, type Sql } from './client.ts';
 export { migrate } from './migrate.ts';
 export {
   type UserScope, type AssistantScope,
