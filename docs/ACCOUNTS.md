@@ -571,6 +571,41 @@ npm run preflight stripe
 
 ---
 
+## 1a. `LIAN_DOMAIN` — the name TLS is obtained for
+
+**What it is for.** Caddy asks Let's Encrypt for a certificate covering this
+name, on first start. It is the same host as `LIAN_PUBLIC_URL` without the
+scheme, and it is separate because Caddy wants a bare name and the application
+wants a URL.
+
+**No account.** It is the domain from step 1.
+
+```
+LIAN_DOMAIN=lian.example.com
+LIAN_PUBLIC_URL=https://lian.example.com
+```
+
+**Two things have to be true before the first start**, or the certificate
+request fails and Caddy retries into a rate limit:
+
+- **DNS already points at the box.** `dig +short lian.example.com` must print
+  its public IP. Let's Encrypt resolves the name itself; a record added five
+  minutes later is five minutes too late for that attempt.
+- **Ports 80 and 443 are reachable** — which on Oracle means *both* the console
+  security list *and* the box's own iptables. They are separate, and
+  `tools/deploy.sh` does the second.
+
+**Skipping it costs you:** `docker compose up` refuses to start Caddy at all,
+by design — a deployment that serves plain HTTP because a variable was
+missing is worse than one that will not start.
+
+**Let's Encrypt allows five certificates per week per domain.** The
+`caddy-data` volume in `docker-compose.prod.yml` is what stops a redeploy
+requesting a new one each time; that limit is reachable on exactly the day you
+are iterating.
+
+---
+
 ## 4a. The backup key — no account, and no recovery
 
 **What it is for.** Encrypting the daily database dump before it goes to R2.

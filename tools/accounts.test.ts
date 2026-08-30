@@ -29,7 +29,7 @@ const ACCOUNTS = read('docs/ACCOUNTS.md');
  * pattern that only knew the direct form reported them as documented-but-
  * unread — which is the false alarm that would get this test deleted.
  */
-const ENV_NAME = /['"](LIAN_[A-Z0-9_]+|ANTHROPIC_API_KEY(?:_\d)?|DATABASE_URL|NODE_ENV|PORT)['"]/g;
+const ENV_NAME = /['"$]\{?(LIAN_[A-Z0-9_]+|ANTHROPIC_API_KEY(?:_\d)?|DATABASE_URL|NODE_ENV|PORT)['"}:]/g;
 const READS = [
   'apps/server/src/config.ts',
   'apps/server/src/ticker.ts',
@@ -37,6 +37,13 @@ const READS = [
   // The backup job reads the storage variables and its own key directly: it
   // runs as a separate one-shot container and never builds a Config.
   'tools/backup.ts',
+  // AND THE COMPOSE FILE, because a variable the deployment needs is part of
+  // the environment whether or not any TypeScript reads it. `LIAN_DOMAIN` —
+  // which Caddy needs to obtain a certificate for — was required by
+  // docker-compose.prod.yml and documented nowhere, and this test could not
+  // see it. A list of files to scan is exactly the kind of thing that goes
+  // stale by omission (LESSONS §23).
+  'docker-compose.prod.yml',
 ].flatMap((file) => [...read(file).matchAll(ENV_NAME)].map((match) => match[1]!));
 
 /**
