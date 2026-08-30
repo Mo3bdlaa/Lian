@@ -34,6 +34,9 @@ const READS = [
   'apps/server/src/config.ts',
   'apps/server/src/ticker.ts',
   'tools/keys.ts',
+  // The backup job reads the storage variables and its own key directly: it
+  // runs as a separate one-shot container and never builds a Config.
+  'tools/backup.ts',
 ].flatMap((file) => [...read(file).matchAll(ENV_NAME)].map((match) => match[1]!));
 
 /**

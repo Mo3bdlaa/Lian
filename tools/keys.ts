@@ -2,6 +2,7 @@
 //
 //   node tools/keys.ts vapid   # the web-push identity keypair
 //   node tools/keys.ts tick    # the shared secret the ticker signs with
+//   node tools/keys.ts backup  # the key database backups are encrypted with
 //
 // Both are on the account setup list (docs/ACCOUNTS.md) and neither has a
 // console to get them from: VAPID is a keypair YOU generate — nothing is
@@ -36,7 +37,18 @@ if (what === 'vapid') {
   console.log('# verify, which is what stops anybody on the internet making');
   console.log('# her send outreach.');
   console.log(`LIAN_TICK_SECRET=${randomBytes(32).toString('base64url')}\n`);
+} else if (what === 'backup') {
+  console.log('\n# The key your database backups are encrypted with (AES-256-GCM).');
+  console.log('# It is NOT the storage provider\'s key: R2 holds ciphertext it cannot');
+  console.log('# read, so a bucket misconfiguration is not sufficient to read everybody\'s');
+  console.log('# memories, money and messages.');
+  console.log('#');
+  console.log('# LOSING THIS LOSES THE BACKUPS. There is no recovery path and that is the');
+  console.log('# point of it. Keep a copy somewhere that is not this box and not that');
+  console.log('# bucket — the two things a disaster takes out together.');
+  console.log(`LIAN_BACKUP_KEY=${randomBytes(32).toString('base64')}`);
+  console.log('');
 } else {
-  console.error('usage: node tools/keys.ts vapid|tick');
+  console.error('usage: node tools/keys.ts vapid|tick|backup');
   process.exit(64);
 }

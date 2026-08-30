@@ -61,7 +61,79 @@ that too.
 
 ---
 
-## 0. What the fourteenth run did
+## 0. What the fifteenth run did — deployment
+
+Prepared so the evening is execution rather than discovery. Target: Oracle
+Ampere A1 (2 OCPU / 12 GB, arm64), Neon, Cloudflare R2, cron-job.org, Resend.
+`docs/DEPLOY.md` is rewritten for exactly that stack.
+
+### The Dockerfile had never built
+
+It listed fifteen workspace packages by hand. Four had been added since —
+billing, email, geo, storage — so `npm ci` failed on a workspace it could not
+resolve. Not broken by a change: **had never worked**, in a repository with
+780 tests and sixteen gates, because nothing ever built it.
+
+Nothing is enumerated now: a manifest stage copies the tree and strips it to
+`package.json` files, and BuildKit caches the install on that content.
+
+### arm64, proved rather than assumed
+
+`npm run docker:test` builds for `linux/arm64` and runs the whole suite inside
+the image against an aarch64 Postgres. Full ICU verified there too — Asia/Dubai,
+ar-EG dates, Arabic numerals, AED — which is the thing most likely to be wrong
+on a musl image and to be wrong *silently*.
+
+Dependencies install on the build platform and are copied in, which is sound
+only because nothing in `node_modules` is compiled. **`gate:native` is the
+licence for that line**, and it looks for all three shapes a native dependency
+arrives in — including the one that hides: an install script with no `.node`
+and no `binding.gyp`.
+
+**TWO WRONG DIAGNOSES, both corrected in the file rather than left.** `npm ci`
+failing was blamed on qemu; the deps stage runs on x86_64 and still failed.
+The real cause was `SELF_SIGNED_CERT_IN_CHAIN` — a TLS-intercepting proxy —
+which npm reports as "Exit handler never called!", an error about npm rather
+than about TLS.
+
+### Neon: a database that was asleep
+
+Only **acquisition** is retried, never a query: a connect-phase failure proves
+no statement ran, so trying again cannot repeat a write.
+
+**The first version of that test passed for the wrong reason**, and it is
+recorded where it happened. SIGSTOP on a postmaster does not refuse
+connections — the kernel holds them in the accept backlog and they complete on
+resume. The query succeeded with **zero retries**. There are two tests now: one
+against a port that genuinely refuses until a listener appears, asserting the
+retry fired; one against a hang, asserting it did not.
+
+### Backups with a restore that has been run
+
+Dump → gzip → AES-256-GCM → R2, 14 days. GCM because it authenticates: a
+flipped bit or a truncated upload fails rather than restoring quietly wrong.
+
+The round trip is in the suite: restore into a *different* database and compare
+row counts, a row by value, and that pgvector survived. It found the
+precondition nobody discovers until the restore they need — `CREATE EXTENSION`
+needs privileges the app role lacks, and fails three quarters of the way
+through. Measured: `IF NOT EXISTS` skips the privilege check when it is already
+there, so the tool creates extensions up front and says exactly what to do.
+
+### Health, and one command up
+
+Liveness touches nothing external; readiness asks each dependency separately
+and names the failing one. `sudo sh tools/deploy.sh` takes a bare box to a
+running product and **fails loudly** — it polls readiness for two minutes and
+prints container logs rather than reporting success because a container is up.
+
+### Memory
+
+`docs/MEMORY.md`. Under a megabyte per additional stream, so **memory is not
+the constraint — the ten-connection pool is**. The draft printed "roughly
+20,142 concurrent streams", which invites exactly the wrong conclusion.
+
+## 0x. What the fourteenth run did
 
 ### The harness got the treatment the product got
 
@@ -732,6 +804,32 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
 
 ### Moderate — people will feel it, changeable in a day
 
+18t. **The database is Neon, not on the box.** It holds other people's
+   memories, money and messages and its durability should not depend on one
+   free VM Oracle can reclaim. The cost is a network hop on every query and a
+   dependency on a second free tier. Reversing it means moving the data.
+
+18s. **Only connection ACQUISITION is retried, never a query.** A
+   connect-phase failure proves no statement ran; a mid-query failure proves
+   nothing of the kind, and the insert may have committed with only the
+   acknowledgement lost. `isColdStart` is an allowlist and anything
+   unrecognised is surfaced. Four attempts, 250ms doubling — roughly 1.75s of
+   waiting, against Neon's documented few-hundred-millisecond cold start.
+
+18r. **Backups are encrypted with a key the storage provider does not have.**
+   R2 holds ciphertext it cannot read, so a bucket misconfiguration is not
+   sufficient to read everybody's data — and **losing `LIAN_BACKUP_KEY` loses
+   the backups**, with no recovery path. That trade is the point rather than
+   an oversight, and ACCOUNTS.md §4a says so where the key is generated.
+
+18q. **Retention is 14 days of dailies.** Long enough to recover from a
+   corruption noticed a week late, short enough to sit inside R2's 10 GB free
+   tier many times over. Hourlies on a free tier are a bill nobody planned.
+
+18p. **`/health/ready` is not exposed through Caddy.** It names which
+   dependency is failing in the provider's own words, which is exactly what
+   not to hand a stranger. The deploy script asks the container on loopback.
+
 18z. **A provider outage refunds the message it took.** They asked and got
    nothing; charging a message for that means one bad minute of ours costs
    somebody two things. The alternative reading is that the reservation
@@ -823,6 +921,17 @@ is **LESSONS §16** now, with the two halves of the fix pinned by tests.
     fraction-digit options at all. AED and USD get two, JPY none, KWD three.
 
 ### Cheap — a line, a number, a file
+
+26y. **`--max-old-space-size=1024`, named in the Dockerfile.** Node's default
+    is derived from the machine — a quarter of physical memory on a large box,
+    most of it on a small one — so "the default" is not a number anybody
+    decided. 1024 MB is roughly ten times the measured peak at 50 concurrent
+    streams: room for a burst, and a ceiling V8 GCs against rather than one
+    the kernel enforces by killing the process.
+
+26x. **Caddy rather than nginx.** One line of configuration obtains and renews
+    the certificate. TLS that expires quietly eleven weeks after a deploy is
+    the failure this avoids.
 
 26z. **`statement_timeout` is 15 seconds and `connectionTimeoutMillis` is 10.**
     The first is ~200× the slowest measured query (retrieval at ten thousand
@@ -1072,6 +1181,12 @@ npm run up                      # migrate, server, ticker
 npm run verify                  # typecheck, 16 gates, 780 tests
 #   export DATABASE_URL first, or 137 of them SKIP without saying so
 npm run perf                    # the baseline, remeasured into docs/PERFORMANCE.md
+npm run memory                  # what the box holds, under concurrent streams
+npm run docker:build            # the arm64 image
+npm run docker:test             # the suite INSIDE it, on arm64
+npm run backup dump             # dump, encrypt, upload, prune
+npm run preflight deploy        # R2, Neon, and the tick endpoint from outside
+sudo sh tools/deploy.sh         # a bare Oracle box → a running product
 npm run shots                   # 98 screenshots into docs/shots/, gaps listed
 npm run preflight               # the live integrations, each diagnosed
 npm run preflight db            #   — incl. the vector index's REAL recall
@@ -1110,3 +1225,8 @@ npm run report:economics        # the free tier, every assumption named
 | `docs/LESSONS-AUDIT.md` | every lesson against the code: gated, prose, or stale |
 | `tools/harness.ts` | the three rules the measuring tools have to obey |
 | `docs/RETRIEVAL-CEILING.md` | what retrieval costs at scale, and one retracted claim |
+| `docs/DEPLOY.md` | this stack, in order, with the Oracle gotchas named |
+| `docs/MEMORY.md` | what the box holds, and what actually binds |
+| `Dockerfile` | why nothing in it is enumerated |
+| `tools/deploy.sh` | bare box → running product, failing loudly |
+| `tools/backup.ts` | the restore that makes a backup a backup |

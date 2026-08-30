@@ -571,6 +571,41 @@ npm run preflight stripe
 
 ---
 
+## 4a. The backup key — no account, and no recovery
+
+**What it is for.** Encrypting the daily database dump before it goes to R2.
+Neon's free tier has no point-in-time restore, so the dump is the only copy
+of everybody's memories, money and messages that is not the live database.
+
+**Not an account.** One command:
+
+```sh
+npm run keys backup
+```
+
+**Produces:** `LIAN_BACKUP_KEY=` — 32 bytes, base64.
+
+**LOSING IT LOSES THE BACKUPS.** There is no recovery path and that is what it
+is for: R2 holds ciphertext it cannot read, so a bucket misconfiguration is
+not sufficient to read everybody's data. Keep a copy somewhere that is neither
+this box nor that bucket, because a disaster takes those two out together.
+
+AES-256-**GCM**, not CBC, because it authenticates: a truncated upload or a
+flipped bit fails to decrypt rather than restoring quietly wrong. Both are
+tested in `tools/backup.test.ts`.
+
+**`LIAN_RESTORE_OVER_LIVE`** is the other half and is normally unset. A
+restore refuses to overwrite the database named in `DATABASE_URL` unless it is
+set to `yes` — because the moment somebody needs a restore they are
+frightened and typing fast, and every restore tool's default is to do exactly
+what you asked.
+
+**Skipping it costs you:** no backups at all. The dump command refuses rather
+than writing plaintext, which is the safe direction — a plaintext dump of this
+database sitting in a bucket is worse than no dump.
+
+---
+
 ## When you are done
 
 ```sh

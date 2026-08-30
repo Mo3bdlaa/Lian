@@ -207,16 +207,21 @@ export function expired(keys: readonly string[], now: Date, retentionDays = RETE
 // ── the command line ──────────────────────────────────────────────────────
 
 function storeFromEnv(): ObjectStore {
-  const bucket = process.env['LIAN_S3_BUCKET'] ?? '';
-  if (bucket === '') throw new Error('LIAN_S3_BUCKET is not set — there is nowhere to put a backup.');
+  // THE SAME VARIABLES THE APPLICATION READS. An earlier draft of this file
+  // invented a `LIAN_S3_*` prefix, so backups would have gone to a bucket
+  // configured separately from the one the product uses — two names for one
+  // thing (LESSONS §22), and the kind that is only discovered when the
+  // backups turn out to be of nothing.
+  const bucket = process.env['LIAN_STORAGE_BUCKET'] ?? '';
+  if (bucket === '') throw new Error('LIAN_STORAGE_BUCKET is not set — there is nowhere to put a backup.');
   return s3Store({
     bucket,
-    region: process.env['LIAN_S3_REGION'] ?? 'auto',
-    endpoint: process.env['LIAN_S3_ENDPOINT'] ?? '',
-    accessKeyId: process.env['LIAN_S3_ACCESS_KEY_ID'] ?? '',
-    secretAccessKey: process.env['LIAN_S3_SECRET_ACCESS_KEY'] ?? '',
+    region: process.env['LIAN_STORAGE_REGION'] ?? 'auto',
+    endpoint: process.env['LIAN_STORAGE_ENDPOINT'] ?? '',
+    accessKeyId: process.env['LIAN_STORAGE_ACCESS_KEY_ID'] ?? '',
+    secretAccessKey: process.env['LIAN_STORAGE_SECRET_ACCESS_KEY'] ?? '',
     // R2 is path-style: `https://<account>.r2.cloudflarestorage.com/<bucket>/<key>`.
-    pathStyle: (process.env['LIAN_S3_PATH_STYLE'] ?? 'true') !== 'false',
+    pathStyle: (process.env['LIAN_STORAGE_PATH_STYLE'] ?? 'true') !== 'false',
   });
 }
 

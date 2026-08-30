@@ -1,0 +1,44 @@
+# TLS, obtained and renewed without anybody remembering to.
+#
+# Caddy asks Let's Encrypt on first start and renews from then on. The two
+# things that make that work are DNS already pointing at this box and ports 80
+# and 443 reachable — and on Oracle "reachable" means BOTH the console
+# security list and the box's own iptables, which is the step tools/deploy.sh
+# exists to not forget.
+
+{$LIAN_DOMAIN} {
+	encode zstd gzip
+
+	# The health endpoints are NOT proxied to the public internet. Readiness
+	# names which dependency is failing, in the provider's own words, which is
+	# exactly the information not to hand a stranger. tools/deploy.sh asks the
+	# container directly on the loopback.
+	@health path /health/*
+	respond @health 404
+
+	reverse_proxy server:8787 {
+		# Server-sent events: a turn is one long response, and a proxy that
+		# buffers it turns streaming into a wait followed by a wall of text.
+		flush_interval -1
+
+		# Long enough for a slow model answer, short enough that a wedged
+		# upstream is not held open forever. The provider's own silence
+		# deadline (@lian/llm) is 45s, so this is deliberately longer —
+		# whichever gives up first should be the one that can say why.
+		transport http {
+			read_timeout 120s
+		}
+	}
+
+	header {
+		# HSTS. One year, and it is a promise: a browser that has seen this
+		# will refuse plain HTTP to this domain for a year, so it goes on
+		# only when the certificate is working.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		# The app already sets its own CSP per response; this is not the place
+		# to have a second opinion about it (LESSONS §22).
+		-Server
+	}
+}

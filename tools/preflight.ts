@@ -2,7 +2,7 @@
 // PREFLIGHT — the live integrations, against the real services.
 //
 //   node tools/preflight.ts            # everything that is configured
-//   node tools/preflight.ts model      # one of: model, email, storage, speech, stripe, push, geo, db
+//   node tools/preflight.ts model      # one of: model, email, storage, speech, stripe, push, geo, db, deploy
 //
 // MODEL is first, because without it she does not answer at all and every
 // other check is about a feature of a product that cannot talk. It is also
@@ -38,6 +38,7 @@ import { s3Store, presign } from '@lian/storage';
 import { httpSpeechProvider, DEFAULT_SPEECH } from '@lian/voice';
 import { STRIPE_API_VERSION } from '@lian/billing';
 import { httpEmailProvider, EmailError } from '@lian/email';
+import { signTick } from '@lian/jobs';
 import { DEFAULT_MODEL } from '@lian/llm';
 import { db, closeDb } from '@lian/db';
 import { Mmdb, lookupIn } from '@lian/geo';
@@ -672,6 +673,129 @@ async function checkGeo(): Promise<void> {
   pass('geo lookup', `${answers.length}/${probes.length} known addresses resolved, e.g. ${answers[0]!.kind} ${answers[0]!.name}`);
 }
 
+/**
+ * The pieces this deployment is actually made of.
+ *
+ * Same principle as the SigV4 check above: read the provider's own error back
+ * rather than reporting a status code, because "403" is three different
+ * problems with three different fixes and the service already said which.
+ */
+async function checkDeployment(): Promise<void> {
+  console.log('\n── THE DEPLOYMENT ────────────────────────────────────────');
+
+  // ── R2, specifically, as opposed to S3 generally ────────────────────────
+  //
+  // The storage check above proves SigV4 against whatever endpoint is set.
+  // These are the three things about R2 that are true of R2 and not of S3,
+  // each of which fails in a way that reads like a credentials problem.
+  if (config.storage === null) {
+    skip('R2', 'LIAN_STORAGE_* not set');
+  } else {
+    const endpoint = config.storage.endpoint;
+    const isR2 = /r2\.cloudflarestorage\.com/.test(endpoint);
+    if (!isR2) {
+      skip('R2', `the endpoint is ${endpoint}, which is not R2 — the generic storage check above covers it`);
+    } else {
+      // 1. REGION. R2 has one, and it is the literal string "auto". Any real
+      //    AWS region name signs a request R2 rejects with a signature error,
+      //    which reads exactly like a wrong secret key.
+      if (config.storage.region === 'auto') pass('R2 region', "'auto'");
+      else {
+        fail('R2 region', `it is set to "${config.storage.region}"`,
+          "R2's region is the literal string 'auto'. A real region name produces a SignatureDoesNotMatch that looks like a wrong key. Set LIAN_STORAGE_REGION=auto.");
+      }
+
+      // 2. PATH STYLE. R2 serves `<account>.r2.cloudflarestorage.com/<bucket>/<key>`.
+      //    Virtual-host style resolves to a hostname that does not exist, so
+      //    the failure is DNS rather than storage.
+      if (config.storage.pathStyle) pass('R2 addressing', 'path style');
+      else {
+        fail('R2 addressing', 'virtual-host style is configured',
+          'R2 is path style. Virtual-host style produces a DNS failure rather than a storage error. Set LIAN_STORAGE_PATH_STYLE=true.');
+      }
+
+      // 3. LISTING, which the backups need and nothing else does. Checked
+      //    separately because a token can be allowed to read and write objects
+      //    and not to list them — and the retention sweep is the only thing
+      //    that would ever find out.
+      try {
+        const store = s3Store(config.storage) as ReturnType<typeof s3Store> & { list(prefix: string): Promise<string[]> };
+        const keys = await store.list('backups/');
+        pass('R2 listing', `${keys.length} backup object(s) — the token may list, which retention needs`);
+      } catch (error) {
+        fail('R2 listing', (error as Error).message,
+          "the API token can probably read and write but not LIST. Backups upload fine and retention never prunes, silently. Give the token Object Read & Write on this bucket.");
+      }
+    }
+  }
+
+  // ── NEON, specifically ──────────────────────────────────────────────────
+  if ((process.env['DATABASE_URL'] ?? '') === '') {
+    skip('Neon', 'DATABASE_URL not set');
+  } else {
+    const url = new URL(config.databaseUrl);
+    const isNeon = /neon\.tech$/.test(url.hostname);
+    if (!isNeon) {
+      skip('Neon', `the database is at ${url.hostname}, which is not Neon`);
+    } else {
+      // TLS is not optional on Neon and the failure without it is a refused
+      // connection rather than a downgrade.
+      const mode = url.searchParams.get('sslmode');
+      if (mode === 'require' || mode === 'verify-full') pass('Neon TLS', `sslmode=${mode}`);
+      else fail('Neon TLS', `sslmode is ${mode ?? 'absent'}`, 'Neon requires TLS. Append ?sslmode=require to DATABASE_URL.');
+
+      // THE POOLED ENDPOINT. Neon offers a direct endpoint and a pooled one
+      // (`-pooler` in the hostname). The free tier's direct connection limit
+      // is low enough that a ten-connection pool plus a ticker plus a psql
+      // session can reach it — and the failure is "too many connections" at
+      // whatever moment the load happens to arrive.
+      if (/-pooler\./.test(url.hostname)) pass('Neon endpoint', 'pooled');
+      else {
+        console.log('  – Neon endpoint  DIRECT, not pooled');
+        console.log('      Not a failure, and worth knowing: the pooled endpoint (a');
+        console.log('      `-pooler` hostname in the Neon console) survives more');
+        console.log('      concurrent connections than the free tier\'s direct limit.');
+        console.log('      This app opens ten, plus a ticker, plus whatever you have open.');
+      }
+    }
+  }
+
+  // ── THE TICK ENDPOINT, from outside ─────────────────────────────────────
+  //
+  // cron-job.org calls this over the public internet with an HMAC signature.
+  // Every part of that can be right locally and wrong in the one place it
+  // runs: DNS, TLS, the firewall, the proxy, and the secret.
+  if (config.tickSecret === null || config.tickSecret === '') {
+    skip('the tick endpoint', 'LIAN_TICK_SECRET not set — `npm run keys tick` produces one');
+  } else if (config.publicUrl.startsWith('http://localhost')) {
+    skip('the tick endpoint', `LIAN_PUBLIC_URL is ${config.publicUrl} — nothing external can reach that`);
+  } else {
+    const body = JSON.stringify({ source: 'preflight' });
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signature = signTick(config.tickSecret, timestamp, body);
+    try {
+      const response = await fetch(`${config.publicUrl}/api/tick`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-lian-timestamp': String(timestamp), 'x-lian-signature': signature },
+        body,
+      });
+      const text = await response.text();
+      if (response.ok) {
+        pass('the tick endpoint', 'reachable from outside, and the signature was accepted');
+      } else if (response.status === 401) {
+        fail('the tick endpoint', `it answered 401: ${text.slice(0, 120)}`,
+          'the endpoint is REACHABLE — DNS, TLS and the firewall are fine — and the secret this machine has is not the one the server has. Compare LIAN_TICK_SECRET on both.');
+      } else {
+        fail('the tick endpoint', `it answered ${response.status}: ${text.slice(0, 160)}`,
+          'reachable, and refusing for a reason the body above gives.');
+      }
+    } catch (error) {
+      fail('the tick endpoint', (error as Error).message,
+        `nothing answered at ${config.publicUrl}. In order: DNS points here, ports 80/443 are open in the Oracle console AND in the box's own iptables (they are separate), and Caddy has a certificate.`);
+    }
+  }
+}
+
 async function main(): Promise<void> {
   console.log('\nLIAN — preflight');
   console.log(`${new Date().toISOString()}   NODE_ENV=${config.nodeEnv}   public url ${config.publicUrl}`);
@@ -682,6 +806,7 @@ async function main(): Promise<void> {
   if (wants('stripe')) await checkStripe();
   if (wants('push')) await checkPush();
   if (wants('geo')) await checkGeo();
+  if (wants('deploy')) await checkDeployment();
   if (wants('db')) await checkVectorIndex();
 
   console.log('');
