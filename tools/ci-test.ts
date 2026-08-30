@@ -25,6 +25,25 @@ import { spawn } from 'node:child_process';
 
 const EXPECTED_ZERO = ['fail', 'cancelled', 'skipped', 'todo'] as const;
 
+/**
+ * How many skips are legitimate in THIS environment.
+ *
+ * Zero everywhere it matters, and the default is zero — a skipped test is a
+ * test that did not run, and the whole point of this file is that a summary
+ * can look perfect while nothing happened.
+ *
+ * The one place it is not zero is inside the arm64 container
+ * (`npm run docker:test`), which genuinely cannot run two of them: there is
+ * no Chromium in a `node:22-alpine` image, and no local postmaster to pause.
+ * Without this the containerised run would ALWAYS report failure — and a
+ * command that always fails is a command nobody runs, which is a worse
+ * outcome than the strictness buys.
+ *
+ * It is an exact number rather than a maximum on purpose: a third skip
+ * appearing is something to look at, not something to absorb.
+ */
+const ALLOWED_SKIPS = Number.parseInt(process.env['LIAN_ALLOWED_SKIPS'] ?? '0', 10);
+
 const child = spawn('npm', ['test'], { stdio: ['ignore', 'pipe', 'inherit'] });
 
 let output = '';
@@ -52,7 +71,14 @@ if (tests === null) {
 const problems: string[] = [];
 for (const name of EXPECTED_ZERO) {
   const value = counter(name);
-  if (value !== null && value > 0) problems.push(`${name} ${value}`);
+  const allowed = name === 'skipped' ? ALLOWED_SKIPS : 0;
+  if (value !== null && value !== allowed && value > allowed) problems.push(`${name} ${value}${allowed > 0 ? ` (${allowed} allowed here)` : ''}`);
+  // FEWER than allowed is also worth saying: it means an environment gained a
+  // capability, and the allowance should come down rather than quietly cover
+  // a future skip.
+  if (name === 'skipped' && allowed > 0 && value !== null && value < allowed) {
+    console.log(`\n  note: ${value} skipped where ${allowed} are allowed — LIAN_ALLOWED_SKIPS can come down.`);
+  }
 }
 
 // The one that actually catches the common case. A `describe` that skips

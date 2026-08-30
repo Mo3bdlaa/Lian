@@ -95,6 +95,10 @@ RUN --mount=type=secret,id=proxy_ca,target=/tmp/proxy-ca.crt \
 FROM node:22-alpine AS test
 WORKDIR /app
 ENV NODE_ENV=test
+# The same client the runtime carries, for the same reason: without it the
+# backup round-trip test SKIPS, and a skipped restore test is precisely the
+# "backup nobody has restored" this project is trying not to have.
+RUN apk add --no-cache postgresql16-client
 # Dev dependencies too, installed on the build platform for the same reason
 # and with the same licence as `deps` above.
 COPY --from=devdeps /app/node_modules ./node_modules
@@ -122,6 +126,20 @@ ENV NODE_ENV=production
 # a large machine and all of it on a small one, so "the default" is not a
 # number anybody has decided.
 ENV NODE_OPTIONS="--max-old-space-size=1024"
+
+# THE BACKUP JOB RUNS IN THIS IMAGE and shells out to pg_dump and psql:
+#
+#   docker run --rm --env-file .env lian:latest node tools/backup.ts dump
+#
+# Without this it fails with tools/backup.ts's own "pg_dump is not installed"
+# message — which is at least a clear error, and would still have meant no
+# backups at all until somebody read the cron log. Found by noticing that the
+# deploy script runs the backup in the RUNTIME image while the deploy script
+# installs postgresql-client on the HOST, where nothing uses it.
+#
+# ~15 MB, and it makes the backup self-contained rather than dependent on
+# what happens to be installed on the box.
+RUN apk add --no-cache postgresql16-client
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/package.json ./package.json

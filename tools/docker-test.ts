@@ -95,6 +95,11 @@ async function main(): Promise<void> {
   const suite = await docker([
     'run', '--rm', '--platform', PLATFORM, '--network', NETWORK,
     '-e', `DATABASE_URL=postgres://lian:lian@${DB}:5432/lian_dev`,
+    // TWO SKIPS ARE LEGITIMATE HERE and nowhere else: there is no Chromium in
+    // a node:22-alpine image, and no local postmaster for the SIGSTOP test to
+    // pause. Declared as an exact number so a THIRD skip fails the run rather
+    // than being absorbed — see tools/ci-test.ts.
+    '-e', 'LIAN_ALLOWED_SKIPS=2',
     IMAGE, 'npm', 'run', 'test:ci',
   ]);
 

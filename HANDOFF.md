@@ -32,12 +32,17 @@ to watch.
 **CI IS GREEN.** It was red for seventeen consecutive runs and the cause was
 one line: `postgres:16` ships no pgvector, so migration 0003 died and every
 database-backed test with it. `npm run verify` is green too: typecheck (server
-and browser), **16 gates**, **780 tests**, including 23 that drive real
-Chromium, 31 that prove each gate FAILS on a deliberate violation, 32 that
+and browser), **17 gates**, **801 tests**, including 23 that drive real
+Chromium, 33 that prove each gate FAILS on a deliberate violation, 32 that
 attack the product with a second account, 32 that break its dependencies on
-purpose, and **16 that hold the measuring tools to the same standard as the
-product** — because six of the last seven alarming results from `npm run
-session` were the tool.
+purpose, and 16 that hold the measuring tools to the same standard as the
+product.
+
+**AND 778 OF THEM INSIDE THE ARM64 IMAGE**, against an aarch64 Postgres, via
+`npm run docker:test`. Two skip there and both say why: no Chromium in a
+`node:22-alpine` image, and no local postmaster for the pause test. The
+allowance is an exact number, so a third skip fails the run rather than being
+absorbed.
 
 **`npm run shots` photographs 98 screens** into `docs/shots/`, with six gaps
 listed rather than skipped. Start there — reading HTML is not looking at a
@@ -1083,6 +1088,22 @@ saying hello.
    spare**, with a warning when that margin is inside 5%. It is. The
    allowance cannot grow without moving `modelCostPerMonth`, and that moves
    how many free users a subscription funds.
+
+**DEPLOYMENT IS PREPARED, NOT DONE.** `docs/DEPLOY.md` is written for the
+actual stack in the order it must be done, `sudo sh tools/deploy.sh` takes a
+bare box to a running product, and `npm run preflight deploy` checks R2, Neon
+and the tick endpoint from outside. What none of it has met:
+
+- **an actual Ampere A1.** The image is built for `linux/arm64` and the whole
+  suite runs inside it under qemu (`npm run docker:test`). Emulation proves
+  the product works on the architecture; it says nothing about the box's real
+  IO, its scheduler, or how long a build takes on 2 OCPUs.
+- **a real Neon endpoint.** The cold-resume path is tested against a port that
+  genuinely refuses and against a hang, but not against a suspended Neon.
+- **a real R2 bucket.** SigV4 is verified against a second implementation and
+  the three R2-specific traps are checked by name; no object has been written.
+- **`Out of host capacity`**, which is where this stalls if it stalls. It is
+  normal for Ampere and it is a queue, not an error.
 
 **Everything else here is a key, a device, or a person.**
 

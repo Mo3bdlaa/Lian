@@ -70,11 +70,15 @@ else
   systemctl enable --now docker
 fi
 
-# postgresql-client for the backup job, which shells out to pg_dump/psql.
-if command -v pg_dump >/dev/null 2>&1; then
+# postgresql-client for ad-hoc work — a psql session when something is wrong,
+# and a manual restore. The BACKUP JOB does not need it here: it runs inside
+# the image, which carries its own. That distinction is worth keeping straight,
+# because installing it here and assuming the container had it is exactly the
+# mistake this line used to be.
+if command -v psql >/dev/null 2>&1; then
   step "postgresql-client: already installed"
 else
-  step "installing postgresql-client…"
+  step "installing postgresql-client (for your own psql sessions)…"
   apt-get install -y -qq postgresql-client
 fi
 
